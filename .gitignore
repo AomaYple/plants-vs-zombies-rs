@@ -1,0 +1,34 @@
+# Rust and generated release artifacts.
+/target/
+/dist/
+/artifacts/
+/tmp/
+
+# User-supplied game resources, converted packs and local caches.
+/assets-private/*
+!/assets-private/README.md
+!/assets-private/.gitkeep
+*.pak
+*.pvzpack
+*.exe
+*.dll
+*.dmp
+
+# Machine-specific configuration and secrets.
+/config/local.toml
+/.env
+/.env.*
+!/.env.example
+
+# Editors and operating systems.
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Cargo.lock is intentionally NOT ignored. Generate and commit it when the
+# first executable/tool package is introduced; the empty workspace has none.

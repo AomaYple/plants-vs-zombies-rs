@@ -1,0 +1,11 @@
+# Copy to config/local.toml. The local copy is ignored by Git.
+# Paths are relative to the repository root. This schema is planned;
+# no configuration loader has been implemented yet.
+[assets]
+mode = "original"
+root = "assets-private/original"
+cache = "assets-private/cache"
+
+[display]
+scaling = "fit"
+filter = "linear"

@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+# This repository currently contains documentation and reserved directories only.
+# Register a package here when its Cargo.toml and source entry point both exist.
+members = []
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+authors = ["plants-vs-zombies-rs contributors"]
+publish = false
+
+[workspace.metadata.project]
+name = "plants-vs-zombies-rs"
+stage = "documentation-and-structure"
+design = "docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md"
+plan = "docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"

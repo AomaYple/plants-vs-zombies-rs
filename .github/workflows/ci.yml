@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  structure:
+    name: Workspace structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+      - name: Check metadata
+        run: cargo metadata --no-deps --format-version 1
+      - name: Check whitespace
+        run: git diff --check
+
+  # Enable package compilation, tests, docs and cargo-deny when the first
+  # Cargo package is registered. Keeping this job explicit prevents an empty
+  # workspace from pretending that game code already exists.
+  implementation:
+    if: ${{ hashFiles('crates/**/Cargo.toml', 'tools/**/Cargo.toml') != '' }}
+    name: Rust implementation
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+      - name: Check
+        run: cargo check --workspace --all-targets
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Test
+        run: cargo test --workspace
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Documentation
+        run: cargo doc --workspace --no-deps

@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a reproducible issue in the reimplementation.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请不要上传原版游戏文件、原版资源、存档、截图或其他未获授权的内容。
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: OS, architecture, and build or commit.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include a minimal input sequence or replay without original assets.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
