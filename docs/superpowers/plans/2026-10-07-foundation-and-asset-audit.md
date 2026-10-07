@@ -19,6 +19,9 @@
 - 逻辑视口暂按 800×600；1400×600 背景的裁剪/滚动待测量。
 - 桌面与 Web 先行，Android/iOS 随后接入；平台通过构建和运行证据声明支持。
 - 每个任务先添加有意义的测试，再实现最小行为，最后运行适用检查并聚焦提交。
+- 测试默认并行；共享外部状态只在最小范围串行，并记录原因。
+- 实现核心或资源热路径时必须提供 Criterion 基准；正确性测试先于性能优化。
+- 提交前检查 UTF-8/LF/无 BOM、死代码、未使用项、无用途文件和依赖许可证。
 
 ---
 
@@ -176,3 +179,22 @@
 - [ ] Confirm `git ls-files` contains no original resources, generated packs, absolute user paths, or secrets.
 - [ ] Review all public names and README wording; retain “unofficial” and MIT scope statements.
 - [ ] Commit `docs: record vertical slice gates`.
+
+### Task 8: Add coverage and performance gates
+
+**Files:**
+- Modify: `CONTRIBUTING.md`
+- Modify: `.github/workflows/ci.yml`
+- Create: `docs/performance/README.md`
+- Create: `docs/testing/README.md`
+
+**Interfaces:**
+- Coverage command: `cargo llvm-cov --workspace --all-features --summary-only`.
+- Benchmark command: `cargo bench --workspace`.
+- Criterion benchmarks live under the package that owns the measured hot path; benchmark names identify input scale and rules version.
+
+- [ ] Define coverage reporting without imposing an arbitrary percentage before the first implementation reveals realistic module boundaries.
+- [ ] Define benchmark fixtures that are deterministic, resource-independent and safe to run in parallel with ordinary tests.
+- [ ] Add CI checks for text encoding and tracked binary/resource policy without embedding user paths or original assets.
+- [ ] Record baseline benchmark results and coverage limitations before optimizing.
+- [ ] Commit `chore: add testing and performance quality gates`.

@@ -20,6 +20,11 @@ plan = "docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+dead_code = "deny"
+unused_imports = "deny"
+unused_variables = "deny"
+unused_assignments = "deny"
+unused_must_use = "deny"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }

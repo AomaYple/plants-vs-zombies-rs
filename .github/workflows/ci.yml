@@ -21,6 +21,32 @@ jobs:
         run: cargo metadata --no-deps --format-version 1
       - name: Check whitespace
         run: git diff --check
+      - name: Check tracked text encoding and payload policy
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          binary_suffixes = {
+              ".png", ".jpg", ".jpeg", ".gif", ".ogg", ".mo3", ".au",
+              ".pak", ".pvzpack", ".exe", ".dll", ".compiled",
+          }
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          forbidden = [p for p in tracked if Path(p).suffix.lower() in binary_suffixes]
+          if forbidden:
+              raise SystemExit("tracked game payload files are forbidden:\n" + "\n".join(forbidden))
+          for name in tracked:
+              data = Path(name).read_bytes()
+              if data.startswith(b"\xef\xbb\xbf"):
+                  raise SystemExit(f"UTF-8 BOM found: {name}")
+              if b"\r" in data:
+                  raise SystemExit(f"CRLF or CR found: {name}")
+              try:
+                  data.decode("utf-8")
+              except UnicodeDecodeError as exc:
+                  raise SystemExit(f"non-UTF-8 tracked text: {name}: {exc}") from exc
+          print(f"checked {len(tracked)} tracked UTF-8/LF files")
 
   # Enable package compilation, tests, docs and cargo-deny when the first
   # Cargo package is registered. Keeping this job explicit prevents an empty

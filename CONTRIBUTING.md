@@ -26,6 +26,13 @@ docs: record reference behavior
 
 一次提交应能说明一个可审阅的边界。修改接口时同时修改相关设计、计划或 ADR。
 
+## 编码、命名与现代 Rust
+
+- 所有可读文本文件使用 UTF-8、LF、无 BOM；提交前检查新增和修改文件。
+- crate/目录使用小写 kebab-case，Rust 模块使用 snake_case；文件必须有明确用途，过时文件随同改动删除。
+- 使用当前 stable Rust 支持的现代实践和最小 API。避免不必要的 `unsafe`，公开 API 写清错误、所有权和生命周期约定。
+- 代码必须在 `rustfmt` 和 Clippy 质量门槛下通过；死代码、未使用依赖、未使用导入和未使用变量不能以警告形式长期保留。
+
 ## 验证
 
 注册 package 后，提交前运行：
@@ -40,6 +47,22 @@ cargo deny check
 git diff --check
 git ls-files
 ```
+
+默认测试并行运行。只有测试确实依赖共享外部状态时，才对最小范围使用串行测试，并在测试注释或文档中写明原因。
+
+覆盖率和性能检查是质量门槛的一部分。注册 package 后，建议在本地安装 `cargo-llvm-cov`，运行：
+
+```sh
+cargo llvm-cov --workspace --all-features --summary-only
+```
+
+核心算法和资源热路径必须提供可重复的 Criterion 基准（通常放在对应 package 的 `benches/`），运行：
+
+```sh
+cargo bench --workspace
+```
+
+基准用于发现回归和指导优化；先保证测试正确，再解释基准结果和优化收益。性能优化不得改变已验证的行为、事件顺序或回放结果。
 
 没有可用 package 的结构阶段只运行：
 
