@@ -11,6 +11,8 @@ jobs:
   structure:
     name: Workspace structure
     runs-on: ubuntu-latest
+    outputs:
+      has_packages: ${{ steps.metadata.outputs.has_packages }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -18,7 +20,22 @@ jobs:
           toolchain: 1.99.0
           components: rustfmt, clippy
       - name: Check metadata
-        run: cargo metadata --no-deps --format-version 1
+        id: metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          metadata = json.loads(subprocess.check_output(
+              ["cargo", "metadata", "--no-deps", "--format-version", "1"], text=True
+          ))
+          has_packages = str(bool(metadata["workspace_members"])).lower()
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"has_packages={has_packages}\n")
+          print(f"workspace members: {len(metadata['workspace_members'])}")
+          PY
       - name: Check whitespace
         run: git diff --check
       - name: Check tracked text encoding and payload policy
@@ -47,12 +64,14 @@ jobs:
               except UnicodeDecodeError as exc:
                   raise SystemExit(f"non-UTF-8 tracked text: {name}: {exc}") from exc
           print(f"checked {len(tracked)} tracked UTF-8/LF files")
+          PY
 
   # Enable package compilation, tests, docs and cargo-deny when the first
   # Cargo package is registered. Keeping this job explicit prevents an empty
   # workspace from pretending that game code already exists.
   implementation:
-    if: ${{ hashFiles('crates/**/Cargo.toml', 'tools/**/Cargo.toml') != '' }}
+    needs: structure
+    if: ${{ needs.structure.outputs.has_packages == 'true' }}
     name: Rust implementation
     strategy:
       matrix:
