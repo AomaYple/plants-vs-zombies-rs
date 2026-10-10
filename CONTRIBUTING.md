@@ -1,22 +1,122 @@
 # 贡献指南
 
-当前仓库处于文档与结构阶段。未经明确任务授权，不要创建游戏实现或把原版素材复制进仓库。
+本指南面向人类贡献者和自动化代理，说明如何提交可审阅、可验证的改动。代理同时遵守执行环境提供的全局协作规则及本仓库 [AGENTS.md](AGENTS.md)；普通贡献者无需配置维护者的个人全局文件。
 
-## 开始前
+## 了解范围与入口
 
-阅读：
+先阅读 [README](README.md) 的当前状态和 [路线图](docs/roadmap.md)，再按任务查阅 [架构](docs/architecture/README.md)、[行为基线](docs/behavior/reference-baseline.md) 和 [实施计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md)。详细测试与性能约定分别见 [测试策略](docs/testing/README.md)、[性能策略](docs/performance/README.md)。
 
-1. `README.md`
-2. `docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md`
-3. `docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md`
-4. `docs/architecture/README.md`
-5. `assets-private/README.md`
+文档与结构阶段只处理已授权的文档、目录和仓库配置；开始 Rust 实现需要用户明确授权。发现计划与实际接口、配置或阶段不符时先说明差异，按实际任务更新相关文档。
 
-用户资源仅可从本机显式路径读取。不要提交资源、缓存、截图、录像、绝对路径、本地配置或生成的包。
+项目是非官方、独立的 Rust 全量重写。原创代码、文档和自制夹具采用 MIT；原版程序只用于行为观察，原版资源由用户自行提供，不能作为公开仓库、CI 或发行包的一部分。
 
-## 提交流程
+## 开发环境与布局
 
-使用短期分支和聚焦提交。Git 提交遵循 Conventional Commits，标题格式为 `type(scope): 中文说明`，scope 可省略。type 和 scope 使用标准英文标记，标题说明和正文使用中文；Rust、Macroquad、Cargo.lock、API 名称等技术名称保留原写法。例如：
+- 使用 Rustup 和 [rust-toolchain.toml](rust-toolchain.toml) 声明的工具链及组件；Edition、resolver、最低版本字段和 lint 读取 [Cargo.toml](Cargo.toml)。不要在命令中擅自切换到另一 stable/nightly 或承诺未验证的兼容版本。
+- 更新工具链时同步配置、CI 和受影响文档，并运行适用检查；“采用现代 stable Rust”不代表每次任务自动升级编译器或依赖。
+- `crates/` 放 data、core、assets、app；`tools/` 放宿主 CLI；各 package 的集成测试放 `tests/`，基准放 `benches/`，仓库级共享原创夹具与回放放根目录 `tests/`。拆分依据是职责和实际消费者，不预建无用途 package。
+- 首次注册 package 时生成并提交 `Cargo.lock`；之后由 Cargo 维护，依赖变更同步锁文件。验收使用 `--locked`，依赖升级使用明确的更新操作，不手改锁文件。
+- 新 package 继承适用的 workspace package 字段，并通过 `[lints] workspace = true` 显式继承 lint。根配置目前对项目代码禁止 `unsafe`；第三方依赖按用途、兼容性、许可证与安全公告评估。
+- `cargo-deny`、`cargo-llvm-cov`、actionlint 等属于额外工具。需要时检查安装情况和版本；首次启用应记录兼容版本及 CI 安装方式，不把它们写成 Cargo 内建能力或已经安装的事实。
+
+## 编码、命名与 Rust 风格
+
+- 所有可读文本为 UTF-8、LF、无 BOM，文件末尾保留换行；遵守 `.editorconfig` 和 `.gitattributes`，提交前实际检查。二进制保持原始格式并记录用途与来源。
+- package 与包目录采用小写 kebab-case；Rust 模块、函数和源文件采用 snake_case，类型采用 UpperCamelCase。保留 `README.md`、`AGENTS.md`、`CONTRIBUTING.md` 等标准文档名。
+- 模块按职责组织，公开 API 保持最小。用类型表达 ID、版本和约束，公开 API 说明错误与必要的所有权约定；不要为测试便利暴露内部实现。
+- 可预期的解析、输入和 I/O 错误返回明确的 `Result` 与上下文；为未知格式和不支持的能力提供诊断，不静默吞错或替换显式配置的资源。
+- 不保留死代码、未使用依赖/导入、无效配置或无用途文件。不通过无意义的 `pub`、空实现、占位分支或无依据的 `allow` 绕过编译器、Clippy 和验收要求。
+- 贡献说明与提交描述使用中文，标识符、命令、标准标记和技术名称保留原写法。注释解释原因或契约，不逐句复述代码。
+
+## 测试、覆盖率与性能
+
+正确性第一，速度第二。功能或规则变更先建立有意义的测试；缺陷修复补充能发现原缺陷的回归测试。按实际边界组合单元、集成、属性/边界、确定性回放、资源解析、平台契约及必要端到端验证，不要求每个简单文档改动新增测试。
+
+测试默认并行。每个测试独立使用临时目录、输入和状态，避免修改进程级环境变量、工作目录或依赖测试执行顺序。共享外部状态确实无法隔离时，只对相关测试串行，并说明原因；不要默认给整个 workspace 加 `--test-threads=1`。Cargo 的 `--jobs` 控制编译并发，不是测试线程数。
+
+核心测试不需要窗口或原版资源。固定 seed、初始状态与命令，核对状态摘要和事件顺序；本机原版资源验证与公开原创夹具分开，夹具记录来源。
+
+覆盖率用于发现未测试的核心规则、错误分支和平台边界。实现后使用 `cargo llvm-cov` 报告测量范围与遗漏；在真实基线上制定适用门槛，不预设无依据的百分比。不能用无意义断言、排除关键代码、忽略测试失败或降低门槛获得通过。
+
+核心数据结构、资源解析和高频路径随实现提供 Criterion 基准，放在拥有该职责的 package 中。记录提交、工具链、硬件、编译配置、规则版本、输入规模、seed 和结果；在相同条件下比较，测量时避免其他测试争抢资源。优化前后重跑行为和回放测试，保护事件顺序及结果；`cargo test --benches` 只检查基准能否执行，不代替性能测量。
+
+## 验证流程
+
+以下命令均在仓库根目录运行。命令成功只证明对应检查通过；`cargo check` 不等于完整构建或实际运行，文档生成不等于 doctest 或平台验证。
+
+### 文档与空 workspace
+
+```sh
+cargo metadata --no-deps --format-version 1
+git diff --check
+git diff --cached --check
+git ls-files
+```
+
+核对修改的文档链接、命令、阶段描述与跟踪文件。当前纯文本阶段可使用以下命令检查全部已跟踪文件，适用于 Bash 和 PowerShell，需要 Python 3：
+
+```sh
+python -c '
+from pathlib import Path
+import subprocess
+
+names = subprocess.check_output(["git", "ls-files", "-z"]).decode("utf-8").split("\0")
+for name in filter(None, names):
+    data = Path(name).read_bytes()
+    if data.startswith(b"\xef\xbb\xbf") or b"\r" in data:
+        raise SystemExit(f"BOM or CR/CRLF found: {name}")
+    data.decode("utf-8", errors="strict")
+print("UTF-8/LF/no-BOM check passed")
+'
+```
+
+未跟踪的新文件也必须检查；暂存后该命令会覆盖它们。结构 CI 还检查常见资源载荷后缀，见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。修改工作流时使用 actionlint 等验证语法，并实际执行受影响的脚本。
+
+本阶段 CI 将跟踪文件按文本处理，并拒绝常见游戏/媒体二进制后缀。以后确需原创二进制夹具时，在同一变更中补齐用途、来源及文件分类检查；继续禁止原版资源，不能简单移除载荷检查。
+
+### 首次注册 package 与后续实现
+
+第一次变更同时完成 workspace 注册、`Cargo.lock`、workspace lint 继承、阶段文档和 CI 更新。以下为默认 feature 的验收基线；首次注册时同步 CI 命令与工具安装，不把当前仅启用的结构检查当成实现验收：
+
+实施计划中各任务列出的命令是局部验证，不替代本节的提交验收；后续门槛任务用于完善专项检查，不能延后首次 package 或热路径实现时已适用的要求。
+
+```sh
+cargo fmt --all -- --check
+cargo check --workspace --all-targets --locked
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo doc --workspace --no-deps --locked
+cargo deny check
+git diff --check
+git diff --cached --check
+```
+
+开发中先运行受影响 package/测试以缩短反馈，提交前完成适用的 workspace 检查。`cargo test --workspace --locked` 保留默认 doctest；不要用 `--all-targets` 代替它后漏掉文档示例测试。
+
+所有 feature 可共存时，为检查、测试、Clippy 和文档补充 `--all-features`；存在互斥平台/backend feature 时记录有效组合并建立矩阵，不靠单次全开代替实际支持验证。新增 feature 同步测试与 CI；现有预置 CI 在首次 package 注册时按这一约定核对。
+
+涉及核心规则、资源解析或热路径时运行相应覆盖率和基准，说明实际范围：
+
+```sh
+cargo llvm-cov --workspace --locked --summary-only
+cargo bench --workspace --locked
+```
+
+覆盖率的 feature 组合沿用上面的兼容性约定；性能基准按职责筛选，记录未覆盖路径。检查失败须解决原因，不通过删除有效测试、关闭检查或无依据地修改基线规避。缺少工具、平台或环境时如实报告未执行项，不能把未执行当通过。
+
+### 平台与参考验收
+
+涉及 app、存档、音频或生命周期时，增加相应目标的构建与最小运行检查。Web 构建须区分 app 与宿主 CLI；声明平台支持需要记录操作系统/浏览器、目标、实际命令、运行结果和限制。
+
+规则还原依据行为基线和测量；模拟、动画、渲染时钟分离，2K/4K 视口和输入映射遵循架构合同。构建、实际运行、截图检查和原版行为比对分别记录，参考截图及录像留在本机忽略目录。
+
+## 分支、提交与评审
+
+- 本地 `main` 保持稳定；使用短期分支，一个改动围绕一个可审阅目的。代理新建分支默认采用 `codex/` 前缀。
+- 提交前检查工作区、暂存差异、适用验证与文件来源，只暂存本次改动。接口变化同步设计、计划或 ADR。
+- 自动化代理的推送、PR 创建、合并、打标签和发布按当次明确授权执行；已经配置远端或完成一次推送不代表后续动作获得授权。共享历史的改写须单独明确授权。
+
+提交遵循 Conventional Commits：`type(scope): 中文说明`，scope 可省略；type/scope 用英文标记，描述和正文用中文，技术名称保留原写法。例如：
 
 ```text
 feat(core): 添加确定性模拟基础
@@ -24,59 +124,29 @@ fix(assets): 修复资源路径大小写冲突的诊断
 docs: 记录原版行为核对结果
 ```
 
-- type 按变更性质选择：`feat` 新功能、`fix` 修复、`docs` 文档、`refactor` 重构、`perf` 性能、`test` 测试、`build` 构建、`ci` 持续集成、`chore` 维护、`revert` 回退。
-- scope 标识主要受影响的模块，优先使用 `data`、`core`、`assets`、`app`、`tool`；仓库级变更可省略 scope。
-- 标题简洁、具体，直接描述变更；避免“更新”“修改一下”等无法说明内容的消息。正文按复杂度添加，与标题空一行，用中文说明必要的原因、行为影响和验证结果。
-- 破坏性变更在 type/scope 后、冒号前加 `!`，或在页脚使用 `BREAKING CHANGE:`；用中文说明不兼容之处和迁移方式。关联 issue 可使用 `Refs:` 或 `Closes:` 等标准页脚标记。
-- 一次提交应能说明一个可审阅的边界，不混入无关改动；提交前完成当前阶段适用的检查。修改接口时同时修改相关设计、计划或 ADR。
+按变更性质选用 `feat`、`fix`、`docs`、`refactor`、`perf`、`test`、`build`、`ci`、`chore` 或 `revert`。scope 优先使用 `data`、`core`、`assets`、`app`、`tool`；仓库级改动可省略。标题简洁、具体，避免只写“更新”或“修改”。必要正文与标题空一行，说明原因、行为影响和验证结果。
 
-## 编码、命名与现代 Rust
+破坏性变更使用 `!` 或 `BREAKING CHANGE:`，用中文说明不兼容之处和迁移方式；关联 issue 可用 `Refs:` 或 `Closes:` 标记。
 
-- 所有可读文本文件使用 UTF-8、LF、无 BOM；提交前检查新增和修改文件。
-- crate/目录使用小写 kebab-case，Rust 模块使用 snake_case；文件必须有明确用途，过时文件随同改动删除。
-- 使用当前 stable Rust 支持的现代实践和最小 API。避免不必要的 `unsafe`，公开 API 写清错误、所有权和生命周期约定。
-- 代码必须在 `rustfmt` 和 Clippy 质量门槛下通过；死代码、未使用依赖、未使用导入和未使用变量不能以警告形式长期保留。
+问题报告使用现有 [Issue 模板](.github/ISSUE_TEMPLATE/bug_report.yml)，提供环境、复现步骤、预期与实际结果。PR 使用 [PR 模板](.github/pull_request_template.md)，说明问题、最终行为、验证命令/结果、限制及必要迁移；评审意见针对可核查的行为与契约。
 
-## 验证
+## 资源与公开仓库
 
-注册 package 后，提交前运行：
+用户原版资源只从显式本机路径读取，放在仓库外或 `assets-private/` 的忽略区域；配置写入被忽略的 `config/local.toml`。参见 [资源约定](assets-private/README.md)。
 
-```sh
-cargo fmt --all -- --check
-cargo check --workspace --all-targets
-cargo test --workspace
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo doc --workspace --no-deps
-cargo deny check
-git diff --check
-git ls-files
-```
+提交和公开前核对跟踪文件，必要时检查 Git 历史、LFS 与构建产物；忽略规则不能移除已经跟踪的内容。禁止上传原版图片、音频、字体、Reanim、粒子、文本、EXE、DLL、`main.pak`、截图或派生包，以及个人绝对路径、凭据、本地配置和缓存。原创夹具必须有来源说明；当前载荷检查的具体范围以 CI 为准。
 
-默认测试并行运行。只有测试确实依赖共享外部状态时，才对最小范围使用串行测试，并在测试注释或文档中写明原因。
+MIT 仅授权本项目原创内容，不授权原版素材、名称、商标或第三方依赖。依赖许可证和公告通过项目策略审计；使用用户资源不等于获得再分发权。
 
-覆盖率和性能检查是质量门槛的一部分。注册 package 后，建议在本地安装 `cargo-llvm-cov`，运行：
+## 规范维护与参考
 
-```sh
-cargo llvm-cov --workspace --all-features --summary-only
-```
+全局文件维护通用协作原则，AGENTS.md 保留代理需要的项目约束和入口，本指南维护贡献流程与命令。当前进度放 README/路线图，架构、测量、测试与性能细节放专题文档。只在存在真实目录差异时新增局部 AGENTS.md；更新规则时同步相关入口、配置和检查。
 
-核心算法和资源热路径必须提供可重复的 Criterion 基准（通常放在对应 package 的 `benches/`），运行：
+参考资料用于理解规范，不把外部项目的指令直接应用于本仓库：
 
-```sh
-cargo bench --workspace
-```
-
-基准用于发现回归和指导优化；先保证测试正确，再解释基准结果和优化收益。性能优化不得改变已验证的行为、事件顺序或回放结果。
-
-没有可用 package 的结构阶段只运行：
-
-```sh
-cargo metadata --no-deps --format-version 1
-git diff --check
-```
-
-报告平台支持时写清目标、命令、运行方式和限制；编译通过不等于窗口、音频、输入或存档已验证。
-
-## 资源和许可
-
-MIT 只覆盖本项目原创内容。贡献者必须确认新增文件没有复制原版素材、文本、商标或第三方内容；依赖许可证由 cargo-deny 检查。
+- [AGENTS.md 开放格式](https://agents.md/)及 [Codex 指令分层文档（历史版本 rust-v0.50.0）](https://github.com/openai/codex/blob/rust-v0.50.0/docs/agents_md.md)：项目约束、作用域和文档入口。
+- [GitHub 贡献指南建议](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/setting-guidelines-for-repository-contributors)：贡献者入口与问题/PR 流程。
+- [Cargo 包布局](https://doc.rust-lang.org/cargo/guide/project-layout.html)、[锁文件](https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html)与 [workspace lint](https://doc.rust-lang.org/cargo/reference/workspaces.html#the-lints-table)：可复现构建和标准目录。
+- [Rust Book 并行测试](https://doc.rust-lang.org/book/ch11-02-running-tests.html)与 [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)：测试隔离与 API 设计。
+- [Conventional Commits](https://www.conventionalcommits.org/zh-hans/v1.0.0/)：提交结构；中文消息是本项目的选择。
+- [Temporal AGENTS.md](https://github.com/temporalio/sdk-java/blob/master/AGENTS.md)和 [Tokio 贡献流程](https://github.com/tokio-rs/tokio/blob/master/docs/contributing/pull-requests.md)：成熟社区项目的职责划分与验收示例。
