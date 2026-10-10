@@ -7,7 +7,6 @@
 # User-supplied game resources, converted packs and local caches.
 /assets-private/*
 !/assets-private/README.md
-!/assets-private/.gitkeep
 *.pak
 *.pvzpack
 *.exe

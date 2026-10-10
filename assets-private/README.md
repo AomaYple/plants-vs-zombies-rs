@@ -1,11 +1,10 @@
 # 用户本地资源
 
-本目录只提交此说明和 .gitkeep。其余内容均被 Git 忽略。
+本目录只提交此说明；README 同时保留目录并说明用途，无须额外占位文件。其余内容均被 Git 忽略。
 
 ```text
 assets-private/
 ├─ README.md
-├─ .gitkeep
 ├─ original/       用户自行提供的已解包资源
 ├─ cache/          本机缓存、图集等转换产物
 └─ packs/          本机生成的资源包

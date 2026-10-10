@@ -14,7 +14,7 @@
 
 - 使用 Rustup 和 [rust-toolchain.toml](rust-toolchain.toml) 声明的工具链及组件；Edition、resolver、最低版本字段和 lint 读取 [Cargo.toml](Cargo.toml)。不要在命令中擅自切换到另一 stable/nightly 或承诺未验证的兼容版本。
 - 更新工具链时同步配置、CI 和受影响文档，并运行适用检查；“采用现代 stable Rust”不代表每次任务自动升级编译器或依赖。
-- `crates/` 放 data、core、assets、app；`tools/` 放宿主 CLI；各 package 的集成测试放 `tests/`，基准放 `benches/`，仓库级共享原创夹具与回放放根目录 `tests/`。拆分依据是职责和实际消费者，不预建无用途 package。
+- `crates/` 放 data、core、assets、app；`tools/` 放宿主 CLI；各 package 的集成测试放 `tests/`，基准放 `benches/`，仓库级共享原创夹具与回放放根目录 `tests/`。拆分依据是职责和实际消费者，不预建无用途 package、模块或目录；预留目录必须有明确用途说明。
 - 首次注册 package 时生成并提交 `Cargo.lock`；之后由 Cargo 维护，依赖变更同步锁文件。验收使用 `--locked`，依赖升级使用明确的更新操作，不手改锁文件。
 - 新 package 继承适用的 workspace package 字段，通过 `[lints] workspace = true` 显式继承 lint；先检查实际依赖图，确保满足架构边界。
 - `cargo-deny`、`cargo-llvm-cov`、actionlint 等属于额外工具。需要时检查安装情况和版本；首次启用应记录兼容版本及 CI 安装方式，不把它们写成 Cargo 内建能力或已经安装的事实。
@@ -24,7 +24,7 @@
 Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principles/engineering.md#现代-rust-与仓库结构)，文件格式与无死代码要求见 [代码与仓库卫生](docs/principles/engineering.md#代码与仓库卫生)。提交前：
 
 - 对新增和修改文件实际检查 UTF-8、LF、无 BOM 及文件末尾换行，遵守 `.editorconfig` 和 `.gitattributes`；二进制核对用途、来源与文件分类。
-- 核对目录、模块、公开 API 和错误诊断；结合编译器、Clippy、受支持的 target/feature 组合及实际调用方检查死代码和未使用项。
+- 核对文件、目录、模块、公开 API 和错误诊断；确认每个被跟踪的文件与目录有实际消费者、生成入口、验收目的或文档职责，并结合编译器、Clippy、受支持的 target/feature 组合及实际调用方检查死代码和未使用项。
 - 贡献说明使用中文，技术名称与标识符保留原写法；注释说明原因和契约。
 
 ## 测试、覆盖率与性能
