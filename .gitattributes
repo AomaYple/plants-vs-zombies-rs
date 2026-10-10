@@ -9,5 +9,5 @@
 *.pak binary
 *.compiled binary
 
-# Preserve reference text whitespace; encoding and hashes are checked in CI.
+# 保留参考文本的正文空白；编码和哈希由 CI 检查。
 assets/original/** whitespace=-blank-at-eol,-blank-at-eof

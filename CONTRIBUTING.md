@@ -25,7 +25,7 @@ Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principl
 
 - 对新增和修改文件实际检查 UTF-8、LF、无 BOM 及文件末尾换行，遵守 `.editorconfig` 和 `.gitattributes`；二进制核对用途、来源与文件分类。
 - 核对文件、目录、模块、公开 API 和错误诊断；确认每个被跟踪的文件与目录有实际消费者、生成入口、验收目的或文档职责，并结合编译器、Clippy、受支持的 target/feature 组合及实际调用方检查死代码和未使用项。
-- 贡献说明使用中文，技术名称与标识符保留原写法；注释说明原因和契约。
+- 按 [语言与说明文字](docs/principles/engineering.md#语言与说明文字)使用中文编写正文、任务说明、注释、表单提示、显示名称和自定义诊断；技术名称、标识符、命令与标准格式保留原写法。MIT 标准正文、第三方原文及原版资源按来源契约保留，注释说明原因和契约。
 
 ## 测试、覆盖率与性能
 
@@ -65,29 +65,29 @@ names = set(filter(None, tracked + new))
 manifest = json.loads(Path('assets/manifest.json').read_text(encoding='utf-8'))
 records = {item['path']: item for item in manifest['files']}
 if len(records) != len(manifest['files']):
-    raise SystemExit('Duplicate manifest paths')
+    raise SystemExit('资源清单中存在重复路径')
 asset_prefix = 'assets/original/'
 assets = {name.removeprefix(asset_prefix) for name in names if name.startswith(asset_prefix)}
 if assets != set(records):
-    raise SystemExit('Asset file set differs from manifest')
+    raise SystemExit('资源文件集合与清单不一致')
 for name in sorted(names):
     data = Path(name).read_bytes()
     record = records[name.removeprefix(asset_prefix)] if name.startswith(asset_prefix) else None
     if record is not None:
         if len(data) != record['size'] or hashlib.sha256(data).hexdigest() != record['sha256']:
-            raise SystemExit(f'Asset size or hash mismatch: {name}')
+            raise SystemExit(f'资源大小或哈希不匹配：{name}')
         if record['kind'] in {'binary', 'package'}:
             continue
         if record['kind'] != 'text':
-            raise SystemExit(f'Unknown asset kind: {name}')
+            raise SystemExit(f'未知资源类型：{name}')
     if data.startswith(b'\xef\xbb\xbf') or b'\r' in data:
-        raise SystemExit(f'BOM or CR/CRLF found: {name}')
+        raise SystemExit(f'发现 BOM 或 CR/CRLF：{name}')
     data.decode('utf-8', errors='strict')
     if data and not data.endswith(b'\n'):
-        raise SystemExit(f'Missing final newline: {name}')
+        raise SystemExit(f'缺少文件末尾换行：{name}')
     if record is None and any(line.endswith((b' ', b'\t')) for line in data.split(b'\n')):
-        raise SystemExit(f'Trailing whitespace: {name}')
-print(f'Checked {len(names)} files and {len(records)} reference assets')
+        raise SystemExit(f'存在尾随空白：{name}')
+print(f'已检查 {len(names)} 个文件和 {len(records)} 个参考资源')
 "
 ```
 

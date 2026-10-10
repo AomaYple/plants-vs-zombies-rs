@@ -1,24 +1,24 @@
-# Rust and generated release artifacts.
+# Rust 构建产物和生成的发行文件。
 /target/
 /dist/
 /artifacts/
 /tmp/
 
-# Keep original executables and unregistered packages out of Git.
+# 排除原版可执行文件和未登记的资源包。
 *.pak
 *.exe
 *.dll
 *.dmp
 
-# The reference package is intentionally versioned alongside extracted assets.
+# 参考资源包与解包资源一同纳入版本控制。
 !/assets/original/main.pak
 
-# Machine-specific configuration and secrets.
+# 本机配置和敏感信息。
 /.env
 /.env.*
 !/.env.example
 
-# Editors and operating systems.
+# 编辑器和操作系统产生的文件。
 /.idea/
 /.vscode/
 *.swp
@@ -28,5 +28,5 @@
 Thumbs.db
 Desktop.ini
 
-# Cargo.lock is intentionally NOT ignored. Generate and commit it when the
-# first Cargo package is introduced; the empty workspace has none.
+# 不忽略 Cargo.lock。注册首个 Cargo package 时生成并提交；
+# 当前空 workspace 尚无锁文件。

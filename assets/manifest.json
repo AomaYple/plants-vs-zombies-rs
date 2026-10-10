@@ -7,7 +7,7 @@
     "size": 68117478,
     "sha256": "7f1e824ebce304c60d55e9962ee35afbb5264b7f8bf84b8e890ba3fc02d9a3a1"
   },
-  "text_normalization": "Strict decode, strip encoding BOM, CRLF/CR to LF, ensure final LF; preserve other characters and whitespace.",
+  "text_normalization": "严格解码，移除编码 BOM，将 CRLF/CR 转为 LF，并确保末尾为 LF；保留其他字符和空白。",
   "files": [
     {
       "path": "compiled/particles/Award.xml.compiled",
@@ -26138,6 +26138,6 @@
     "index_bytes": 143765,
     "size": 68117478,
     "sha256": "7f1e824ebce304c60d55e9962ee35afbb5264b7f8bf84b8e890ba3fc02d9a3a1",
-    "extraction_check": "3228 entries, 3228 files, 3228 byte-identical, 0 different, 0 missing, 0 extra"
+    "extraction_check": "3228 个条目，3228 个文件，3228 个逐字节一致；差异、缺失、额外文件均为 0"
   }
 }

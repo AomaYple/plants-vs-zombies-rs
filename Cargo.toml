@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-# This repository contains documentation, reference assets and reserved directories.
-# Register a package here when its Cargo.toml and source entry point both exist.
+# 当前仓库包含文档、参考资源和预留目录。
+# package 的 Cargo.toml 和源码入口均存在时，再在此注册。
 members = []
 
 [workspace.package]
@@ -9,7 +9,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
-authors = ["plants-vs-zombies-rs contributors"]
+authors = ["plants-vs-zombies-rs 贡献者"]
 publish = false
 
 [workspace.metadata.project]

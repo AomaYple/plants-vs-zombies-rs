@@ -1,5 +1,5 @@
-name: Bug report
-description: Report a reproducible issue in the reimplementation.
+name: 问题报告
+description: 报告本重写项目中可复现的问题。
 title: "bug: "
 labels: [bug]
 body:
@@ -10,20 +10,20 @@ body:
   - type: input
     id: platform
     attributes:
-      label: Platform
-      description: OS, architecture, and build or commit.
+      label: 运行平台
+      description: 请填写操作系统、架构，以及构建版本或提交。
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
-      label: Reproduction
-      description: Include a minimal input sequence or logical replay; identify affected assets by their manifest paths and baseline ID.
+      label: 复现步骤
+      description: 请提供最小输入序列或逻辑回放；用资源清单中的路径和基线 ID 标明受影响资源。
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected and actual behavior
+      label: 预期与实际行为
     validations:
       required: true

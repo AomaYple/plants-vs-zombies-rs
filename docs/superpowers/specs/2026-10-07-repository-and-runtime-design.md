@@ -1,4 +1,4 @@
-# Plants vs. Zombies — Rust Reimplementation 设计
+# Plants vs. Zombies — Rust 重写设计
 
 ## 状态与目标
 

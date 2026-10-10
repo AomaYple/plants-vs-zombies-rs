@@ -9,7 +9,7 @@
 
 ## 决定
 
-- 仓库名 plants-vs-zombies-rs，展示标题 Plants vs. Zombies — Rust Reimplementation。
+- 仓库名 plants-vs-zombies-rs，展示标题统一为 Plants vs. Zombies — Rust 重写。
 - 原创内容使用 MIT；原版参考资源的版本化方式当时决定留在本机，后由 ADR 0002 调整。
 - Macroquad 作为运行与绘制层；纯 Rust 模拟内核与引擎解耦。
 - 先预留 data、core、assets、app 和资产工具，待入口源码存在再注册 package。

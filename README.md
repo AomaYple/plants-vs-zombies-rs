@@ -1,9 +1,7 @@
-# Plants vs. Zombies — Rust Reimplementation
+# Plants vs. Zombies — Rust 重写
 
 **plants-vs-zombies-rs** 是计划使用 Rust 与 Macroquad 实现的非官方跨平台重写项目。
 目标是以版本化的原版参考资源和可观察行为为参考，重新编写游戏逻辑、动画播放器、渲染、音频接线、关卡系统与工具。
-
-An unofficial, independent Rust reimplementation using Macroquad. The repository includes a versioned reference asset set; the original game executable remains outside the runtime dependency graph.
 
 ## 当前状态
 

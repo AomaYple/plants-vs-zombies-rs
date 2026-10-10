@@ -1,4 +1,4 @@
-# Policy for the dependency graph once the first packages are registered.
+# 注册首个 package 后启用的依赖图检查策略。
 [advisories]
 ignore = []
 
