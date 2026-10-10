@@ -35,7 +35,7 @@
 2. 默认并行运行，先隔离共享状态；需要局部串行时记录原因。Cargo 的 `--jobs` 控制编译并发，不是测试线程数。
 3. 核对原创夹具来源，固定输入回放的状态摘要和事件序列；本机原版资源验证单独记录。
 4. 适用时报告覆盖率范围、feature 组合与遗漏，记录暂未覆盖关键路径的原因和补测安排；门槛基于真实基线。
-5. 核心数据结构、解析或热路径随实现加入 Criterion 基准，记录测量环境和结果；性能变更比较同条件基准，并重跑行为与回放测试。
+5. 核心数据结构、解析或热路径随实现加入 Criterion 时间基准；涉及内存与分配的变更补充相应测量，记录环境、统计口径与结果。性能变更比较同条件测量，说明时间与空间的取舍，并重跑行为与回放测试。
 
 ## 验证流程
 
@@ -88,7 +88,7 @@ git diff --check
 git diff --cached --check
 ```
 
-开发中先运行受影响 package/测试以缩短反馈，提交前完成适用的 workspace 检查。`cargo test --workspace --locked` 保留默认 doctest；不要用 `--all-targets` 代替它后漏掉文档示例测试。
+按 [游戏开发效率原则](docs/principles/game-development.md#游戏开发效率)拆成可独立验收的小功能增量，开发中先运行受影响 package/测试以缩短反馈，提交前完成适用的 workspace 检查。`cargo test --workspace --locked` 保留默认 doctest；不要用 `--all-targets` 代替它后漏掉文档示例测试。
 
 所有 feature 可共存时，为检查、测试、Clippy 和文档补充 `--all-features`；存在互斥平台/backend feature 时记录有效组合并建立矩阵，不靠单次全开代替实际支持验证。新增 feature 同步测试与 CI；现有预置 CI 在首次 package 注册时按这一约定核对。
 
