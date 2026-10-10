@@ -31,6 +31,8 @@
 ## Git 与验证
 
 - main 作为本地稳定分支；功能改动使用短期分支和聚焦的提交。
+- Git 提交遵循 Conventional Commits：标题使用 `type(scope): 中文说明`，scope 可省略；type/scope 保留标准英文标记，说明和正文使用中文，技术名称保留原写法。
+- 每次提交聚焦一个可审阅的变更，标题简洁、具体；需要正文时说明原因、影响和验证结果。破坏性变更使用 `!` 或 `BREAKING CHANGE:` 标记并用中文解释，详见 CONTRIBUTING.md。
 - 提交前运行当前阶段适用的检查；没有源码时不声称通过编译或游戏测试。
 - Cargo.lock 在首次注册 package 时生成并提交，后续质量门槛见 CONTRIBUTING.md。
 - 首次注册 package 的同一次变更必须更新结构阶段 CI。

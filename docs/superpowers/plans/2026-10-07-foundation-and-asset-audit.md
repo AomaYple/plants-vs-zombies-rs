@@ -22,6 +22,7 @@
 - 测试默认并行；共享外部状态只在最小范围串行，并记录原因。
 - 实现核心或资源热路径时必须提供 Criterion 基准；正确性测试先于性能优化。
 - 提交前检查 UTF-8/LF/无 BOM、死代码、未使用项、无用途文件和依赖许可证。
+- Git 提交遵循 Conventional Commits，使用 `type(scope): 中文说明`（scope 可省略）；提交说明和正文使用中文，type/scope 与技术名称保留标准写法。每次聚焦一个可审阅的变更，破坏性变更明确标记，具体约定见 CONTRIBUTING.md。
 
 ---
 
@@ -45,7 +46,7 @@
 - [ ] Add the smallest typed IDs and explicit version newtypes; implement the fixture contract.
 - [ ] Run `cargo fmt --all -- --check`, `cargo test -p pvz-data`, and `cargo clippy -p pvz-data --all-targets -- -D warnings`.
 - [ ] Generate and commit `Cargo.lock` once the first package exists.
-- [ ] Commit `feat(data): add versioned domain identifiers`.
+- [ ] 提交 `feat(data): 添加版本化领域标识符`。
 
 ### Task 2: Register the pure simulation package
 
@@ -70,7 +71,7 @@
 - [ ] Run `cargo test -p pvz-core --test determinism`; verify it fails before the simulation types exist.
 - [ ] Implement empty-board stepping, command ordering, deterministic RNG wrapper, and event sequencing without plants/zombies yet.
 - [ ] Run core tests and `cargo clippy -p pvz-core --all-targets -- -D warnings`; inspect dependency tree to confirm no engine/platform dependency.
-- [ ] Commit `feat(core): add deterministic simulation shell`.
+- [ ] 提交 `feat(core): 添加确定性模拟基础`。
 
 ### Task 3: Build the resource audit library
 
@@ -97,7 +98,7 @@
 - [ ] Run asset tests and verify failure before parsers exist.
 - [ ] Implement supported subsets with path-aware diagnostics and explicit unsupported-feature errors.
 - [ ] Run `cargo test -p pvz-assets`, Clippy, and an audit against a copy of the user path without writing into it.
-- [ ] Commit `feat(assets): add resource audit models and parsers`.
+- [ ] 提交 `feat(assets): 添加资源审计模型与解析器`。
 
 ### Task 4: Add the local asset audit CLI
 
@@ -118,7 +119,7 @@
 - [ ] Run CLI tests and verify failure before the commands exist.
 - [ ] Implement argument parsing and report serialization using the assets library.
 - [ ] Run the CLI against user resources read-only; compare its file count with the recorded 3228-file baseline without emitting source files.
-- [ ] Commit `feat(tool): add local asset audit commands`.
+- [ ] 提交 `feat(tool): 添加本地资源审计命令`。
 
 ### Task 5: Add the Macroquad probe application
 
@@ -140,7 +141,7 @@
 - [ ] Run tests and verify failure before the transform exists.
 - [ ] Implement a Macroquad window with placeholder background and a visible logical-grid diagnostic; keep rendering code separate from core.
 - [ ] Run `cargo check -p pvz-app`, desktop launch smoke test, and a wasm compile check when the target/toolchain is available.
-- [ ] Commit `feat(app): add cross-platform viewport probe`.
+- [ ] 提交 `feat(app): 添加跨平台视口验证应用`。
 
 ### Task 6: Implement the first playable vertical slice
 
@@ -163,7 +164,7 @@
 - [ ] Run vertical-slice tests and verify failure before entities exist.
 - [ ] Implement only the minimum data-driven Sunflower, Peashooter, normal Zombie, Pea, Sun, LawnMower and one fixed wave.
 - [ ] Run core tests, a no-resource app test, and a manual Macroquad smoke test with placeholders.
-- [ ] Commit `feat(core): add daytime vertical slice`.
+- [ ] 提交 `feat(core): 添加白天关卡的最小可玩切片`。
 
 ### Task 7: Add review gates before content expansion
 
@@ -178,7 +179,7 @@
 - [ ] Add CI for fmt, check, test, Clippy, docs, cargo-deny, and desktop/Web compile checks supported by runners.
 - [ ] Confirm `git ls-files` contains no original resources, generated packs, absolute user paths, or secrets.
 - [ ] Review all public names and README wording; retain “unofficial” and MIT scope statements.
-- [ ] Commit `docs: record vertical slice gates`.
+- [ ] 提交 `docs: 记录可玩切片的验收结果`。
 
 ### Task 8: Add coverage and performance gates
 
@@ -197,4 +198,4 @@
 - [ ] Define benchmark fixtures that are deterministic, resource-independent and safe to run in parallel with ordinary tests.
 - [ ] Add CI checks for text encoding and tracked binary/resource policy without embedding user paths or original assets.
 - [ ] Record baseline benchmark results and coverage limitations before optimizing.
-- [ ] Commit `chore: add testing and performance quality gates`.
+- [ ] 提交 `chore: 添加测试与性能质量门槛`。

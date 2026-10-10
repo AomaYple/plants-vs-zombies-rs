@@ -19,6 +19,7 @@ An unofficial, independent Rust reimplementation using Macroquad. Original game 
 - 资源：先读取已解包目录，再按需求增加本地转换；main.pak 读取不是初期功能。
 - 还原：以记录了文件指纹的 EXE 与资源包为参考，以测量和回放验证行为。
 - 质量：文本文件统一 UTF-8/LF/无 BOM；测试默认并行，覆盖率与性能基准随实现阶段加入；正确性优先于速度。
+- Git：使用聚焦提交和 Conventional Commits 格式，提交说明及正文使用中文，type/scope 和技术名称保留标准写法。
 
 ## 文档入口
 

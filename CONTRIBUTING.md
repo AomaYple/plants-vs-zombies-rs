@@ -16,15 +16,19 @@
 
 ## 提交流程
 
-使用短期分支和聚焦提交。提交标题采用简单的 Conventional Commit 风格，例如：
+使用短期分支和聚焦提交。Git 提交遵循 Conventional Commits，标题格式为 `type(scope): 中文说明`，scope 可省略。type 和 scope 使用标准英文标记，标题说明和正文使用中文；Rust、Macroquad、Cargo.lock、API 名称等技术名称保留原写法。例如：
 
 ```text
-feat(core): add deterministic simulation shell
-fix(assets): report case collision
-docs: record reference behavior
+feat(core): 添加确定性模拟基础
+fix(assets): 修复资源路径大小写冲突的诊断
+docs: 记录原版行为核对结果
 ```
 
-一次提交应能说明一个可审阅的边界。修改接口时同时修改相关设计、计划或 ADR。
+- type 按变更性质选择：`feat` 新功能、`fix` 修复、`docs` 文档、`refactor` 重构、`perf` 性能、`test` 测试、`build` 构建、`ci` 持续集成、`chore` 维护、`revert` 回退。
+- scope 标识主要受影响的模块，优先使用 `data`、`core`、`assets`、`app`、`tool`；仓库级变更可省略 scope。
+- 标题简洁、具体，直接描述变更；避免“更新”“修改一下”等无法说明内容的消息。正文按复杂度添加，与标题空一行，用中文说明必要的原因、行为影响和验证结果。
+- 破坏性变更在 type/scope 后、冒号前加 `!`，或在页脚使用 `BREAKING CHANGE:`；用中文说明不兼容之处和迁移方式。关联 issue 可使用 `Refs:` 或 `Closes:` 等标准页脚标记。
+- 一次提交应能说明一个可审阅的边界，不混入无关改动；提交前完成当前阶段适用的检查。修改接口时同时修改相关设计、计划或 ADR。
 
 ## 编码、命名与现代 Rust
 
