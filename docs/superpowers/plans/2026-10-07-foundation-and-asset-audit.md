@@ -17,7 +17,7 @@
 - 当前参考基线 ID 为 `goty-zh-a7ab7df8-7f1e824e`，但版本字段差异必须保留并可追溯。
 - 原版模拟 tick 未测量；不能把 60 Hz 作为已知规格。
 - 逻辑视口暂按 800×600；1400×600 背景的裁剪/滚动待测量。
-- 测试先明确预期合同；先建立 package 与测试入口，不把未注册 package 或环境错误当成目标行为的失败证据。所有任务按此要求验证失败与修复。
+- 已明确行为优先测试先行，探索探针先获取证据，正式交付前补齐适用测试。测试先明确预期合同，不把未注册 package 或环境错误当成行为证据。
 
 ---
 
@@ -66,9 +66,9 @@
 - `GameState::new(seed, initial_state) -> GameState`.
 - `GameState::step(commands: &[Command]) -> StepEvents`.
 - `GameState::state_digest() -> StateDigest`.
-- `SimulationClock` stores the chosen measured tick contract; it must not assume 60 Hz without evidence.
+- `SimulationClock` stores an explicit, replaceable tick contract; development parameters remain labeled until reference measurement confirms the original timebase.
 
-- [ ] Measure the reference simulation timebase, record method and uncertainty, and define the chosen clock contract before implementing it as original behavior.
+- [ ] Define the replaceable clock contract; record measured reference evidence or the still-pending timebase, and label any development parameter without claiming original behavior.
 - [ ] Register the package and test entry; add deterministic replay tests with two instances receiving identical commands and assert equal digests/events.
 - [ ] Run `cargo test -p pvz-core --test determinism --locked`; verify failure identifies the intended simulation contract gap.
 - [ ] Implement empty-board stepping, command ordering, deterministic RNG wrapper, and event sequencing without plants/zombies yet.
@@ -101,7 +101,7 @@
 - [ ] Create original tiny XML/PNG metadata fixtures that contain no extracted game content.
 - [ ] Add tests for valid manifest references, missing files, path case collisions, malformed XML, and deterministic report ordering.
 - [ ] Run asset tests and verify failure before parsers exist.
-- [ ] Implement supported subsets with path-aware diagnostics and explicit unsupported-feature errors.
+- [ ] Implement supported subsets with path-aware diagnostics; reject unknown content affecting interpretation, and report any extension confirmed safe to preserve or skip.
 - [ ] Add parser time benchmarks and coverage for success/error paths; measure memory/allocation when affected and record the baseline.
 - [ ] Run `cargo test -p pvz-assets --locked`, Clippy, and a read-only audit against the user-specified input; complete submission checks without writing into the source directory.
 - [ ] 提交 `feat(assets): 添加资源审计模型与解析器`。
@@ -166,7 +166,7 @@
 - Core events cover planting, sun spawn/collect, projectile launch/hit, damage, zombie death, mower activation, win and loss.
 - App consumes events for visuals/audio; it cannot apply damage directly.
 
-- [ ] Measure the reference timing, collision and event-order facts needed by the slice and record their evidence before treating them as rules.
+- [ ] Measure the reference simulation timebase, timing, collision and event-order facts needed by the slice; replace development parameters and record evidence before original-behavior acceptance.
 - [ ] Add tests for 5×9 placement, sun cost, pea hit, zombie eating, mower activation, fixed wave, win/loss, pause and restart.
 - [ ] Run vertical-slice tests and verify failure before entities exist.
 - [ ] Implement only the minimum data-driven Sunflower, Peashooter, normal Zombie, Pea, Sun, LawnMower and one fixed wave.
@@ -182,7 +182,7 @@
 - Modify: `docs/adr/0002-simulation-clock.md`
 - Create: `docs/behavior/vertical-slice-results.md`
 
-- [ ] Summarize the clock evidence already required by Task 2, input mapping, and slice comparisons; record limitations and remaining behavior gaps.
+- [ ] Summarize the clock contract from Task 2, reference measurements required by Task 6, input mapping and slice comparisons; record limitations and remaining behavior gaps.
 - [ ] Review the CI enabled by package registration, including dependency audit and applicable desktop/Web checks; fill real gaps without postponing earlier task requirements.
 - [ ] Confirm `git ls-files` contains no original resources, generated packs, absolute user paths, or secrets.
 - [ ] Review all public names and README wording; retain “unofficial” and MIT scope statements.
