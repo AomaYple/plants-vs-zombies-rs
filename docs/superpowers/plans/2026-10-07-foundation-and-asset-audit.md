@@ -1,10 +1,10 @@
 # 基础设施、资源审计与首个可玩切片实施计划
 
-> 当前为文档与结构阶段。用户明确授权实现后再逐项执行，每项任务独立验收；具体代理工具由执行环境与适用指令决定。
+> 当前为文档、结构与参考资源阶段。版本化资源已导入，2026-10-10 同步资源方案。用户明确授权实现后再逐项执行，每项任务独立验收；具体代理工具由执行环境与适用指令决定。
 
-**Goal:** 建立可公开的 Rust workspace、资源审计与解析基础、跨平台表现探针和首个白天可玩切片，完成相应行为、覆盖率与性能证据复核；公开交付不携带原版内容。
+**Goal:** 建立包含版本化参考资源的 Rust workspace、资源审计与解析基础、跨平台表现探针和首个白天可玩切片，完成相应行为、覆盖率与性能证据复核；原版程序和临时派生产物不进入公开交付。
 
-**Architecture:** 按任务依次注册 `pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app`，每次只交付一个可验证边界。core 只依赖数据/纯逻辑；assets 解析文件为 CPU 模型；app 以 Macroquad 装配表现；CLI 只读取用户指定目录。
+**Architecture:** 按任务依次注册 `pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app`，每次只交付一个可验证边界。core 只依赖数据/纯逻辑；assets 解析资源为 CPU 模型；app 以 Macroquad 装配仓库资源；CLI 按仓库清单检查资源，转换输出与输入分离。
 
 **Tech Stack:** Rust 1.99.0、Edition 2024、Cargo resolver 3、Macroquad、Serde/JSON 或 RON（选定时记录）、quick-xml 或等价 XML 解析库（选定时记录）、Cargo test、rustfmt、Clippy、cargo-deny、GitHub Actions。
 
@@ -18,7 +18,7 @@
 - 原版模拟 tick 未测量；不能把 60 Hz 作为已知规格。
 - 逻辑视口暂按 800×600；1400×600 背景的裁剪/滚动待测量。
 - 已明确行为优先测试先行，探索探针先获取证据，正式交付前补齐适用测试。测试先明确预期合同，不把未注册 package 或环境错误当成行为证据。
-- 使用本机参考材料前确认 EXE、main.pak 和解包目录仍可访问，并复核对应指纹与清单；历史核对记录不代表当前输入已经复验。资源不可用时可推进原创夹具与占位探针，原版测量和还原验收保持待完成。
+- 使用版本化参考资源前核对 `assets/manifest.json`、资源文件指纹和参考基线；需要原版 EXE 行为测量时另确认本机 EXE 身份与可访问性。仓库资源缺失或损坏必须修复，不静默回退到占位素材；原创夹具与占位探针只验收各自的隔离合同，原版测量和还原验收单独完成。
 - 下列文件清单与接口是任务边界，按实际消费者细化；不机械创建全部未来 ID、空模块、公开 API 或占位文件。新增 package 时同步其 README、根 README、路线图和 workspace 阶段元数据，避免阶段说明滞后。
 - 首次使用额外验收工具时确认 cargo-deny、cargo-llvm-cov 等版本和 CI 安装方式；缺少工具的必要检查保持待验收，不视为通过。
 
@@ -63,7 +63,7 @@
 - Modify: `.github/workflows/ci.yml`
 - Modify: `docs/behavior/README.md`
 - Modify: `docs/behavior/reference-baseline.md`
-- Create: `docs/adr/0002-simulation-clock.md`
+- Create: `docs/adr/0003-simulation-clock.md`
 
 **Interfaces:**
 - `GameState::new(seed, initial_state) -> GameState`.
@@ -102,36 +102,36 @@
 - `parse_particle(text: &str) -> Result<ParticleSystem, AssetError>`.
 - No API accepts or embeds a fixed user absolute path.
 
-- [ ] Create original tiny XML/PNG metadata fixtures that contain no extracted game content.
-- [ ] Before tracking a binary fixture, update CI's current text-only/suffix checks to classify authored binaries separately; verify fixture provenance and keep original game payloads forbidden without weakening text-format checks.
+- [ ] Create original tiny XML/PNG metadata fixtures that contain no extracted game content; resource integration tests may additionally read the versioned asset manifest.
+- [ ] When adding a new tracked binary fixture or reference asset, update the manifest and CI classification with its provenance and purpose; keep original executables and unregistered temporary payloads forbidden without weakening text-format checks.
 - [ ] Add tests for valid manifest references, missing files, path case collisions, malformed XML, and deterministic report ordering.
 - [ ] Run asset tests and verify failure before parsers exist.
 - [ ] Implement supported subsets with path-aware diagnostics; reject unknown content affecting interpretation, and report any extension confirmed safe to preserve or skip.
 - [ ] Keep directory traversal/file reads in a host adapter; manifest, Reanim and particle parsing accept bytes/text so app/browser resource providers can reuse them without filesystem paths.
 - [ ] Add parser time benchmarks and coverage for success/error paths; measure memory/allocation when affected and record the baseline.
-- [ ] Run `cargo test -p pvz-assets --locked`, Clippy, and a read-only audit against the user-specified input; complete submission checks without writing into the source directory.
+- [ ] Run `cargo test -p pvz-assets --locked`, Clippy, and a read-only audit against the versioned manifest and assets; complete submission checks without writing into the source directory.
 - [ ] 提交 `feat(assets): 添加资源审计模型与解析器`。
 
-### Task 4: Add the local asset audit CLI
+### Task 4: Add the repository asset audit CLI
 
 **Files:**
 - Create: `tools/pvz-asset-tool/Cargo.toml`
 - Create: `tools/pvz-asset-tool/src/main.rs`
 - Create: `tools/pvz-asset-tool/tests/cli.rs`
 - Modify: `Cargo.toml`
-- Modify: `config/local.example.toml`
-- Modify: `assets-private/README.md`
+- Modify: `assets/README.md`
+- Modify: `tools/pvz-asset-tool/README.md`
 
 **Interfaces:**
-- `pvz-asset-tool audit --root <PATH> --format text|json`.
-- `pvz-asset-tool inspect-reanim --root <PATH> <NAME>`.
-- Input precedence for future app: CLI flag > `PVZ_ASSET_ROOT` > local config > placeholder; invalid explicit original path is an error.
+- `pvz-asset-tool audit --format text|json` from the repository root.
+- `pvz-asset-tool inspect-reanim <NAME>` from the repository root.
+- Commands read `assets/manifest.json` and registered inputs; missing or invalid inputs fail explicitly. Tests use isolated fixture repositories, not a runtime resource-override configuration.
 
-- [ ] Add CLI tests for help, missing root, successful fixture audit, JSON ordering, and absolute-path redaction.
+- [ ] Add CLI tests for help, missing/invalid manifest, hash mismatch, successful fixture audit, JSON ordering, and absolute-path redaction.
 - [ ] Run CLI tests and verify failure before the commands exist.
 - [ ] Implement argument parsing and report serialization using the assets library.
-- [ ] Run the CLI against user resources read-only; compare its file count with the recorded 3228-file baseline without emitting source files.
-- [ ] 提交 `feat(tool): 添加本地资源审计命令`。
+- [ ] Run the CLI against repository resources read-only; confirm 3229 manifest records cover 3228 extracted files and the one source package without emitting or modifying source files.
+- [ ] 提交 `feat(tool): 添加仓库资源审计命令`。
 
 ### Task 5: Add the Macroquad probe application
 
@@ -152,6 +152,7 @@
 - [ ] Add pure viewport tests for 4:3, 16:9, high-DPI and out-of-viewport input.
 - [ ] Run tests and verify failure before the transform exists.
 - [ ] Implement a Macroquad window with placeholder background and a visible logical-grid diagnostic; keep rendering code separate from core.
+- [ ] Load a minimal original image/animation set registered in the repository manifest through the platform provider; verify missing-resource diagnostics and path handling separately from the placeholder probe.
 - [ ] Probe Reanim's required affine transforms with self-authored fixtures, including independent skew axes, layer ordering and clipping; confirm the backend route before expanding the animation player.
 - [ ] Probe sound playback and a music decode/loop/pause route, including MO3 compatibility and browser gesture requirements; assess dependency/license compatibility for all six targets and record unresolved platform evidence.
 - [ ] Run `cargo check -p pvz-app --locked`, desktop launch smoke tests and an app-only wasm build; actually launch the placeholder probe in a browser and verify input and high-DPI mapping. Record Windows, macOS, Linux and Web build/runtime evidence separately; unavailable environments remain pending and P2 cannot be marked complete on compilation alone.
@@ -179,7 +180,7 @@
 - [ ] Add tests for 5×9 placement, sun cost, pea hit, zombie eating, mower activation, fixed wave, win/loss, pause and restart.
 - [ ] Run vertical-slice tests and verify failure before entities exist.
 - [ ] Implement only the minimum data-driven Sunflower, Peashooter, normal Zombie, Pea, Sun, LawnMower and one fixed wave.
-- [ ] Extend coverage and hot-path benchmarks to the slice; run core tests, a no-resource app test, and a manual Macroquad smoke test with explicitly selected placeholders.
+- [ ] Extend coverage and hot-path benchmarks to the slice; run core tests and isolated no-resource app contracts, then a manual Macroquad smoke test using registered original assets. Confirm slice visuals/audio consume simulation events and missing assets fail explicitly; placeholders are not original-presentation acceptance.
 - [ ] 提交 `feat(core): 添加白天关卡的最小可玩切片`。
 
 ### Task 7: Review slice evidence before content expansion
@@ -188,12 +189,12 @@
 - Modify: `README.md`
 - Modify: `CONTRIBUTING.md`
 - Modify: `.github/workflows/ci.yml`
-- Modify: `docs/adr/0002-simulation-clock.md`
+- Modify: `docs/adr/0003-simulation-clock.md`
 - Create: `docs/behavior/vertical-slice-results.md`
 
 - [ ] Summarize the clock contract from Task 2, reference measurements required by Task 6, input mapping and slice comparisons; record limitations and remaining behavior gaps.
 - [ ] Review the CI enabled by package registration, including dependency audit and applicable desktop/Web checks; fill real gaps without postponing earlier task requirements.
-- [ ] Confirm `git ls-files` contains no original resources, generated packs, absolute user paths, or secrets.
+- [ ] Confirm `git ls-files` contains only manifest-registered reference assets and no unregistered packs, original executables, absolute user paths, or secrets.
 - [ ] Review all public names and README wording; retain “unofficial” and MIT scope statements.
 - [ ] 提交 `docs: 记录可玩切片的验收结果`。
 
@@ -212,7 +213,7 @@
 
 - [ ] Review coverage reports collected during implementation, fill missing critical/error paths and document justified thresholds and remaining gaps.
 - [ ] Review deterministic, resource-independent benchmark inputs; correctness tests remain parallel, while performance measurements avoid competing tests or tasks.
-- [ ] Verify the existing text/resource checks still cover the new tracked file classes and public fixture provenance.
+- [ ] Verify the existing text/resource checks still cover the new tracked file classes, manifest hashes and public fixture provenance.
 - [ ] Review file/module/API/dependency consumers and effective target/feature combinations; remove obsolete placeholders and unused structures, checking callers, docs, tests and generation/configuration entry points before removal.
 - [ ] Summarize timing, applicable memory/allocation baselines and coverage limitations; compare any optimization with its correctness evidence.
 - [ ] 提交 `test: 完善覆盖率与性能验收基线`。

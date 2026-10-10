@@ -13,6 +13,7 @@
 | [性能策略](performance/README.md) | 时间、内存与分配测量，优化比较与行为保护 |
 | [贡献指南](../CONTRIBUTING.md) | 工具链、命令、提交与评审流程 |
 | [参考基线](behavior/reference-baseline.md) | EXE、资源包、拆包一致性及画布证据 |
+| [参考资源](../assets/README.md) | 版本化资源、导入格式与清单校验 |
 | [行为测量](behavior/README.md) | 如何记录观察、控制变量、形成规则测试 |
 | [技术决策](adr/README.md) | 已采纳决策与重新评估条件 |
 

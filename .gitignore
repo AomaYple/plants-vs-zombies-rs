@@ -4,17 +4,16 @@
 /artifacts/
 /tmp/
 
-# User-supplied game resources, converted packs and local caches.
-/assets-private/*
-!/assets-private/README.md
+# Keep original executables and unregistered packages out of Git.
 *.pak
-*.pvzpack
 *.exe
 *.dll
 *.dmp
 
+# The reference package is intentionally versioned alongside extracted assets.
+!/assets/original/main.pak
+
 # Machine-specific configuration and secrets.
-/config/local.toml
 /.env
 /.env.*
 !/.env.example

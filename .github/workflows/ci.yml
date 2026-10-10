@@ -36,25 +36,94 @@ jobs:
               output.write(f"has_packages={has_packages}\n")
           print(f"workspace members: {len(metadata['workspace_members'])}")
           PY
-      - name: Check tracked text format and payload policy
+      - name: Check tracked text format and asset manifest
         shell: bash
         run: |
           python3 - <<'PY'
+          import hashlib
+          import json
           import subprocess
-          from pathlib import Path
+          from pathlib import Path, PurePosixPath
 
           binary_suffixes = {
               ".png", ".jpg", ".jpeg", ".gif", ".ogg", ".mo3", ".au",
-              ".pak", ".pvzpack", ".exe", ".dll", ".compiled",
+              ".pak", ".exe", ".dll", ".compiled",
           }
+          executable_suffixes = {".exe", ".dll", ".dmp"}
+          text_asset_suffixes = {".xml", ".reanim", ".txt", ".trail", ".jsfl"}
+          binary_asset_suffixes = binary_suffixes - executable_suffixes - {".pak"}
           tracked = list(filter(None, subprocess.check_output(
               ["git", "ls-files", "-z"]
           ).decode("utf-8").split("\0")))
-          forbidden = [p for p in tracked if Path(p).suffix.lower() in binary_suffixes]
+          manifest_path = Path("assets/manifest.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if manifest["schema_version"] != 1 or manifest["root"] != "assets/original":
+              raise SystemExit("unsupported asset manifest schema or root")
+          records = {record["path"]: record for record in manifest["files"]}
+          if len(records) != len(manifest["files"]):
+              raise SystemExit("duplicate manifest asset paths")
+          if len({path.casefold() for path in records}) != len(records):
+              raise SystemExit("case-insensitive manifest path collision")
+          for path, record in records.items():
+              relative = PurePosixPath(path)
+              if relative.is_absolute() or ".." in relative.parts or "\\" in path or ":" in path or relative.as_posix() != path:
+                  raise SystemExit(f"invalid asset path: {path}")
+              if record["kind"] not in {"text", "binary", "package"}:
+                  raise SystemExit(f"unsupported asset kind: {path}")
+              if relative.suffix.lower() in executable_suffixes:
+                  raise SystemExit(f"executable or dump in asset manifest: {path}")
+              if record["kind"] == "package":
+                  classified = path == "main.pak"
+              elif record["kind"] == "binary":
+                  classified = relative.suffix.lower() in binary_asset_suffixes
+              else:
+                  classified = relative.suffix.lower() in text_asset_suffixes
+              if not classified:
+                  raise SystemExit(f"asset kind differs from file type: {path}")
+              for key in ("sha256", "source_sha256"):
+                  value = record[key]
+                  if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+                      raise SystemExit(f"invalid {key}: {path}")
+              for key in ("size", "source_size"):
+                  if type(record[key]) is not int or record[key] < 0:
+                      raise SystemExit(f"invalid {key}: {path}")
+              if record["kind"] in {"binary", "package"}:
+                  if record["size"] != record["source_size"] or record["sha256"] != record["source_sha256"]:
+                      raise SystemExit(f"binary asset differs from source: {path}")
+              elif record.get("source_encoding") not in {"UTF-8", "UTF-8-BOM", "UTF-16LE-BOM"}:
+                  raise SystemExit(f"unsupported source encoding: {path}")
+          package = manifest["package"]
+          archive = manifest["source_archive"]
+          package_record = records[package["path"]]
+          if package_record["kind"] != "package" or sum(record["kind"] == "package" for record in records.values()) != 1:
+              raise SystemExit("expected one reference package")
+          if package["entry_count"] != len(records) - 1:
+              raise SystemExit("package entry count differs from extracted assets")
+          if archive["name"] != package["path"] or not 8 <= package["index_bytes"] < package["size"]:
+              raise SystemExit("invalid reference package metadata")
+          for key in ("size", "sha256"):
+              if package[key] != package_record[key] or archive[key] != package_record["source_" + key]:
+                  raise SystemExit(f"reference package metadata differs: {key}")
+          allowed_assets = set(records)
+          tracked_assets = {p.removeprefix("assets/original/") for p in tracked if p.startswith("assets/original/")}
+          if tracked_assets != allowed_assets:
+              raise SystemExit("assets/original and assets/manifest.json differ")
+          forbidden = [
+              p for p in tracked
+              if Path(p).suffix.lower() in executable_suffixes
+              or (Path(p).suffix.lower() in binary_suffixes and not p.startswith("assets/original/"))
+          ]
           if forbidden:
-              raise SystemExit("tracked game payload files are forbidden:\n" + "\n".join(forbidden))
+              raise SystemExit("unregistered tracked game payload files are forbidden:\n" + "\n".join(forbidden))
           for name in tracked:
               data = Path(name).read_bytes()
+              asset_path = name.removeprefix("assets/original/") if name.startswith("assets/original/") else None
+              if asset_path is not None:
+                  record = records[asset_path]
+                  if len(data) != record["size"] or hashlib.sha256(data).hexdigest() != record["sha256"]:
+                      raise SystemExit(f"asset size or hash mismatch: {name}")
+                  if record["kind"] in {"binary", "package"}:
+                      continue
               if data.startswith(b"\xef\xbb\xbf"):
                   raise SystemExit(f"UTF-8 BOM found: {name}")
               if b"\r" in data:
@@ -65,10 +134,11 @@ jobs:
                   raise SystemExit(f"non-UTF-8 tracked text: {name}: {exc}") from exc
               if data and not data.endswith(b"\n"):
                   raise SystemExit(f"missing final newline: {name}")
-              for line_number, line in enumerate(data.split(b"\n"), start=1):
-                  if line.endswith((b" ", b"\t")):
-                      raise SystemExit(f"trailing whitespace: {name}:{line_number}")
-          print(f"checked {len(tracked)} tracked UTF-8/LF/no-BOM files and whitespace")
+              if asset_path is None:
+                  for line_number, line in enumerate(data.split(b"\n"), start=1):
+                      if line.endswith((b" ", b"\t")):
+                          raise SystemExit(f"trailing whitespace: {name}:{line_number}")
+          print(f"checked {len(tracked)} tracked files; manifest covers {len(allowed_assets)} reference assets")
           PY
 
   # This implementation template is skipped for the empty workspace.

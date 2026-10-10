@@ -19,7 +19,7 @@
 | [项目 AGENTS.md](../../AGENTS.md) | 代理任务入口、阶段边界和必须快速掌握的硬约束摘要 |
 | 本目录 | 工程原则与游戏开发原则的完整定义 |
 | [CONTRIBUTING.md](../../CONTRIBUTING.md) | 贡献步骤、工具使用、提交格式与验收命令 |
-| [架构](../architecture/README.md)、[测试](../testing/README.md)、[性能](../performance/README.md)、[资源约定](../../assets-private/README.md) | 模块合同与具体操作方法 |
+| [架构](../architecture/README.md)、[测试](../testing/README.md)、[性能](../performance/README.md)、[资源说明](../../assets/README.md) | 模块合同与具体操作方法 |
 | [参考基线](../behavior/reference-baseline.md)、[行为测量](../behavior/README.md)、[ADR](../adr/README.md) | 已核对事实、测量证据与决策理由 |
 | [README](../../README.md)、[路线图](../roadmap.md)、[设计与计划](../README.md) | 当前状态、交付阶段与实现任务 |
 

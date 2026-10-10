@@ -8,7 +8,7 @@
 
 文档与结构阶段只处理已授权的文档、目录和仓库配置；开始 Rust 实现需要用户明确授权。发现计划与实际接口、配置或阶段不符时先说明差异，按实际任务更新相关文档。
 
-项目为非官方 Rust 全量重写，原版资源由用户自行提供；重写与许可边界见 [游戏开发原则](docs/principles/game-development.md)。
+项目为非官方 Rust 全量重写，版本化原版参考资源位于 `assets/original/`；缓存与转换产物使用被忽略的 `target/`，本机测量证据使用被忽略的 `artifacts/`。重写与资源边界见 [游戏开发原则](docs/principles/game-development.md)。
 
 ## 开发环境与布局
 
@@ -33,7 +33,7 @@ Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principl
 
 1. 明确目标合同，随实现交付能发现目标问题的测试，已明确行为优先测试先行；探索探针先获取证据、正式交付前补齐验证。新 package 先具备注册与测试入口，不能把 package 不存在或环境失败当作行为证据。缺陷修复核对回归案例能捕获原缺陷。
 2. 默认并行，局部串行附原因。Cargo 的 `--jobs` 控制编译并发，测试线程由测试运行器控制。
-3. 核对原创夹具来源，固定输入回放的状态摘要和事件序列；本机原版资源验证单独记录。
+3. 核对原创夹具来源与版本化资源清单，固定输入回放的状态摘要和事件序列；原版 EXE 的行为测量与运行比对单独记录。
 4. 相关实现接入覆盖率报告，说明范围、target/feature 组合、遗漏和补测安排。
 5. 关键路径接入代表性时间基准，复用已有场景；关键路径内存布局/分配策略变化或内存改善主张补充测量，其他变更按影响与风险选择检查。性能优化附同条件比较、时间/空间取舍和正确性结果。
 
@@ -50,29 +50,50 @@ git diff --cached --check
 git ls-files
 ```
 
-核对文档链接、命令、阶段描述与跟踪文件。当前纯文本阶段可使用以下命令检查已跟踪及未忽略的新文件，适用于 Bash 和 PowerShell，需要 Python 3：
+核对文档链接、命令、阶段描述与跟踪文件。以下命令检查已跟踪及未忽略的新文件，按资源清单区分文本与二进制，适用于 Bash 和 PowerShell，需要 Python 3：
 
 ```sh
 python -X utf8 -c "
 from pathlib import Path
+import hashlib
+import json
 import subprocess
 
 tracked = subprocess.check_output(['git', 'ls-files', '-z']).decode('utf-8').split('\0')
 new = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '-z']).decode('utf-8').split('\0')
-for name in sorted(set(filter(None, tracked + new))):
+names = set(filter(None, tracked + new))
+manifest = json.loads(Path('assets/manifest.json').read_text(encoding='utf-8'))
+records = {item['path']: item for item in manifest['files']}
+if len(records) != len(manifest['files']):
+    raise SystemExit('Duplicate manifest paths')
+asset_prefix = 'assets/original/'
+assets = {name.removeprefix(asset_prefix) for name in names if name.startswith(asset_prefix)}
+if assets != set(records):
+    raise SystemExit('Asset file set differs from manifest')
+for name in sorted(names):
     data = Path(name).read_bytes()
+    record = records[name.removeprefix(asset_prefix)] if name.startswith(asset_prefix) else None
+    if record is not None:
+        if len(data) != record['size'] or hashlib.sha256(data).hexdigest() != record['sha256']:
+            raise SystemExit(f'Asset size or hash mismatch: {name}')
+        if record['kind'] in {'binary', 'package'}:
+            continue
+        if record['kind'] != 'text':
+            raise SystemExit(f'Unknown asset kind: {name}')
     if data.startswith(b'\xef\xbb\xbf') or b'\r' in data:
         raise SystemExit(f'BOM or CR/CRLF found: {name}')
     data.decode('utf-8', errors='strict')
     if data and not data.endswith(b'\n'):
         raise SystemExit(f'Missing final newline: {name}')
-print('UTF-8/LF/no-BOM check passed')
+    if record is None and any(line.endswith((b' ', b'\t')) for line in data.split(b'\n')):
+        raise SystemExit(f'Trailing whitespace: {name}')
+print(f'Checked {len(names)} files and {len(records)} reference assets')
 "
 ```
 
-删除文件时先核对引用和来源，再更新 Git 跟踪状态。结构 CI 直接检查已跟踪文件的编码、末尾换行、尾随空格与常见资源载荷后缀，见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。修改工作流时用 actionlint 等验证语法，并实际执行受影响脚本。
+结构 CI 还检查清单 schema、相对路径、大小写碰撞、来源指纹合同、资源包元数据与载荷分类，见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。普通文件检查编码、末尾换行和尾随空白；登记的文本资源同样执行 UTF-8/LF/无 BOM 检查，但保留原版正文空白，`.editorconfig` 和 `.gitattributes` 为资源目录声明这个差异。新增资源时同步清单、来源说明和文件分类检查；二进制按大小和 SHA-256 校验，原版可执行文件与未登记载荷继续拒绝。
 
-本阶段 CI 将跟踪文件按文本处理，并拒绝常见游戏/媒体二进制后缀。以后确需原创二进制夹具时，在同一变更中补齐用途、来源及文件分类检查；继续禁止原版资源，不能简单移除载荷检查。
+删除文件时先核对引用和来源，再更新 Git 跟踪状态。修改工作流时用 actionlint 等验证语法，并实际执行受影响脚本。
 
 ### 首次注册 package 与后续实现
 
@@ -132,9 +153,9 @@ docs: 记录原版行为核对结果
 
 ## 资源与公开仓库
 
-用户原版资源只从显式本机路径读取，放在仓库外或 `assets-private/` 的忽略区域；配置写入被忽略的 `config/local.toml`。参见 [资源约定](assets-private/README.md)。
+版本化参考资源放在 `assets/original/`，由 `assets/manifest.json` 记录来源、原始 SHA-256、导入后 SHA-256 和文件类型。资源检查与转换围绕仓库清单执行，应用通过平台适配层加载随包部署的资源；缓存和证据输出按 [资源说明](assets/README.md)管理。
 
-按资源约定核对跟踪文件、忽略规则、历史、LFS 与构建产物；依赖许可证和公告通过项目策略审计。MIT 范围与原版内容禁入要求见 [公开边界](docs/principles/game-development.md#原版资源与公开边界)。
+资源变更时核对跟踪文件、清单、来源、历史、LFS 与构建产物；不要把原版可执行文件、临时派生产物或个人路径加入仓库。项目原创代码、文档和测试数据使用 MIT，原版资源按资源说明保留独立边界。
 
 ## 规范维护与参考
 
