@@ -36,9 +36,7 @@ jobs:
               output.write(f"has_packages={has_packages}\n")
           print(f"workspace members: {len(metadata['workspace_members'])}")
           PY
-      - name: Check whitespace
-        run: git diff --check
-      - name: Check tracked text encoding and payload policy
+      - name: Check tracked text format and payload policy
         shell: bash
         run: |
           python3 - <<'PY'
@@ -49,7 +47,9 @@ jobs:
               ".png", ".jpg", ".jpeg", ".gif", ".ogg", ".mo3", ".au",
               ".pak", ".pvzpack", ".exe", ".dll", ".compiled",
           }
-          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          tracked = list(filter(None, subprocess.check_output(
+              ["git", "ls-files", "-z"]
+          ).decode("utf-8").split("\0")))
           forbidden = [p for p in tracked if Path(p).suffix.lower() in binary_suffixes]
           if forbidden:
               raise SystemExit("tracked game payload files are forbidden:\n" + "\n".join(forbidden))
@@ -63,12 +63,18 @@ jobs:
                   data.decode("utf-8")
               except UnicodeDecodeError as exc:
                   raise SystemExit(f"non-UTF-8 tracked text: {name}: {exc}") from exc
-          print(f"checked {len(tracked)} tracked UTF-8/LF files")
+              if data and not data.endswith(b"\n"):
+                  raise SystemExit(f"missing final newline: {name}")
+              for line_number, line in enumerate(data.split(b"\n"), start=1):
+                  if line.endswith((b" ", b"\t")):
+                      raise SystemExit(f"trailing whitespace: {name}:{line_number}")
+          print(f"checked {len(tracked)} tracked UTF-8/LF/no-BOM files and whitespace")
           PY
 
-  # Enable package compilation, tests, docs and cargo-deny when the first
-  # Cargo package is registered. Keeping this job explicit prevents an empty
-  # workspace from pretending that game code already exists.
+  # This implementation template is skipped for the empty workspace.
+  # At first package registration, complete CONTRIBUTING.md's acceptance:
+  # install/run dependency audit and applicable coverage/benchmarks, and
+  # validate the effective target/feature matrix. The template is not that proof.
   implementation:
     needs: structure
     if: ${{ needs.structure.outputs.has_packages == 'true' }}
@@ -84,12 +90,12 @@ jobs:
           toolchain: 1.99.0
           components: rustfmt, clippy
       - name: Check
-        run: cargo check --workspace --all-targets
+        run: cargo check --workspace --all-targets --locked
       - name: Format
         run: cargo fmt --all -- --check
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Documentation
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --workspace --no-deps --locked

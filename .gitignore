@@ -31,4 +31,4 @@ Thumbs.db
 Desktop.ini
 
 # Cargo.lock is intentionally NOT ignored. Generate and commit it when the
-# first executable/tool package is introduced; the empty workspace has none.
+# first Cargo package is introduced; the empty workspace has none.
