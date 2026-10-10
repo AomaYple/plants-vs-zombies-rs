@@ -10,6 +10,9 @@
 | --- | --- |
 | [README.md](README.md)、[路线图](docs/roadmap.md) | 当前阶段、项目目标与交付顺序 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 工具链、命名、中文提交、验证命令与贡献流程 |
+| [项目原则](docs/principles/README.md) | 工程原则与游戏开发原则的分类入口 |
+| [工程原则](docs/principles/engineering.md) | Rust、测试、覆盖率、性能、卫生、Git 与交付规则 |
+| [游戏开发原则](docs/principles/game-development.md) | 重写边界、运行时分层、确定性、资源、渲染与平台规则 |
 | [架构](docs/architecture/README.md) | 模块职责、依赖方向与数据流 |
 | [行为基线](docs/behavior/reference-baseline.md) | 已核对事实与尚待测量的行为 |
 | [测试策略](docs/testing/README.md)、[性能策略](docs/performance/README.md) | 测试边界、覆盖率与可重复基准 |
@@ -20,7 +23,9 @@
 - 阶段状态以 README、路线图及实际 workspace 成员为依据。进入 Rust 实现必须得到用户明确授权；文档与结构任务不得自行扩展为游戏源码或可执行工具。
 - 工具链和 lint 以 `rust-toolchain.toml`、`Cargo.toml` 为准；CI 的实际行为以 `.github/workflows/ci.yml` 为准。计划中的功能、工具和平台不视为已可用。
 
-## 实现边界
+## 游戏开发边界
+
+详细规则见 [游戏开发原则](docs/principles/game-development.md)；本节保留代理必须快速掌握的硬约束。
 
 - 跨平台支持目标包含 Windows、macOS、Linux、Web、Android 和 iOS。桌面与 Web 先行、移动端随后接入；平台相关接口与依赖选择必须考虑全部六个平台，实际支持状态以各平台验收证据为准。
 - 遵守架构依赖方向。`pvz-data` 只提供数据与校验；`pvz-core` 不依赖 Macroquad、资源解析、操作系统 I/O、设备输入、音频、资产路径或墙钟时间。
@@ -29,7 +34,9 @@
 - 2K/4K 保持逻辑坐标与碰撞盒，正常模式在实际视口分辨率绘制；输入先反变换到逻辑坐标，高清资源只改变表现。
 - 原版资源、截图、录像及衍生包只留在仓库外或忽略目录，不进入 Git、CI 或发行包。公开夹具必须原创且注明来源；MIT 只覆盖本项目原创内容。
 
-## 质量硬约束
+## 工程质量硬约束
+
+详细规则见 [工程原则](docs/principles/engineering.md)；本节保留代理必须快速掌握的硬约束。
 
 - 可读文本统一 UTF-8、LF、无 BOM；二进制保持原始格式。提交前实际检查编码、换行和 BOM。
 - 正确性第一，速度第二。为行为、边界与错误处理提供有意义的测试；默认并行，先隔离共享状态，确需串行时只限定相关测试并说明原因。

@@ -25,6 +25,9 @@ An unofficial, independent Rust reimplementation using Macroquad. Original game 
 
 - [完整设计](docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md)
 - [近期实施计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md)
+- [项目原则](docs/principles/README.md)
+- [工程原则](docs/principles/engineering.md)
+- [游戏开发原则](docs/principles/game-development.md)
 - [全项目路线图](docs/roadmap.md)
 - [模块与依赖边界](docs/architecture/README.md)
 - [参考版本核对记录](docs/behavior/reference-baseline.md)
