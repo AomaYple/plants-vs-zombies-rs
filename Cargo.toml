@@ -1,8 +1,7 @@
 [workspace]
 resolver = "3"
-# 当前仓库包含文档、参考资源和预留目录。
-# package 的 Cargo.toml 和源码入口均存在时，再在此注册。
-members = []
+# 当前已注册首个数据 package；其余 package 按实施计划逐项注册。
+members = ["crates/pvz-data"]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,9 +11,13 @@ license = "MIT"
 authors = ["plants-vs-zombies-rs 贡献者"]
 publish = false
 
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
 [workspace.metadata.project]
 name = "plants-vs-zombies-rs"
-stage = "documentation-structure-and-reference-assets"
+stage = "rust-foundation-and-reference-assets"
 design = "docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md"
 plan = "docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md"
 

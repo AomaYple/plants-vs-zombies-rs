@@ -1,12 +1,12 @@
 # 基础设施、资源审计与首个可玩切片实施计划
 
-> 当前为文档、结构与参考资源阶段。版本化资源已导入，2026-10-10 同步资源方案。用户明确授权实现后再逐项执行，每项任务独立验收；具体代理工具由执行环境与适用指令决定。
+> 当前已进入 Rust 基础设施实现阶段。版本化资源已导入，2026-10-10 同步资源方案。每项任务独立验收；具体代理工具由执行环境与适用指令决定。
 
 **目标：** 建立包含版本化参考资源的 Rust workspace、资源审计与解析基础、跨平台表现探针和首个白天可玩切片，完成相应行为、覆盖率与性能证据复核；原版程序和临时派生产物不进入公开交付。
 
 **架构：** 按任务依次注册 `pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app`，每次只交付一个可验证边界。core 只依赖数据/纯逻辑；assets 解析资源为 CPU 模型；app 以 Macroquad 装配仓库资源；CLI 按仓库清单检查资源，转换输出与输入分离。
 
-**技术栈：** Rust 1.99.0、Edition 2024、Cargo resolver 3、Macroquad、Serde/JSON 或 RON（选定时记录）、quick-xml 或等价 XML 解析库（选定时记录）、Cargo test、rustfmt、Clippy、cargo-deny、GitHub Actions。
+**技术栈：** Rust 1.99.0、Edition 2024、Cargo resolver 3、Macroquad、Serde + JSON（已用于 `pvz-data` schema 合同）、quick-xml 或等价 XML 解析库（选定时记录）、Cargo test、rustfmt、Clippy、cargo-deny、GitHub Actions。
 
 **设计文档：** `docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md`
 
@@ -42,12 +42,12 @@
 - 提供 `AssetId`、`PlantId`、`ZombieId`、`LevelId`、`RulesVersion`、`ReferenceBaselineId`。
 - 只提供版本化的纯数据类型，不包含文件或引擎 API。
 
-- [ ] 注册最小 package 和测试入口，继承 workspace lint，生成 `Cargo.lock`，并启用适用的实现 CI 与依赖审计。
-- [ ] 添加测试，对小型原创夹具进行序列化/反序列化，并拒绝不支持的模型版本。
-- [ ] 运行 `cargo test -p pvz-data --locked`，确认失败指向预期的 API 或行为缺口。
-- [ ] 添加最小的强类型 ID 和显式版本新类型，实现夹具合同。
-- [ ] 运行 `cargo fmt --all -- --check`、`cargo test -p pvz-data --locked` 和 `cargo clippy -p pvz-data --all-targets --locked -- -D warnings`，完成全部适用的提交检查。
-- [ ] 提交 `feat(data): 添加版本化领域标识符`。
+- [x] 注册最小 package 和测试入口，继承 workspace lint，生成 `Cargo.lock`，并启用适用的实现 CI 与依赖审计。
+- [x] 添加测试，对小型原创夹具进行序列化/反序列化，并拒绝不支持的模型版本。
+- [x] 运行 `cargo test -p pvz-data --locked`，确认失败先指向缺少库入口，随后由实现补齐合同。
+- [x] 添加最小的强类型 ID 和显式版本新类型，实现夹具合同。
+- [x] 运行 `cargo fmt --all -- --check`、`cargo test -p pvz-data --locked` 和 `cargo clippy -p pvz-data --all-targets --locked -- -D warnings`，完成全部适用的提交检查。
+- [x] 提交 `feat(data): 添加版本化领域标识符`。
 
 ### 任务 2：注册纯模拟 package
 

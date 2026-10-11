@@ -5,8 +5,8 @@
 
 ## 当前状态
 
-仓库处于 **文档、结构与参考资源阶段**：设计、实施计划、Git 配置和预留目录已经建立；3,228 个解包资源及对应 `main.pak` 已放入 `assets/original/` 并登记清单。没有 Rust 源码、可运行游戏或已注册的 Cargo package。
-根 Cargo.toml 是成员列表为空的虚拟 workspace。不要将目录存在或 CI 结构检查通过理解为游戏已经可构建、可运行。
+仓库已进入 **Rust 基础设施实现阶段**：设计、实施计划、Git 配置和版本化参考资源已经建立，`pvz-data` 已注册为第一个 Cargo package。当前只提供版本化领域标识符和 schema 合同，没有可运行游戏或已验收的跨平台窗口。
+`pvz-data` 不读取文件、不访问资源，也不依赖引擎或平台 API；后续 package 按实施计划逐项注册并独立验收。
 
 ## 已确定的路线
 
@@ -34,7 +34,7 @@
 ## 目录
 
 ```text
-crates/            pvz-core、pvz-data、pvz-assets、pvz-app 的预留目录
+crates/            pvz-core、pvz-data、pvz-assets、pvz-app
 tools/             pvz-asset-tool 的预留目录
 assets/            版本化的原版参考资源与清单
 tests/             自制测试夹具与回放的约定
@@ -47,15 +47,18 @@ docs/              设计、计划、行为证据和技术决策
 使用 Rust 2024 Edition、Cargo resolver 3，工具链固定为 1.99.0，包含 rustfmt 与 Clippy。
 项目尚未宣布支持更早的最低 Rust 版本。
 
-当前可以验证 workspace 元数据：
+当前可以验证 workspace 元数据和 `pvz-data`：
 
 ```sh
 cargo metadata --no-deps --format-version 1
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo fmt --all -- --check
 git diff --check
 ```
 
-第一个 package 注册后再生成并提交 Cargo.lock，同时启用格式、检查、测试、Clippy、文档构建及依赖审计。
-具体任务见实施计划，完整验收命令见贡献指南；当前没有可用的 cargo run 命令。
+已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
+具体任务见实施计划，完整验收命令见贡献指南；当前仍没有可用的游戏 `cargo run` 命令。
 
 ## 原版资源与许可
 

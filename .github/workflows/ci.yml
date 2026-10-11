@@ -141,10 +141,6 @@ jobs:
           print(f"已检查 {len(tracked)} 个跟踪文件；清单覆盖 {len(allowed_assets)} 个参考资源")
           PY
 
-  # 空 workspace 跳过此实现检查模板。
-  # 注册首个 package 时，完成 CONTRIBUTING.md 中的验收：
-  # 安装并运行依赖审计、适用的覆盖率与基准检查，验证有效 target/feature 矩阵。
-  # 模板存在不代表已经完成这些验收。
   implementation:
     needs: structure
     if: ${{ needs.structure.outputs.has_packages == 'true' }}
@@ -169,3 +165,12 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: 构建文档
         run: cargo doc --workspace --no-deps --locked
+
+  dependency-audit:
+    needs: structure
+    if: ${{ needs.structure.outputs.has_packages == 'true' }}
+    name: 依赖审计
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
