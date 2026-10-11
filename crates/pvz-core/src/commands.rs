@@ -6,12 +6,3 @@ pub enum Command {
     /// 消耗阳光。
     SpendSun { amount: u32 },
 }
-
-impl Command {
-    pub(crate) const fn sort_key(&self) -> (u8, u32) {
-        match self {
-            Self::AddSun { amount } => (0, *amount),
-            Self::SpendSun { amount } => (1, *amount),
-        }
-    }
-}

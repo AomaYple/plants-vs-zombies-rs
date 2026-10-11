@@ -431,6 +431,7 @@ name = "pvz-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "oorandom",
  "pvz-data",
 ]
 

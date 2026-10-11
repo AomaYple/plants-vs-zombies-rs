@@ -1,28 +1,28 @@
-/// 不依赖系统时间的确定性伪随机数发生器。
+use oorandom::Rand64;
+
+/// 使用显式 seed、无系统熵的开发阶段随机数领域包装。
+///
+/// 固定使用 `oorandom 11.1.5` 的 `Rand64` 合同，不代表原版随机算法。
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DeterministicRng {
-    state: u64,
+    inner: Rand64,
 }
 
 impl DeterministicRng {
     /// 使用显式种子创建发生器。
-    pub const fn new(seed: u64) -> Self {
-        Self { state: seed }
+    pub fn new(seed: u64) -> Self {
+        Self {
+            inner: Rand64::new(u128::from(seed)),
+        }
     }
 
     /// 返回下一项确定性 `u64`，算法属于模拟合同的一部分。
     pub fn next_u64(&mut self) -> u64 {
-        if self.state == 0 {
-            self.state = 0x9e37_79b9_7f4a_7c15;
-        }
-        self.state ^= self.state >> 12;
-        self.state ^= self.state << 25;
-        self.state ^= self.state >> 27;
-        self.state.wrapping_mul(2_685_821_657_736_338_717)
+        self.inner.rand_u64()
     }
 
     /// 返回当前内部状态，用于状态摘要和回放核对。
-    pub const fn state(self) -> u64 {
-        self.state
+    pub fn state(&self) -> (u128, u128) {
+        self.inner.state()
     }
 }

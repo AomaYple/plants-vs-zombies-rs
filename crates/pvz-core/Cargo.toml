@@ -9,6 +9,7 @@ authors.workspace = true
 publish.workspace = true
 
 [dependencies]
+oorandom.workspace = true
 pvz-data = { path = "../pvz-data", version = "0.1.0" }
 
 [dev-dependencies]
