@@ -152,6 +152,8 @@ cargo bench --workspace --locked
 
 按 [跨平台目标](docs/principles/game-development.md#跨平台目标)检查相关平台与有效 feature 组合。涉及 app、存档、音频或生命周期时增加构建与最小运行检查；记录系统/浏览器、工具链、目标、命令、结果、限制与未验证项，Web 构建不包含宿主 CLI。
 
+宿主资源测试的临时夹具须满足目录及祖先无符号链接的合同；macOS 默认临时目录可能经过系统链接，本机测试时将 `TMPDIR` 指向真实临时目录。CI 在 macOS 上将 `$RUNNER_TEMP` 解析为真实路径后设置 `TMPDIR`，各测试仍各自创建临时子目录并默认并行。
+
 规则还原及视口相关变更，按 [游戏开发原则](docs/principles/game-development.md)、行为基线和架构合同验收。构建、实际运行、截图检查和原版行为比对分别记录，参考截图及录像留在本机忽略目录。
 
 ## 提交、推送与评审

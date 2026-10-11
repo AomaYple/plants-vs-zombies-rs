@@ -193,6 +193,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: 设置 macOS 测试临时目录
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # macOS 默认临时目录经过系统符号链接；资源测试使用 runner 的真实临时目录。
+          test_temp="$(cd "$RUNNER_TEMP" && pwd -P)"
+          printf 'TMPDIR=%s\n' "$test_temp" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.0
