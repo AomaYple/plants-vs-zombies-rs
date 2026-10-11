@@ -292,7 +292,11 @@ fn main() -> ExitCode {
         }
         Err(_) => {
             // clap 默认参数错误会回显用户输入；统一诊断避免泄露传入的绝对路径。
-            eprintln!("[arguments_invalid] 命令参数无效，请运行 pvz-asset-tool --help 查看用法");
+            // 诊断管道可能已关闭；输出失败不能把既定退出码改成 panic。
+            let _ = writeln!(
+                io::stderr().lock(),
+                "[arguments_invalid] 命令参数无效，请运行 pvz-asset-tool --help 查看用法"
+            );
             return ExitCode::from(2);
         }
     };
@@ -303,7 +307,12 @@ fn main() -> ExitCode {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::from(1),
         Err(failure) => {
-            eprintln!("[{}] {}", failure.code, failure.message);
+            let _ = writeln!(
+                io::stderr().lock(),
+                "[{}] {}",
+                failure.code,
+                failure.message
+            );
             ExitCode::from(1)
         }
     }

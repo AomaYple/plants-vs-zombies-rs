@@ -137,6 +137,22 @@ impl PlatformInput {
                     };
                     self.cursor.map(|position| (u64::MAX, phase, position))
                 }
+                WindowEvent::KeyboardInput(event)
+                    if event.window == window
+                        && self.focused
+                        && event.state == ButtonState::Pressed
+                        && !event.repeat =>
+                {
+                    let control = match event.key_code {
+                        KeyCode::KeyP | KeyCode::Space => Some(InputEvent::TogglePause),
+                        KeyCode::KeyR => Some(InputEvent::Restart),
+                        KeyCode::KeyE => Some(InputEvent::PlayEffect),
+                        KeyCode::KeyM => Some(InputEvent::ToggleMusic),
+                        _ => None,
+                    };
+                    events.extend(control);
+                    None
+                }
                 WindowEvent::TouchInput(event) if event.window == window && self.focused => {
                     let phase = match event.phase {
                         TouchPhase::Started => PointerPhase::Down,

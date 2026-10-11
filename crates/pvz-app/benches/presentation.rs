@@ -8,15 +8,18 @@ use pvz_assets::AnimationFrame;
 use std::hint::black_box;
 
 fn presentation(c: &mut Criterion) {
-    c.bench_function("表现/4K视口输入映射", |b| {
-        let viewport = Viewport::fit((3840.0, 2160.0), (800.0, 600.0));
-        b.iter(|| {
-            viewport.to_logical(black_box(LogicalPoint {
-                x: 1920.0,
-                y: 1080.0,
-            }))
-        })
-    });
+    c.bench_function(
+        "表现/800x600逻辑视口合同-3840x2160输入1点",
+        |b| {
+            let viewport = Viewport::fit((3840.0, 2160.0), (800.0, 600.0));
+            b.iter(|| {
+                viewport.to_logical(black_box(LogicalPoint {
+                    x: 1920.0,
+                    y: 1080.0,
+                }))
+            })
+        },
+    );
     let frame = AnimationFrame {
         x: Some(740.0),
         y: Some(455.0),
@@ -24,18 +27,21 @@ fn presentation(c: &mut Criterion) {
         ky: Some(-10.0),
         ..Default::default()
     };
-    c.bench_function("表现/双轴仿射与边界裁剪", |b| {
-        b.iter(|| {
-            clipped_quad(
-                Affine::from_frame(black_box(&frame)),
-                [100.0, 90.0],
-                ClipRect {
-                    min: [0.0, 0.0],
-                    max: [800.0, 600.0],
-                },
-            )
-        })
-    });
+    c.bench_function(
+        "表现/双轴角度合同-1四边形100x90-800x600裁剪",
+        |b| {
+            b.iter(|| {
+                clipped_quad(
+                    Affine::from_frame(black_box(&frame)),
+                    [100.0, 90.0],
+                    ClipRect {
+                        min: [0.0, 0.0],
+                        max: [800.0, 600.0],
+                    },
+                )
+            })
+        },
+    );
     // 原创基准夹具：8 轨道、每轨道 128 帧，含 marker 与稀疏图片轨道。
     // 构造和解析不计入索引基准，不读取或嵌入原版资源。
     let mut source = String::from("<fps>12</fps><track><name>anim_benchmark</name>");

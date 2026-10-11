@@ -10,6 +10,10 @@ pub enum InputEvent {
     PointerCancel { id: u64 },
     Pause,
     Resume,
+    TogglePause,
+    Restart,
+    PlayEffect,
+    ToggleMusic,
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PointerPhase {
