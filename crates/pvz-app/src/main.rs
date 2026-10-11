@@ -3,14 +3,14 @@ mod render;
 use bevy::{
     app::AppExit,
     audio::{AudioSinkPlayback, Volume},
-    input::touch::Touches,
     prelude::*,
     tasks::{IoTaskPool, Task, futures::check_ready},
-    window::PrimaryWindow,
+    window::{PrimaryWindow, WindowEvent},
     winit::WinitSettings,
 };
 use pvz_app::{
-    input::{InputAdapter, InputEvent, PointerPhase},
+    input::InputEvent,
+    platform_input::PlatformInput,
     resources::{LoadedResources, ResourceError},
     runtime::Runtime,
     viewport::{LogicalPoint, Viewport},
@@ -36,7 +36,7 @@ struct Options {
 struct AppState {
     options: Options,
     runtime: Runtime,
-    input: InputAdapter,
+    input: PlatformInput,
     pointer: Option<LogicalPoint>,
     camera: Entity,
     status: Entity,
@@ -49,7 +49,6 @@ struct AppState {
     music: Option<Handle<AudioSource>>,
     music_entity: Option<Entity>,
     last_view: (u32, u32, f32),
-    was_focused: bool,
     screenshot_requested: bool,
     loading_started: f64,
     paused_audio_position: Option<std::time::Duration>,
@@ -117,7 +116,7 @@ fn initialize(world: &mut World, options: Options) {
     world.insert_resource(AppState {
         options,
         runtime: Runtime::default(),
-        input: InputAdapter::default(),
+        input: PlatformInput::default(),
         pointer: None,
         camera,
         status,
@@ -130,7 +129,6 @@ fn initialize(world: &mut World, options: Options) {
         music: None,
         music_entity: None,
         last_view: (0, 0, 0.0),
-        was_focused: true,
         screenshot_requested: false,
         loading_started,
         paused_audio_position: None,
@@ -257,40 +255,23 @@ fn keyboard_audio(world: &mut World, state: &mut AppState, pause: bool, effect: 
 fn update(world: &mut World) {
     world.resource_scope(|world, mut state: Mut<AppState>| {
         poll_resources(world, &mut state);
-        let mut window_query = world.query_filtered::<&Window, With<PrimaryWindow>>();
-        let Ok(window) = window_query.single(world) else { return; };
+        let mut window_query = world.query_filtered::<(Entity, &Window), With<PrimaryWindow>>();
+        let Ok((window_entity, window)) = window_query.single(world) else { return; };
         let size = (window.physical_width(), window.physical_height());
         let dpi = window.scale_factor();
-        let focused = window.focused;
-        let cursor = window.cursor_position();
         let view = Viewport::fit((size.0 as f32, size.1 as f32), render::LOGICAL_SIZE);
         if state.last_view != (size.0, size.1, dpi) {
             println!("视口探针：模式={} framebuffer={}×{} DPI={dpi:.3} 比例={:.3} 偏移=({:.1},{:.1}) 中心映射={:?}", if state.options.probe { "原创占位" } else { "登记资源" }, size.0, size.1, view.scale, view.offset.x, view.offset.y, view.to_logical(LogicalPoint { x: size.0 as f32 / 2.0, y: size.1 as f32 / 2.0 }));
             render::update_viewport(world, state.camera, view);
-            for event in state.input.cancel_all() { apply_input(&mut state, event); }
             state.last_view = (size.0, size.1, dpi);
         }
-        if state.was_focused && !focused {
-            for event in state.input.cancel_all() { apply_input(&mut state, event); }
-        }
-        state.was_focused = focused;
         let keyboard = world.resource::<ButtonInput<KeyCode>>();
         let pause = keyboard.just_pressed(KeyCode::KeyP) || keyboard.just_pressed(KeyCode::Space);
         let effect = keyboard.just_pressed(KeyCode::KeyE);
         let music = keyboard.just_pressed(KeyCode::KeyM);
         keyboard_audio(world, &mut state, pause, effect, music);
-        if let Some(cursor) = cursor {
-            let mouse = world.resource::<ButtonInput<MouseButton>>();
-            let phase = if mouse.just_pressed(MouseButton::Left) { PointerPhase::Down } else if mouse.just_released(MouseButton::Left) { PointerPhase::Up } else { PointerPhase::Move };
-            if let Some(event) = state.input.pointer(view, dpi, u64::MAX, phase, LogicalPoint { x: cursor.x, y: cursor.y }) { apply_input(&mut state, event); }
-        } else {
-            if let Some(event) = state.input.pointer(view, dpi, u64::MAX, PointerPhase::Cancel, LogicalPoint { x: f32::NAN, y: f32::NAN }) { apply_input(&mut state, event); }
-        }
-        let touches = world.resource::<Touches>();
-        let touch_events = touches.iter().map(|t| (t.id(), if touches.just_pressed(t.id()) { PointerPhase::Down } else { PointerPhase::Move }, t.position())).chain(touches.iter_just_released().map(|t| (t.id(), PointerPhase::Up, t.position()))).chain(touches.iter_just_canceled().map(|t| (t.id(), PointerPhase::Cancel, t.position()))).collect::<Vec<_>>();
-        for (id, phase, position) in touch_events {
-            if let Some(event) = state.input.pointer(view, dpi, id, phase, LogicalPoint { x: position.x, y: position.y }) { apply_input(&mut state, event); }
-        }
+        let events = state.input.read(window_entity, view, dpi, world.resource::<Messages<WindowEvent>>());
+        for event in events { apply_input(&mut state, event); }
         if state.ready { state.runtime.advance(world.resource::<Time<Real>>().delta_secs_f64()); }
         audio_smoke(world, &mut state);
         if let Some(scene) = &state.scene { scene.update(world, state.runtime.animation_seconds); }

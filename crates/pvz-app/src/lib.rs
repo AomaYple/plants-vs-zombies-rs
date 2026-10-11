@@ -3,6 +3,7 @@ pub mod animation;
 pub mod audio;
 pub mod geometry;
 pub mod input;
+pub mod platform_input;
 pub mod resources;
 pub mod runtime;
 pub mod viewport;
