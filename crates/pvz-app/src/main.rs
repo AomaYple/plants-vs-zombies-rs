@@ -270,7 +270,7 @@ fn update(world: &mut World) {
         let effect = keyboard.just_pressed(KeyCode::KeyE);
         let music = keyboard.just_pressed(KeyCode::KeyM);
         keyboard_audio(world, &mut state, pause, effect, music);
-        let events = state.input.read(window_entity, view, dpi, world.resource::<Messages<WindowEvent>>());
+        let events = state.input.read(window_entity, size, dpi, render::LOGICAL_SIZE, world.resource::<Messages<WindowEvent>>());
         for event in events { apply_input(&mut state, event); }
         if state.ready { state.runtime.advance(world.resource::<Time<Real>>().delta_secs_f64()); }
         audio_smoke(world, &mut state);

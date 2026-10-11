@@ -10,17 +10,13 @@ use bevy::{
         WindowScaleFactorChanged,
     },
 };
-use pvz_app::{
-    input::InputEvent,
-    platform_input::PlatformInput,
-    viewport::{LogicalPoint, Viewport},
-};
+use pvz_app::{input::InputEvent, platform_input::PlatformInput, viewport::LogicalPoint};
 
 struct Harness {
     app: App,
     input: PlatformInput,
     window: Entity,
-    view: Viewport,
+    size: (u32, u32),
     dpi: f32,
 }
 
@@ -33,7 +29,7 @@ impl Harness {
             app,
             input: PlatformInput::default(),
             window,
-            view: Viewport::fit((800.0, 600.0), (800.0, 600.0)),
+            size: (800, 600),
             dpi: 1.0,
         }
     }
@@ -54,8 +50,9 @@ impl Harness {
         self.app.update();
         self.input.read(
             self.window,
-            self.view,
+            self.size,
             self.dpi,
+            (800.0, 600.0),
             self.app.world().resource::<Messages<WindowEvent>>(),
         )
     }
@@ -271,7 +268,7 @@ fn 其他窗口相同指针编号与取消消息不影响主窗口() {
 #[test]
 fn 窗口逻辑像素只应用一次dpi并映射留边() {
     let mut harness = Harness::new();
-    harness.view = Viewport::fit((1920.0, 1080.0), (800.0, 600.0));
+    harness.size = (1920, 1080);
     harness.dpi = 2.0;
     let window = harness.window;
     let position = Vec2::new(480.0, 270.0);
@@ -393,38 +390,41 @@ fn 同批失焦按消息位置取消并在重新聚焦后接受输入() {
 
 #[test]
 fn 同批视口消息与跨帧视口变化都结束捕获() {
-    let mut harness = Harness::new();
-    let window = harness.window;
-    for change in [
-        WindowEvent::WindowResized(WindowResized {
-            window,
-            width: 1000.0,
-            height: 750.0,
-        }),
-        WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
-            window,
-            scale_factor: 2.0,
-        }),
-    ] {
-        let events = [
-            harness.touch(TouchPhase::Started),
-            change,
-            harness.touch(TouchPhase::Ended),
-        ];
+    for resize in [true, false] {
+        let mut harness = Harness::new();
+        let window = harness.window;
+        let start = harness.touch(TouchPhase::Started);
         assert_eq!(
-            harness.batch(events),
-            [
-                InputEvent::PointerDown {
-                    id: 7,
-                    point: point()
-                },
-                InputEvent::PointerCancel { id: 7 }
-            ]
+            harness.batch([start]),
+            [InputEvent::PointerDown {
+                id: 7,
+                point: point()
+            }]
+        );
+        let change = if resize {
+            harness.size = (1000, 750);
+            WindowEvent::WindowResized(WindowResized {
+                window,
+                width: 1000.0,
+                height: 750.0,
+            })
+        } else {
+            harness.dpi = 2.0;
+            WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
+                window,
+                scale_factor: 2.0,
+            })
+        };
+        let end = harness.touch(TouchPhase::Ended);
+        assert_eq!(
+            harness.batch([change, end]),
+            [InputEvent::PointerCancel { id: 7 }]
         );
     }
+    let mut harness = Harness::new();
     let start = harness.touch(TouchPhase::Started);
     harness.batch([start]);
-    harness.view = Viewport::fit((1000.0, 750.0), (800.0, 600.0));
+    harness.size = (1000, 750);
     assert_eq!(harness.batch([]), [InputEvent::PointerCancel { id: 7 }]);
     let end = harness.touch(TouchPhase::Ended);
     assert!(harness.batch([end]).is_empty());
@@ -446,7 +446,7 @@ fn 帧末视口快照不提前吞掉尺寸消息前的松开() {
     let window = harness.window;
     let start = harness.touch(TouchPhase::Started);
     harness.batch([start]);
-    harness.view = Viewport::fit((1000.0, 750.0), (800.0, 600.0));
+    harness.size = (1000, 750);
     let events = [
         harness.touch(TouchPhase::Ended),
         WindowEvent::WindowResized(WindowResized {
@@ -543,4 +543,289 @@ fn 鼠标按钮使用消息位置处的光标而非帧末坐标() {
             },
         ]
     );
+}
+
+#[test]
+fn 同批两次尺寸变化之间输入使用当前消息尺寸() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    harness.batch([]);
+    harness.size = (1600, 1200);
+    let events = [
+        WindowEvent::WindowResized(WindowResized {
+            window,
+            width: 1000.0,
+            height: 750.0,
+        }),
+        touch(window, 7, TouchPhase::Started, Vec2::new(125.0, 250.0)),
+        touch(window, 7, TouchPhase::Ended, Vec2::new(125.0, 250.0)),
+        WindowEvent::WindowResized(WindowResized {
+            window,
+            width: 1600.0,
+            height: 1200.0,
+        }),
+        touch(window, 7, TouchPhase::Started, Vec2::new(200.0, 400.0)),
+        touch(window, 7, TouchPhase::Ended, Vec2::new(200.0, 400.0)),
+    ];
+    assert_eq!(
+        harness.batch(events),
+        [
+            InputEvent::PointerDown {
+                id: 7,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: 7,
+                point: point()
+            },
+            InputEvent::PointerDown {
+                id: 7,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: 7,
+                point: point()
+            },
+        ]
+    );
+}
+
+#[test]
+fn 同批两次dpi变化之间输入使用当前有效比例() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    harness.batch([]);
+    // Bevy 改有效 DPI 时先保持物理分辨率；逻辑窗口尺寸随比例变化。
+    harness.dpi = 4.0;
+    let events = [
+        WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
+            window,
+            scale_factor: 2.0,
+        }),
+        touch(window, 7, TouchPhase::Started, Vec2::new(50.0, 100.0)),
+        touch(window, 7, TouchPhase::Ended, Vec2::new(50.0, 100.0)),
+        WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
+            window,
+            scale_factor: 4.0,
+        }),
+        touch(window, 7, TouchPhase::Started, Vec2::new(25.0, 50.0)),
+        touch(window, 7, TouchPhase::Ended, Vec2::new(25.0, 50.0)),
+    ];
+    assert_eq!(
+        harness.batch(events),
+        [
+            InputEvent::PointerDown {
+                id: 7,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: 7,
+                point: point()
+            },
+            InputEvent::PointerDown {
+                id: 7,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: 7,
+                point: point()
+            },
+        ]
+    );
+}
+
+#[test]
+fn 混合尺寸dpi消息逐阶段推进并保留下一批状态() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    harness.batch([]);
+    harness.size = (1600, 1200);
+    harness.dpi = 4.0;
+    let events = [
+        WindowEvent::WindowResized(WindowResized {
+            window,
+            width: 1000.0,
+            height: 750.0,
+        }),
+        touch(window, 1, TouchPhase::Started, Vec2::new(125.0, 250.0)),
+        WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
+            window,
+            scale_factor: 2.0,
+        }),
+        touch(window, 1, TouchPhase::Ended, Vec2::new(62.5, 125.0)),
+        touch(window, 2, TouchPhase::Started, Vec2::new(62.5, 125.0)),
+        touch(window, 2, TouchPhase::Ended, Vec2::new(62.5, 125.0)),
+        WindowEvent::WindowResized(WindowResized {
+            window,
+            width: 800.0,
+            height: 600.0,
+        }),
+        touch(window, 3, TouchPhase::Started, Vec2::new(100.0, 200.0)),
+        touch(window, 3, TouchPhase::Canceled, Vec2::new(100.0, 200.0)),
+        WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
+            window,
+            scale_factor: 4.0,
+        }),
+        touch(window, 4, TouchPhase::Started, Vec2::new(50.0, 100.0)),
+        touch(window, 4, TouchPhase::Ended, Vec2::new(50.0, 100.0)),
+    ];
+    assert_eq!(
+        harness.batch(events),
+        [
+            InputEvent::PointerDown {
+                id: 1,
+                point: point()
+            },
+            InputEvent::PointerCancel { id: 1 },
+            InputEvent::PointerDown {
+                id: 2,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: 2,
+                point: point()
+            },
+            InputEvent::PointerDown {
+                id: 3,
+                point: point()
+            },
+            InputEvent::PointerCancel { id: 3 },
+            InputEvent::PointerDown {
+                id: 4,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: 4,
+                point: point()
+            },
+        ]
+    );
+    let events = [
+        touch(window, 5, TouchPhase::Started, Vec2::new(50.0, 100.0)),
+        touch(window, 5, TouchPhase::Ended, Vec2::new(50.0, 100.0)),
+    ];
+    assert_eq!(
+        harness.batch(events),
+        [
+            InputEvent::PointerDown {
+                id: 5,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: 5,
+                point: point()
+            }
+        ]
+    );
+}
+
+#[test]
+fn 多次dpi变化时未移动光标保持同一物理位置() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    harness.batch([cursor(window, Vec2::new(100.0, 200.0))]);
+    harness.dpi = 4.0;
+    let events = [
+        WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
+            window,
+            scale_factor: 2.0,
+        }),
+        harness.mouse(ButtonState::Pressed),
+        harness.mouse(ButtonState::Released),
+        WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
+            window,
+            scale_factor: 4.0,
+        }),
+        harness.mouse(ButtonState::Pressed),
+        harness.mouse(ButtonState::Released),
+    ];
+    assert_eq!(
+        harness.batch(events),
+        [
+            InputEvent::PointerDown {
+                id: u64::MAX,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: u64::MAX,
+                point: point()
+            },
+            InputEvent::PointerDown {
+                id: u64::MAX,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: u64::MAX,
+                point: point()
+            },
+        ]
+    );
+    // 无比例消息的快照同步也保持物理光标，捕获先取消。
+    let start = harness.mouse(ButtonState::Pressed);
+    harness.batch([start]);
+    harness.dpi = 2.0;
+    let events = [
+        harness.mouse(ButtonState::Released),
+        harness.mouse(ButtonState::Pressed),
+        harness.mouse(ButtonState::Released),
+    ];
+    assert_eq!(
+        harness.batch(events),
+        [
+            InputEvent::PointerCancel { id: u64::MAX },
+            InputEvent::PointerDown {
+                id: u64::MAX,
+                point: point()
+            },
+            InputEvent::PointerUp {
+                id: u64::MAX,
+                point: point()
+            },
+        ]
+    );
+}
+
+#[test]
+fn 无对应消息的尺寸或dpi字段独立同步窗口快照() {
+    for resize in [true, false] {
+        let mut harness = Harness::new();
+        let window = harness.window;
+        harness.batch([cursor(window, Vec2::new(100.0, 200.0))]);
+        harness.size = (1600, 1200);
+        harness.dpi = 2.0;
+        let change = if resize {
+            // DPI 由快照同步；resize 的逻辑尺寸按新 DPI 恢复物理尺寸。
+            WindowEvent::WindowResized(WindowResized {
+                window,
+                width: 800.0,
+                height: 600.0,
+            })
+        } else {
+            // 物理尺寸由快照同步；DPI 仍只在消息位置更新。
+            WindowEvent::WindowScaleFactorChanged(WindowScaleFactorChanged {
+                window,
+                scale_factor: 2.0,
+            })
+        };
+        let events = [
+            change,
+            harness.mouse(ButtonState::Pressed),
+            harness.mouse(ButtonState::Released),
+        ];
+        let point = LogicalPoint { x: 50.0, y: 100.0 };
+        assert_eq!(
+            harness.batch(events),
+            [
+                InputEvent::PointerDown {
+                    id: u64::MAX,
+                    point
+                },
+                InputEvent::PointerUp {
+                    id: u64::MAX,
+                    point
+                }
+            ]
+        );
+        assert!(harness.batch([]).is_empty());
+    }
 }

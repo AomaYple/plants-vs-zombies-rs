@@ -16,7 +16,7 @@ pub struct PlatformInput {
     input: InputAdapter,
     window: Option<Entity>,
     cursor: Option<Vec2>,
-    view: Option<(Viewport, f32)>,
+    geometry: Option<WindowGeometry>,
     focused: bool,
 }
 
@@ -27,7 +27,7 @@ impl Default for PlatformInput {
             input: InputAdapter::default(),
             window: None,
             cursor: None,
-            view: None,
+            geometry: None,
             focused: true,
         }
     }
@@ -38,8 +38,9 @@ impl PlatformInput {
     pub fn read(
         &mut self,
         window: Entity,
-        view: Viewport,
+        physical_size: (u32, u32),
         dpi: f32,
+        logical_size: (f32, f32),
         messages: &Messages<WindowEvent>,
     ) -> Vec<InputEvent> {
         let mut events = Vec::new();
@@ -47,25 +48,41 @@ impl PlatformInput {
             events.extend(self.input.cancel_all());
             self.window = Some(window);
             self.cursor = None;
-            self.view = None;
+            self.geometry = None;
             self.focused = true;
         }
-        // 有序尺寸消息之前仍用上一批的映射，不能让帧末快照提前取消松开。
+        let snapshot = WindowGeometry { physical_size, dpi };
+        // 尺寸和 DPI 分别由对应消息推进；没有对应消息的字段才同步快照。
         let mut preview = self.reader.clone();
-        let ordered_view_change = preview.read(messages).any(|event| match event {
-            WindowEvent::WindowResized(event) => event.window == window,
-            WindowEvent::WindowScaleFactorChanged(event) => event.window == window,
-            _ => false,
-        });
-        let (mut batch_view, mut batch_dpi) = if ordered_view_change {
-            self.view.unwrap_or((view, dpi))
-        } else {
-            (view, dpi)
+        let (resized, dpi_changed) = preview.read(messages).fold(
+            (false, false),
+            |(resized, dpi_changed), event| match event {
+                WindowEvent::WindowResized(event) if event.window == window => (true, dpi_changed),
+                WindowEvent::WindowScaleFactorChanged(event) if event.window == window => {
+                    (resized, true)
+                }
+                _ => (resized, dpi_changed),
+            },
+        );
+        let mut geometry = self.geometry.unwrap_or(snapshot);
+        let synchronized = WindowGeometry {
+            physical_size: if resized {
+                geometry.physical_size
+            } else {
+                snapshot.physical_size
+            },
+            dpi: if dpi_changed {
+                geometry.dpi
+            } else {
+                snapshot.dpi
+            },
         };
-        if !ordered_view_change && self.view.is_some_and(|previous| previous != (view, dpi)) {
+        if geometry != synchronized {
             events.extend(self.input.cancel_all());
+            rescale_cursor(&mut self.cursor, geometry.dpi, synchronized.dpi);
+            geometry = synchronized;
         }
-        self.view = Some((view, dpi));
+        let mut batch_view = geometry.viewport(logical_size);
         for event in self.reader.read(messages) {
             let pointer = match event {
                 WindowEvent::WindowFocused(event) if event.window == window => {
@@ -77,12 +94,21 @@ impl PlatformInput {
                 }
                 WindowEvent::WindowResized(event) if event.window == window => {
                     events.extend(self.input.cancel_all());
-                    (batch_view, batch_dpi) = (view, dpi);
+                    // Bevy resize 消息是逻辑窗口尺寸；恢复该阶段的物理像素。
+                    geometry.physical_size = (
+                        (event.width * geometry.dpi).round() as u32,
+                        (event.height * geometry.dpi).round() as u32,
+                    );
+                    batch_view = geometry.viewport(logical_size);
                     None
                 }
                 WindowEvent::WindowScaleFactorChanged(event) if event.window == window => {
                     events.extend(self.input.cancel_all());
-                    (batch_view, batch_dpi) = (view, dpi);
+                    // Bevy 只更新有效比例；物理尺寸保持，直到后续 resize。
+                    let new_dpi = event.scale_factor as f32;
+                    rescale_cursor(&mut self.cursor, geometry.dpi, new_dpi);
+                    geometry.dpi = new_dpi;
+                    batch_view = geometry.viewport(logical_size);
                     None
                 }
                 WindowEvent::WindowDestroyed(event) if event.window == window => {
@@ -125,7 +151,7 @@ impl PlatformInput {
             if let Some((id, phase, position)) = pointer
                 && let Some(event) = self.input.pointer(
                     batch_view,
-                    batch_dpi,
+                    geometry.dpi,
                     id,
                     phase,
                     LogicalPoint {
@@ -137,6 +163,30 @@ impl PlatformInput {
                 events.push(event);
             }
         }
+        self.geometry = Some(geometry);
         events
     }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+struct WindowGeometry {
+    physical_size: (u32, u32),
+    dpi: f32,
+}
+
+impl WindowGeometry {
+    fn viewport(self, logical_size: (f32, f32)) -> Viewport {
+        Viewport::fit(
+            (self.physical_size.0 as f32, self.physical_size.1 as f32),
+            logical_size,
+        )
+    }
+}
+
+// DPI 改变不会移动 Bevy 的物理光标；缓存的逻辑点需采用新比例。
+fn rescale_cursor(cursor: &mut Option<Vec2>, old_dpi: f32, new_dpi: f32) {
+    *cursor = cursor.and_then(|point| {
+        (old_dpi.is_finite() && old_dpi > 0.0 && new_dpi.is_finite() && new_dpi > 0.0)
+            .then_some(point * old_dpi / new_dpi)
+    });
 }
