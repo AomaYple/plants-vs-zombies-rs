@@ -11,11 +11,137 @@ use std::{
 pub const BACKGROUND: &str = "images/background1.jpg";
 pub const ANIMATION: &str = "reanim/PeaShooter.reanim";
 pub const EFFECT: &str = "sounds/seedlift.ogg";
+pub const PEA_IMAGE: &str = "images/ProjectilePea.png";
 pub const MUSIC: &str = "sounds/ZombiesOnYourLawn.ogg";
 /// 开发默认播放片段；必须用登记 XML 确认包含整个植物。
 pub const DEVELOPMENT_IDLE_MARKER: &str = "anim_full_idle";
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub enum VisualKind {
+    Sunflower,
+    Peashooter,
+    Zombie,
+    Pea,
+    Sun,
+    LawnMower,
+}
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub enum SoundCue {
+    Plant,
+    Collect,
+    Hit,
+    Mower,
+}
+pub const SOUND_SOURCES: &[(SoundCue, &str)] = &[
+    (SoundCue::Plant, "sounds/plant.ogg"),
+    (SoundCue::Collect, "sounds/points.ogg"),
+    (SoundCue::Hit, "sounds/splat.ogg"),
+    (SoundCue::Mower, "sounds/lawnmower.ogg"),
+];
+/// 从登记XML第44帧选择普通僵尸身体；附件选择是开发构图合同。
+pub const ZOMBIE_TRACKS: &[&str] = &[
+    "anim_innerarm3",
+    "anim_innerarm2",
+    "anim_innerarm1",
+    "Zombie_neck",
+    "anim_head1",
+    "Zombie_innerleg_upper",
+    "Zombie_innerleg_lower",
+    "Zombie_innerleg_foot",
+    "Zombie_outerleg_upper",
+    "Zombie_outerleg_foot",
+    "Zombie_outerleg_lower",
+    "Zombie_body",
+    "Zombie_tie",
+    "anim_head2",
+    "anim_tongue",
+    "Zombie_outerarm_hand",
+    "Zombie_outerarm_upper",
+    "Zombie_outerarm_lower",
+    "anim_hair",
+];
+pub const POSE_SOURCES: &[(VisualKind, &str, usize, &[&str])] = &[
+    (VisualKind::Sunflower, "reanim/SunFlower.reanim", 4, &[]),
+    (
+        VisualKind::Zombie,
+        "reanim/Zombie.reanim",
+        44,
+        ZOMBIE_TRACKS,
+    ),
+    (VisualKind::LawnMower, "reanim/LawnMower.reanim", 0, &[]),
+    (VisualKind::Sun, "reanim/Sun.reanim", 0, &[]),
+];
+/// 静态构图继续使用稀疏继承及源图层顺序，不猜测附件播放器语义。
+pub fn selected_pose(
+    animation: &PreparedAnimation,
+    frame: usize,
+    selected: &[&str],
+) -> Result<Vec<pvz_assets::AnimationFrame>, ResourceError> {
+    if selected
+        .iter()
+        .any(|name| !animation.names.iter().any(|n| n == name))
+    {
+        return Err(error("构图", "指定轨道不存在"));
+    }
+    let pose: Vec<_> = animation
+        .names
+        .iter()
+        .zip(&animation.tracks)
+        .filter(|(name, _)| selected.is_empty() || selected.contains(&name.as_str()))
+        .filter_map(|(_, track)| track.get(frame))
+        .filter(|frame| {
+            !frame.f.is_some_and(|n| n < 0.0) && frame.i.as_ref().is_some_and(|id| !id.is_empty())
+        })
+        .cloned()
+        .collect();
+    if pose.is_empty() {
+        return Err(error("构图", "指定帧没有可绘制图像"));
+    }
+    Ok(pose)
+}
 /// 已逐项核对的开发映射；resources.xml 没有登记 PeaShooter 图像。
 pub const IMAGE_MAPPING: &[(&str, &str)] = &[
+    ("IMAGE_REANIM_LAWNMOWER_BODY", "reanim/LawnMower_body.png"),
+    (
+        "IMAGE_REANIM_LAWNMOWER_BODY_TRICKED",
+        "reanim/LawnMower_body_tricked.png",
+    ),
+    (
+        "IMAGE_REANIM_LAWNMOWER_DICE_TRICKED",
+        "reanim/LawnMower_dice_tricked.png",
+    ),
+    (
+        "IMAGE_REANIM_LAWNMOWER_ENGINE",
+        "reanim/LawnMower_engine.png",
+    ),
+    (
+        "IMAGE_REANIM_LAWNMOWER_ENGINE_TRICKED",
+        "reanim/LawnMower_engine_tricked.png",
+    ),
+    (
+        "IMAGE_REANIM_LAWNMOWER_EXHAUST",
+        "reanim/LawnMower_exhaust.png",
+    ),
+    (
+        "IMAGE_REANIM_LAWNMOWER_EXHAUST_TRICKED",
+        "reanim/LawnMower_exhaust_tricked.png",
+    ),
+    ("IMAGE_REANIM_LAWNMOWER_PULL", "reanim/LawnMower_pull.png"),
+    (
+        "IMAGE_REANIM_LAWNMOWER_WHEEL1",
+        "reanim/LawnMower_wheel1.png",
+    ),
+    (
+        "IMAGE_REANIM_LAWNMOWER_WHEEL2",
+        "reanim/LawnMower_wheel2.png",
+    ),
+    (
+        "IMAGE_REANIM_LAWNMOWER_WHEELPIECE",
+        "reanim/LawnMower_wheelpiece.png",
+    ),
+    (
+        "IMAGE_REANIM_LAWNMOWER_WHEELSHINE",
+        "reanim/LawnMower_wheelshine.png",
+    ),
     (
         "IMAGE_REANIM_PEASHOOTER_BACKLEAF",
         "reanim/PeaShooter_backleaf.png",
@@ -88,6 +214,212 @@ pub const IMAGE_MAPPING: &[(&str, &str)] = &[
     (
         "IMAGE_REANIM_PEASHOOTER_STALK_TOP",
         "reanim/PeaShooter_stalk_top.png",
+    ),
+    ("IMAGE_REANIM_SUN1", "reanim/Sun1.png"),
+    ("IMAGE_REANIM_SUN2", "reanim/Sun2.png"),
+    ("IMAGE_REANIM_SUN3", "reanim/Sun3.png"),
+    (
+        "IMAGE_REANIM_SUNFLOWER_BLINK1",
+        "reanim/SunFlower_blink1.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_BLINK2",
+        "reanim/SunFlower_blink2.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_BOTTOMPETALS",
+        "reanim/SunFlower_bottompetals.png",
+    ),
+    ("IMAGE_REANIM_SUNFLOWER_HEAD", "reanim/SunFlower_head.png"),
+    (
+        "IMAGE_REANIM_SUNFLOWER_LEFTPETAL1",
+        "reanim/SunFlower_leftpetal1.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_LEFTPETAL2",
+        "reanim/SunFlower_leftpetal2.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_LEFTPETAL3",
+        "reanim/SunFlower_leftpetal3.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_LEFTPETAL4",
+        "reanim/SunFlower_leftpetal4.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_LEFTPETAL5",
+        "reanim/SunFlower_leftpetal5.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_LEFTPETAL6",
+        "reanim/SunFlower_leftpetal6.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_LEFTPETAL7",
+        "reanim/SunFlower_leftpetal7.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_LEFTPETAL8",
+        "reanim/SunFlower_leftpetal8.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL1",
+        "reanim/SunFlower_rightpetal1.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL2",
+        "reanim/SunFlower_rightpetal2.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL3",
+        "reanim/SunFlower_rightpetal3.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL4",
+        "reanim/SunFlower_rightpetal4.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL5",
+        "reanim/SunFlower_rightpetal5.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL6",
+        "reanim/SunFlower_rightpetal6.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL7",
+        "reanim/SunFlower_rightpetal7.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL8",
+        "reanim/SunFlower_rightpetal8.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_RIGHTPETAL9",
+        "reanim/SunFlower_rightpetal9.png",
+    ),
+    (
+        "IMAGE_REANIM_SUNFLOWER_TOPPETALS",
+        "reanim/SunFlower_toppetals.png",
+    ),
+    ("IMAGE_REANIM_ZOMBIE_BODY", "reanim/Zombie_body.png"),
+    ("IMAGE_REANIM_ZOMBIE_BUCKET1", "reanim/Zombie_bucket1.png"),
+    ("IMAGE_REANIM_ZOMBIE_CONE1", "reanim/Zombie_cone1.png"),
+    (
+        "IMAGE_REANIM_ZOMBIE_DUCKYTUBE",
+        "reanim/Zombie_duckytube.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_DUCKYTUBE_INWATER",
+        "reanim/Zombie_duckytube_inwater.png",
+    ),
+    ("IMAGE_REANIM_ZOMBIE_FLAGHAND", "reanim/Zombie_flaghand.png"),
+    ("IMAGE_REANIM_ZOMBIE_HAIR", "reanim/Zombie_hair.png"),
+    ("IMAGE_REANIM_ZOMBIE_HEAD", "reanim/Zombie_head.png"),
+    (
+        "IMAGE_REANIM_ZOMBIE_INNERARM_HAND",
+        "reanim/Zombie_innerarm_hand.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_INNERARM_LOWER",
+        "reanim/Zombie_innerarm_lower.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_INNERARM_SCREENDOOR",
+        "reanim/Zombie_innerarm_screendoor.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_INNERARM_SCREENDOOR_HAND",
+        "reanim/Zombie_innerarm_screendoor_hand.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_INNERARM_UPPER",
+        "reanim/Zombie_innerarm_upper.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_INNERLEG_FOOT",
+        "reanim/Zombie_innerleg_foot.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_INNERLEG_LOWER",
+        "reanim/Zombie_innerleg_lower.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_INNERLEG_UPPER",
+        "reanim/Zombie_innerleg_upper.png",
+    ),
+    ("IMAGE_REANIM_ZOMBIE_JAW", "reanim/Zombie_jaw.png"),
+    (
+        "IMAGE_REANIM_ZOMBIE_MUSTACHE1",
+        "reanim/Zombie_mustache1.png",
+    ),
+    ("IMAGE_REANIM_ZOMBIE_NECK", "reanim/Zombie_neck.png"),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERARM_HAND",
+        "reanim/Zombie_outerarm_hand.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERARM_HAND2",
+        "reanim/Zombie_outerarm_hand2.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERARM_LOWER",
+        "reanim/Zombie_outerarm_lower.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERARM_SCREENDOOR",
+        "reanim/Zombie_outerarm_screendoor.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERARM_UPPER",
+        "reanim/Zombie_outerarm_upper.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERARM_UPPER2",
+        "reanim/Zombie_outerarm_upper2.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERLEG_FOOT",
+        "reanim/Zombie_outerleg_foot.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERLEG_LOWER",
+        "reanim/Zombie_outerleg_lower.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_OUTERLEG_UPPER",
+        "reanim/Zombie_outerleg_upper.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_SCREENDOOR1",
+        "reanim/Zombie_screendoor1.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_SNORKLE_WHITEWATER1",
+        "reanim/Zombie_snorkle_whitewater1.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_SNORKLE_WHITEWATER2",
+        "reanim/Zombie_snorkle_whitewater2.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_SNORKLE_WHITEWATER3",
+        "reanim/Zombie_snorkle_whitewater3.png",
+    ),
+    ("IMAGE_REANIM_ZOMBIE_TIE", "reanim/Zombie_tie.png"),
+    ("IMAGE_REANIM_ZOMBIE_TONGUE", "reanim/Zombie_tongue.png"),
+    (
+        "IMAGE_REANIM_ZOMBIE_WHITEWATER1",
+        "reanim/Zombie_whitewater1.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_WHITEWATER2",
+        "reanim/Zombie_whitewater2.png",
+    ),
+    (
+        "IMAGE_REANIM_ZOMBIE_WHITEWATER3",
+        "reanim/Zombie_whitewater3.png",
     ),
 ];
 
@@ -246,6 +578,8 @@ pub struct LoadedResources {
     pub effect: Vec<u8>,
     pub music: Vec<u8>,
     pub music_info: AudioInfo,
+    pub poses: BTreeMap<VisualKind, Vec<pvz_assets::AnimationFrame>>,
+    pub effects: BTreeMap<SoundCue, Vec<u8>>,
 }
 impl LoadedResources {
     pub async fn load() -> Result<Self, ResourceError> {
@@ -270,6 +604,41 @@ impl LoadedResources {
         if animation.marker_segment(DEVELOPMENT_IDLE_MARKER).is_none() {
             return Err(error(ANIMATION, "没有开发 idle marker 区段"));
         }
+        let mut poses = BTreeMap::new();
+        poses.insert(VisualKind::Peashooter, selected_pose(&animation, 79, &[])?);
+        for (kind, path, frame, tracks) in POSE_SOURCES {
+            let bytes = provider.read(path).await?;
+            let source =
+                std::str::from_utf8(&bytes).map_err(|_| error(path, "动画不是 UTF-8 文本"))?;
+            let clip = parse_reanim(source).map_err(|_| error(path, "动画解析失败"))?;
+            let mapping = resolve_images(&clip, provider.manifest())?;
+            for (id, path) in mapping {
+                if let std::collections::btree_map::Entry::Vacant(entry) = images.entry(id) {
+                    entry.insert(decode_image(&path, &provider.read(&path).await?)?);
+                }
+            }
+            let prepared = PreparedAnimation::new(&clip);
+            poses.insert(*kind, selected_pose(&prepared, *frame, tracks)?);
+        }
+        images.insert(
+            "PROJECTILEPEA".to_owned(),
+            decode_image(PEA_IMAGE, &provider.read(PEA_IMAGE).await?)?,
+        );
+        poses.insert(
+            VisualKind::Pea,
+            vec![pvz_assets::AnimationFrame {
+                i: Some("PROJECTILEPEA".to_owned()),
+                x: Some(-14.0),
+                y: Some(-14.0),
+                ..Default::default()
+            }],
+        );
+        let mut effects = BTreeMap::new();
+        for (cue, path) in SOUND_SOURCES {
+            let bytes = provider.read(path).await?;
+            validate_audio(&bytes).map_err(|_| error(path, "音效 OGG 解码失败"))?;
+            effects.insert(*cue, bytes);
+        }
         let effect = provider.read(EFFECT).await?;
         validate_audio(&effect).map_err(|_| error(EFFECT, "音效 OGG 解码失败"))?;
         let music = provider.read(MUSIC).await?;
@@ -281,6 +650,8 @@ impl LoadedResources {
             effect,
             music,
             music_info,
+            poses,
+            effects,
         })
     }
 }
@@ -320,13 +691,15 @@ mod tests {
         }
     }
     #[test]
-    fn 登记资源完整加载19图像背景与ogg() {
+    fn 登记资源完整加载切片构图背景与ogg() {
         let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
             repository_provider(),
         ))
         .expect("native读取无需异步等待")
         .unwrap();
-        assert_eq!(resources.images.len(), 19);
+        assert_eq!(resources.images.len(), IMAGE_MAPPING.len() + 1);
+        assert_eq!(resources.poses.len(), 6);
+        assert_eq!(resources.effects.len(), 4);
         assert_eq!(
             (resources.background.width, resources.background.height),
             (1400, 600)
@@ -380,6 +753,44 @@ mod tests {
                 );
                 assert!(frame.i.as_ref().is_some_and(|id| !id.is_empty()));
             }
+        }
+    }
+
+    #[test]
+    fn 登记普通僵尸构图精确选择身体轨道排除附件() {
+        let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
+            repository_provider(),
+        ))
+        .unwrap()
+        .unwrap();
+        let pose = &resources.poses[&VisualKind::Zombie];
+        assert_eq!(pose.len(), ZOMBIE_TRACKS.len());
+        let ids: Vec<_> = pose
+            .iter()
+            .map(|frame| frame.i.as_deref().unwrap())
+            .collect();
+        assert_eq!(ids[0], "IMAGE_REANIM_ZOMBIE_INNERARM_HAND");
+        assert_eq!(ids[ids.len() - 1], "IMAGE_REANIM_ZOMBIE_HAIR");
+        assert!(ids.contains(&"IMAGE_REANIM_ZOMBIE_BODY"));
+        assert!(ids.contains(&"IMAGE_REANIM_ZOMBIE_HEAD"));
+        assert!(!ids.iter().any(|id| {
+            [
+                "BUCKET",
+                "CONE",
+                "SCREENDOOR",
+                "DUCKYTUBE",
+                "MUSTACHE",
+                "FLAGHAND",
+            ]
+            .iter()
+            .any(|part| id.contains(part))
+        }));
+        for pose in resources.poses.values() {
+            assert!(!pose.is_empty());
+            assert!(
+                pose.iter()
+                    .all(|f| resources.images.contains_key(f.i.as_ref().unwrap()))
+            );
         }
     }
 }

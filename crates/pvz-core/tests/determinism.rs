@@ -170,7 +170,7 @@ fn 摘要保留完整初始状态和当前开发规则合同() {
         digest.rng_state(),
         (0x7dd5_d960_54b8_2e08_4396_b9eb_ba66_8b35, RNG_INCREMENT,)
     );
-    assert_eq!(digest.rules_version(), RulesVersion::current());
+    assert_eq!(digest.rules_version(), RulesVersion::new(1, 0).unwrap());
 }
 
 #[test]

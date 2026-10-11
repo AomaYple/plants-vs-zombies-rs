@@ -92,7 +92,7 @@ impl std::error::Error for InvalidRulesVersion {}
 
 impl RulesVersion {
     /// 当前开发中的规则版本。
-    pub const CURRENT: Self = Self { major: 1, minor: 0 };
+    pub const CURRENT: Self = Self { major: 2, minor: 0 };
 
     /// 创建规则版本。
     pub const fn new(major: u16, minor: u16) -> Result<Self, InvalidRulesVersion> {

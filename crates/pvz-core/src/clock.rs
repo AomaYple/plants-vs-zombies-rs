@@ -28,6 +28,13 @@ pub struct SimulationClock {
 }
 
 impl SimulationClock {
+    #[cfg(test)]
+    pub(crate) const fn at_limit() -> Self {
+        Self {
+            current_tick: u64::MAX,
+            ticks_per_second: DEVELOPMENT_TICKS_PER_SECOND,
+        }
+    }
     /// 使用开发阶段的明确 tick 参数创建时钟。
     pub const fn development() -> Self {
         Self {

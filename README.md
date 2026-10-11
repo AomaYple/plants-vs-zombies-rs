@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-仓库已进入 **Rust 基础设施实现阶段**：`pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app` 已注册。当前提供版本化领域标识符、确定性空棋盘模拟、资源清单/XML 审计、宿主 CLI 和 Bevy 视口/资源/音频探针。Windows 隐藏窗口及 Web 浏览器已取得实际运行证据，首个可玩切片仍在实施；完整原版行为和其余平台尚未验收。
+仓库已实现 **首个白天开发切片，现按用户要求阶段性暂停**：`pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app` 已注册。当前提供确定性模拟、资源清单/XML 审计、宿主 CLI、Bevy 视口/音频探针，以及 5×9 棋盘、两种植物、普通僵尸、阳光、豌豆和割草机的可玩流程。Windows 隐藏窗口已完成切片胜利冒烟，Web 已验证两卡种植、暂停、恢复和重开；任务 6 独立复核、其余 Web 交互和任务 7/8 尚未完成。完整原版行为和其余平台尚未验收，具体证据与续做入口见 [切片阶段性结果](docs/behavior/vertical-slice-results.md)。
 这三个基础 crate 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式仓库根目录审计时读取清单登记输入。
 
 ## 已确定的路线
@@ -28,6 +28,7 @@
 - [全项目路线图](docs/roadmap.md)
 - [模块与依赖边界](docs/architecture/README.md)
 - [参考版本核对记录](docs/behavior/reference-baseline.md)
+- [切片阶段性结果](docs/behavior/vertical-slice-results.md)
 - [资源说明与清单](assets/README.md)
 - [贡献与验证](CONTRIBUTING.md)
 
@@ -47,7 +48,7 @@ docs/              设计、计划、行为证据和技术决策
 使用 Rust 2024 Edition、Cargo resolver 3，工具链固定为 1.99.0，包含 rustfmt 与 Clippy。
 项目尚未宣布支持更早的最低 Rust 版本。
 
-当前可以验证 workspace、基础 crate、资源工具和应用探针：
+当前可以验证 workspace、基础 crate、资源工具和开发切片：
 
 ```sh
 cargo metadata --no-deps --format-version 1
@@ -61,7 +62,7 @@ cargo run -p pvz-app --locked -- --probe --smoke 120 --screenshot
 ```
 
 已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
-具体任务见实施计划，完整验收命令见贡献指南。默认资源探针使用 `cargo run -p pvz-app --locked`；Web 构建及启动见 [Web 入口](web/README.md)，实测范围和限制见 [平台探针结果](docs/behavior/platform-probe-results.md)。
+具体任务见实施计划，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，当前切片进度见 [阶段性结果](docs/behavior/vertical-slice-results.md)。
 
 ## 原版资源与许可
 

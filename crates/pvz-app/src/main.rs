@@ -11,13 +11,13 @@ use bevy::{
 use pvz_app::{
     input::InputEvent,
     platform_input::PlatformInput,
-    resources::{LoadedResources, ResourceError},
-    runtime::Runtime,
+    resources::{LoadedResources, ResourceError, SoundCue},
+    runtime::{Runtime, sound_cue},
     viewport::{LogicalPoint, Viewport},
 };
 
 #[derive(clap::Parser, Clone)]
-#[command(about = "跨平台视口与登记资源验证应用")]
+#[command(about = "白天可玩切片与跨平台登记资源验证")]
 struct Options {
     /// 使用原创占位探针，不加载原版资源。
     #[arg(long)]
@@ -31,6 +31,9 @@ struct Options {
     /// 在隐藏窗口冒烟中实际验证一次音效、音乐循环与游标暂停/恢复。
     #[arg(long, requires = "smoke")]
     audio_smoke: bool,
+    /// 隐藏窗口中的固定切片输入脚本，证据写入独立目录。
+    #[arg(long, requires = "smoke")]
+    slice_smoke: bool,
 }
 #[derive(Resource)]
 struct AppState {
@@ -52,6 +55,8 @@ struct AppState {
     screenshot_requested: bool,
     loading_started: f64,
     paused_audio_position: Option<std::time::Duration>,
+    effects: std::collections::BTreeMap<SoundCue, Handle<AudioSource>>,
+    feedback: String,
 }
 
 fn main() {
@@ -63,6 +68,7 @@ fn main() {
         smoke: None,
         screenshot: false,
         audio_smoke: false,
+        slice_smoke: false,
     };
     options.probe |= cfg!(feature = "probe");
     if options.audio_smoke && (options.probe || options.smoke.is_none_or(|frames| frames < 120)) {
@@ -73,11 +79,19 @@ fn main() {
             )
             .exit();
     }
+    if options.slice_smoke && options.probe {
+        <Options as clap::CommandFactory>::command()
+            .error(
+                clap::error::ErrorKind::ValueValidation,
+                "切片冒烟需要登记资源模式",
+            )
+            .exit();
+    }
     let smoke = options.smoke.is_some();
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
-            title: "植物大战僵尸 · Bevy 视口验证".to_owned(),
+            title: "植物大战僵尸 · 白天开发切片".to_owned(),
             resolution: (1000, 750).into(),
             visible: !smoke,
             focused: !smoke,
@@ -113,9 +127,14 @@ fn initialize(world: &mut World, options: Options) {
     };
     let ready = options.probe;
     let loading_started = world.resource::<Time<Real>>().elapsed_secs_f64();
+    let runtime = if options.probe {
+        Runtime::default()
+    } else {
+        Runtime::day()
+    };
     world.insert_resource(AppState {
         options,
-        runtime: Runtime::default(),
+        runtime,
         input: PlatformInput::default(),
         pointer: None,
         camera,
@@ -132,6 +151,8 @@ fn initialize(world: &mut World, options: Options) {
         screenshot_requested: false,
         loading_started,
         paused_audio_position: None,
+        effects: std::collections::BTreeMap::new(),
+        feedback: String::new(),
     });
 }
 
@@ -142,7 +163,7 @@ fn poll_resources(world: &mut World, state: &mut AppState) {
         match result {
             Ok(mut resources) => {
                 println!(
-                    "登记资源已校验：背景、{} 张图像、PeaShooter；音乐 {}Hz/{} 声道/{} 样本",
+                    "切片登记资源已校验：背景、{} 张图像、六类构图；音乐 {}Hz/{} 声道/{} 样本",
                     resources.images.len(),
                     resources.music_info.sample_rate,
                     resources.music_info.channels,
@@ -155,6 +176,14 @@ fn poll_resources(world: &mut World, state: &mut AppState) {
                 state.music = Some(sources.add(AudioSource {
                     bytes: std::mem::take(&mut resources.music).into(),
                 }));
+                for (cue, bytes) in std::mem::take(&mut resources.effects) {
+                    state.effects.insert(
+                        cue,
+                        sources.add(AudioSource {
+                            bytes: bytes.into(),
+                        }),
+                    );
+                }
                 state.scene = Some(render::Scene::upload(world, resources));
             }
             Err(error) => {
@@ -193,12 +222,14 @@ fn apply_input(state: &mut AppState, event: InputEvent) {
         InputEvent::PointerCancel { .. } => state.pointer = None,
         _ => {}
     }
-    if matches!(
-        event,
-        InputEvent::PointerDown { .. }
-            | InputEvent::PointerUp { .. }
-            | InputEvent::PointerCancel { .. }
-    ) {
+    if (state.options.probe || state.options.smoke.is_some())
+        && matches!(
+            event,
+            InputEvent::PointerDown { .. }
+                | InputEvent::PointerUp { .. }
+                | InputEvent::PointerCancel { .. }
+        )
+    {
         println!("逻辑输入探针：{event:?}");
     }
     state.runtime.input(event);
@@ -211,7 +242,9 @@ fn keyboard_audio(world: &mut World, state: &mut AppState, pause: bool, effect: 
         } else {
             InputEvent::Pause
         });
-        if let Some(sink) = state.music_entity.and_then(|e| world.get::<AudioSink>(e)) {
+        if state.options.probe
+            && let Some(sink) = state.music_entity.and_then(|e| world.get::<AudioSink>(e))
+        {
             let before = sink.position();
             if state.runtime.paused {
                 sink.pause();
@@ -267,16 +300,32 @@ fn update(world: &mut World) {
         }
         let keyboard = world.resource::<ButtonInput<KeyCode>>();
         let pause = keyboard.just_pressed(KeyCode::KeyP) || keyboard.just_pressed(KeyCode::Space);
-        let effect = keyboard.just_pressed(KeyCode::KeyE);
+        let effect = (state.options.probe || state.options.audio_smoke) && keyboard.just_pressed(KeyCode::KeyE);
         let music = keyboard.just_pressed(KeyCode::KeyM);
+        let restart = keyboard.just_pressed(KeyCode::KeyR);
         keyboard_audio(world, &mut state, pause, effect, music);
+        if restart && !state.options.probe { state.runtime.command(pvz_core::Command::Restart); }
         let events = state.input.read(window_entity, size, dpi, render::LOGICAL_SIZE, world.resource::<Messages<WindowEvent>>());
         for event in events { apply_input(&mut state, event); }
-        if state.ready { state.runtime.advance(world.resource::<Time<Real>>().delta_secs_f64()); }
+        if state.ready && state.failure.is_some() { state.runtime.render_frames += 1; }
+        if state.ready && state.failure.is_none() {
+            slice_script(&mut state);
+            let elapsed = if state.options.slice_smoke { 0.25 } else { world.resource::<Time<Real>>().delta_secs_f64() };
+            state.runtime.advance(elapsed);
+        }
         audio_smoke(world, &mut state);
-        if let Some(scene) = &state.scene { scene.update(world, state.runtime.animation_seconds); }
+        consume_events(world, &mut state);
+        let mut scene = state.scene.take();
+        if let Some(scene) = &mut scene { scene.update(world, &state.runtime.game); }
+        state.scene = scene;
         let audio_status = if state.options.probe { "占位模式无音频".to_owned() } else if let Some(sink) = state.music_entity.and_then(|e| world.get::<AudioSink>(e)) { format!("音乐 {:.2}s 暂停={}", sink.position().as_secs_f64(), sink.is_paused()) } else { "音乐已停止/等待 E、M 用户手势".to_owned() };
-        world.get_mut::<Text2d>(state.status).expect("状态文本存在").0 = format!("tick {} · 动画 {:.2}s · 帧 {} · 阳光 {} · DPI {dpi:.2}\nP/空格 暂停 · E 音效 · M 循环 · {audio_status}\n逻辑输入 {:?} · 模式 {}", state.runtime.game.clock().current_tick(), state.runtime.animation_seconds, state.runtime.render_frames, state.runtime.game.sun(), state.pointer, if state.failure.is_some() { "资源失败" } else if !state.ready { "加载中" } else if state.options.probe { "原创探针" } else { "登记资源" });
+        if state.options.probe { world.get_mut::<Text2d>(state.status).expect("状态文本存在").0 = format!("tick {} · 动画 {:.2}s · 帧 {} · 阳光 {} · DPI {dpi:.2}\nP/空格 暂停 · E 音效 · M 循环 · {audio_status}\n逻辑输入 {:?} · 模式 {}", state.runtime.game.clock().current_tick(), state.runtime.animation_seconds, state.runtime.render_frames, state.runtime.game.sun(), state.pointer, if state.failure.is_some() { "资源失败" } else if !state.ready { "加载中" } else if state.options.probe { "原创探针" } else { "登记资源" });
+        } else {
+            let board = state.runtime.game.board().expect("正常游戏拥有棋盘");
+            let selection = if state.runtime.shovel { "铲除" } else { match board.selected() { Some(pvz_core::PlantKind::Sunflower) => "向日葵", Some(pvz_core::PlantKind::Peashooter) => "豌豆射手", None => "请选卡" } };
+            let status = if state.failure.is_some() { "资源加载失败" } else if !state.ready { "加载资源" } else if board.paused() { "已暂停" } else { match board.status() { pvz_core::GameStatus::Running => "守住草坪", pvz_core::GameStatus::Won => "胜利！", pvz_core::GameStatus::Lost => "失败，请重开" } };
+            world.get_mut::<Text2d>(state.status).expect("状态文本存在").0 = format!("阳光 {}  ·  选择：{selection}  ·  {status}  ·  {} / {} 只已出现\n开发规则 2.0（尚未还原） · 冷却(日/豌) {}/{}秒 · {}", state.runtime.game.sun(), board.spawned(), board.rules().wave.len(), board.cooldown_remaining(pvz_core::PlantKind::Sunflower, state.runtime.game.tick()).div_ceil(60), board.cooldown_remaining(pvz_core::PlantKind::Peashooter, state.runtime.game.tick()).div_ceil(60), state.feedback);
+        }
         if let Some(error) = &state.failure { world.get_mut::<Text2d>(state.error_text).expect("错误文本存在").0.clone_from(error); }
         smoke(world, &mut state);
     });
@@ -334,6 +383,98 @@ fn audio_smoke(world: &mut World, state: &mut AppState) {
     }
 }
 
+fn consume_events(world: &mut World, state: &mut AppState) {
+    use pvz_core::Event;
+    for event in state.runtime.take_events() {
+        if let Some(cue) = sound_cue(&event)
+            && let Some(source) = state.effects.get(&cue)
+        {
+            world.spawn((AudioPlayer::new(source.clone()), PlaybackSettings::DESPAWN));
+        }
+        if matches!(event, Event::Paused | Event::Resumed | Event::Restarted)
+            && let Some(sink) = state.music_entity.and_then(|e| world.get::<AudioSink>(e))
+        {
+            if state.runtime.paused {
+                sink.pause();
+            } else {
+                sink.play();
+            }
+        }
+        let feedback = match event {
+            Event::Planted { .. } => Some("种植成功"),
+            Event::SunCollected { .. } => Some("已收集阳光"),
+            Event::ProjectileHit { .. } => Some("豌豆命中"),
+            Event::MowerStarted { .. } => Some("割草机启动！"),
+            Event::PlantRemoved { .. } => Some("植物已移除"),
+            Event::Victory => Some("本波僵尸已消灭"),
+            Event::Defeat => Some("僵尸突破防线"),
+            Event::Restarted => Some("已重开"),
+            Event::CommandRejected { reason } => Some(match reason {
+                pvz_core::Rejection::NotEnoughSun => "阳光不足",
+                pvz_core::Rejection::CoolingDown => "卡片冷却中",
+                pvz_core::Rejection::Occupied => "此格已有植物",
+                pvz_core::Rejection::NoSelection => "请先选择植物",
+                pvz_core::Rejection::Paused => "请先恢复游戏",
+                pvz_core::Rejection::Ended => "本局结束，请重开",
+                _ => "当前操作无效",
+            }),
+            _ => None,
+        };
+        if let Some(text) = feedback {
+            state.feedback = text.to_owned();
+        }
+        if state.options.slice_smoke
+            && !matches!(
+                event,
+                Event::TickStarted { .. } | Event::TickCompleted { .. }
+            )
+        {
+            println!("切片冒烟事件 tick={} {event:?}", state.runtime.game.tick());
+        }
+    }
+}
+
+/// 只提交正常命令，脚本不修改阳光、伤害或模拟状态。
+fn slice_script(state: &mut AppState) {
+    use pvz_core::{Cell, Command, PlantKind};
+    if !state.options.slice_smoke {
+        return;
+    }
+    let frame = state.runtime.render_frames;
+    if frame == 0 {
+        state.runtime.command(Command::SelectCard {
+            kind: PlantKind::Sunflower,
+        });
+        state.runtime.command(Command::Plant {
+            cell: Cell { row: 1, column: 0 },
+        });
+        state.runtime.command(Command::SelectCard {
+            kind: PlantKind::Peashooter,
+        });
+        state.runtime.command(Command::Plant {
+            cell: Cell { row: 2, column: 0 },
+        });
+    }
+    if frame == 5 {
+        state.runtime.command(Command::Pause);
+    }
+    if frame == 8 {
+        state.runtime.command(Command::Resume);
+    }
+    let ids: Vec<_> = state
+        .runtime
+        .game
+        .board()
+        .expect("切片冒烟拥有棋盘")
+        .suns()
+        .iter()
+        .map(|s| s.id)
+        .collect();
+    for id in ids {
+        state.runtime.command(Command::CollectSun { id });
+    }
+}
+
 fn smoke(world: &mut World, state: &mut AppState) {
     if !state
         .options
@@ -350,12 +491,15 @@ fn smoke(world: &mut World, state: &mut AppState) {
         let path = if state.options.probe {
             "artifacts/viewport/probe.png"
         } else {
-            "artifacts/viewport/registered.png"
+            "artifacts/vertical-slice/registered.png"
         };
         let failed = state.failure.is_some();
         world.spawn(Screenshot::primary_window()).observe(
             move |capture: On<ScreenshotCaptured>, mut exit: MessageWriter<AppExit>| {
-                let saved = std::fs::create_dir_all("artifacts/viewport").is_ok()
+                let saved = std::fs::create_dir_all(
+                    std::path::Path::new(path).parent().expect("截图具有父目录"),
+                )
+                .is_ok()
                     && capture
                         .image
                         .clone()

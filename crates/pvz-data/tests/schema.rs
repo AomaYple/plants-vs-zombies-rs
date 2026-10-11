@@ -88,8 +88,8 @@ fn 标识符拒绝空值和不安全路径() {
 #[test]
 fn 规则版本保持规范格式和访问器合同() {
     let version = RulesVersion::current();
-    assert_eq!(version.to_string(), "1.0");
-    assert_eq!(version.major(), 1);
+    assert_eq!(version.to_string(), "2.0");
+    assert_eq!(version.major(), 2);
     assert_eq!(version.minor(), 0);
     assert!("1.65536".parse::<RulesVersion>().is_err());
     assert!("01.0".parse::<RulesVersion>().is_err());

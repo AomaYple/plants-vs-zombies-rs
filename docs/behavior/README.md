@@ -1,10 +1,10 @@
 # 行为测量与还原
 
-参考文件身份见 [reference-baseline.md](reference-baseline.md)。原版行为测量尚未执行；`pvz-core` 目前只提供可替换时钟和确定性回放合同。
+参考文件身份见 [reference-baseline.md](reference-baseline.md)。原版行为测量尚未完成；`pvz-core` 已提供空棋盘规则1.0与白天可玩切片开发规则2.0。切片数值、阶段顺序、输入、静态资源构图及待验证项见 [开发切片合同](development-slice.md)，实际验证与暂停后的续做入口见 [切片阶段性结果](vertical-slice-results.md)。
 
 ## 当前模拟合同
 
-`pvz-core` 使用显式 `SimulationClock` 推进 tick，默认的 60 tick/秒只是未完成原版时基测量前的开发参数。它用于可重复测试和性能基线，不代表原版规格。状态摘要包含 tick、阳光和 RNG 状态，事件按 tick 开始、规范化命令、tick 完成的顺序输出。
+`pvz-core` 使用显式 `SimulationClock` 推进 tick，默认的 60 tick/秒只是未完成原版时基测量前的开发参数。它用于可重复测试和性能基线，不代表原版规格。空棋盘保持原有阳光命令与事件顺序。切片摘要额外包含初始seed/状态/时钟、全部规则、实体、ID计数、波次、卡片计时、选择、暂停和终局；切片有序命令与规则阶段详见专题合同。
 
 ## 每条规则的记录要求
 
