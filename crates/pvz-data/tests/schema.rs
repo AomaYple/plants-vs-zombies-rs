@@ -73,6 +73,7 @@ fn 版本类型拒绝无效值和格式() {
 
 #[test]
 fn 标识符拒绝空值和不安全路径() {
+    assert!(AssetId::new("reanim/Tanglekelp_arm 8.png").is_ok());
     assert!(AssetId::new("").is_err());
     assert!(AssetId::new("../outside.png").is_err());
     assert!(AssetId::new("C:/outside.png").is_err());

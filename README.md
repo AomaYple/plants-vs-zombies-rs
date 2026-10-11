@@ -5,8 +5,8 @@
 
 ## 当前状态
 
-仓库已进入 **Rust 基础设施实现阶段**：设计、实施计划、Git 配置和版本化参考资源已经建立，`pvz-data` 已注册为第一个 Cargo package。当前只提供版本化领域标识符和 schema 合同，没有可运行游戏或已验收的跨平台窗口。
-`pvz-data` 不读取文件、不访问资源，也不依赖引擎或平台 API；后续 package 按实施计划逐项注册并独立验收。
+仓库已进入 **Rust 基础设施实现阶段**：设计、实施计划、Git 配置和版本化参考资源已经建立，`pvz-data`、`pvz-core` 和 `pvz-assets` 已注册。当前提供版本化领域标识符、确定性空棋盘模拟和资源清单/XML 子集审计，没有可运行游戏或已验收的跨平台窗口。
+这三个基础 crate 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式仓库根目录审计时读取清单登记输入。
 
 ## 已确定的路线
 
@@ -47,7 +47,7 @@ docs/              设计、计划、行为证据和技术决策
 使用 Rust 2024 Edition、Cargo resolver 3，工具链固定为 1.99.0，包含 rustfmt 与 Clippy。
 项目尚未宣布支持更早的最低 Rust 版本。
 
-当前可以验证 workspace 元数据和 `pvz-data`：
+当前可以验证 workspace 元数据和三个基础 crate：
 
 ```sh
 cargo metadata --no-deps --format-version 1

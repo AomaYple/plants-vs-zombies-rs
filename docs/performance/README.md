@@ -27,3 +27,5 @@ cargo bench --workspace --locked
 ## 首个模拟推进基线
 
 2026-10-11 在本机 Windows 工作区使用 Rust 1.99.0、release 基准配置和固定 seed `7`，运行 `cargo bench -p pvz-core --bench stepping --no-fail-fast`。输入为无资源、空棋盘连续推进 1,000 tick；Criterion 100 次采样结果为 **101.23–106.65 µs**（中位区间约 **103.85 µs**），检测到 5 个离群值。该结果只作为同一环境和同一输入的后续比较基线，不代表任何目标平台的性能承诺，也不包含内存测量。
+
+同日使用相同工具链和 release 基准配置、`quick-xml 0.41.0` 运行 `cargo bench -p pvz-assets --bench parsing --no-fail-fast`。固定原创夹具的 Reanim 解析为 **1.3468–1.4762 µs**（中位约 **1.3987 µs**），粒子 XML 解析为 **1.5369–1.5992 µs**（中位约 **1.5664 µs**）；两项均各有少量离群值。该基线只覆盖当前最小解析子集，不代表完整原版资源格式或其他平台表现。

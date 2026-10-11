@@ -1,0 +1,27 @@
+[package]
+name = "pvz-assets"
+description = "植物大战僵尸重写项目的资源清单审计与 XML 子集解析。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+pvz-data = { path = "../pvz-data", version = "0.1.0" }
+quick-xml.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "parsing"
+harness = false

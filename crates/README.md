@@ -1,5 +1,5 @@
-# Cargo package 预留目录
+# Cargo package 目录
 
-当前仓库处于文档、结构与参考资源阶段，尚未注册或创建 Rust package。设计中的 package 及边界见 [架构](../docs/architecture/README.md)。
+`pvz-data`、`pvz-core` 和 `pvz-assets` 已注册并按职责独立验收；`pvz-app` 仍待窗口与渲染探针任务。设计中的 package 及依赖边界见 [架构](../docs/architecture/README.md)。
 
-当某个实现任务获得授权时，创建对应的 `crates/<name>/Cargo.toml` 与 `src/lib.rs`/`src/main.rs`，再把成员加入根 workspace，并生成 Cargo.lock。
+新 package 只有在有源码入口、实际消费者和验收目的时才加入根 workspace，并同步 `Cargo.lock`、lint、CI 和阶段文档。

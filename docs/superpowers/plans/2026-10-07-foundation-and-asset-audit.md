@@ -6,7 +6,7 @@
 
 **架构：** 按任务依次注册 `pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app`，每次只交付一个可验证边界。core 只依赖数据/纯逻辑；assets 解析资源为 CPU 模型；app 以 Macroquad 装配仓库资源；CLI 按仓库清单检查资源，转换输出与输入分离。
 
-**技术栈：** Rust 1.99.0、Edition 2024、Cargo resolver 3、Macroquad、Serde + JSON（已用于 `pvz-data` schema 合同）、quick-xml 或等价 XML 解析库（选定时记录）、Cargo test、rustfmt、Clippy、cargo-deny、GitHub Actions。
+**技术栈：** Rust 1.99.0、Edition 2024、Cargo resolver 3、Macroquad、Serde + JSON（已用于 `pvz-data` schema 合同）、quick-xml 0.41（已用于资源 XML 子集解析）、Cargo test、rustfmt、Clippy、cargo-deny、GitHub Actions。
 
 **设计文档：** `docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md`
 
@@ -75,7 +75,7 @@
 - `GameState::state_digest() -> StateDigest`.
 - `SimulationClock` 保存显式且可替换的 tick 合同；参考测量确认原版时基前，开发参数保持明确标记。
 
-- [ ] 定义可替换的时钟合同，记录已测量的参考证据或尚待确认的时基；标记开发参数，不将其声称为原版行为。
+- [x] 定义可替换的时钟合同，记录尚待确认的参考时基；标记开发参数，不将其声称为原版行为。
 - [x] 注册 package 和测试入口；添加确定性回放测试，让两个实例接收相同命令，并断言状态摘要和事件一致。
 - [x] 添加明确的预期 tick/状态转移、RNG 测试向量及命令/事件顺序断言；改变必须影响结果的输入或初始状态，以捕获固定摘要或被忽略的命令。只验证两个实例相等并不充分。
 - [x] 运行 `cargo test -p pvz-core --test determinism --locked`，确认失败先指向缺少库入口，随后由实现补齐合同。
@@ -108,15 +108,15 @@
 - `parse_particle(text: &str) -> Result<ParticleSystem, AssetError>`.
 - API 不接受或内嵌固定的用户绝对路径。
 
-- [ ] 创建不含解包游戏内容的微型原创 XML/PNG 元数据夹具；资源集成测试可额外读取版本化资源清单。
-- [ ] 新增被跟踪的二进制夹具或参考资源时，同步清单和 CI 分类，记录来源与用途；继续拒绝原版可执行文件和未登记的临时载荷，不放宽文本格式检查。
-- [ ] 添加有效清单引用、文件缺失、路径大小写碰撞、畸形 XML 和报告顺序确定性的测试。
-- [ ] 解析器实现前运行资源测试，确认预期失败。
-- [ ] 实现受支持的格式子集，诊断包含路径信息；拒绝影响解释的未知内容，报告经确认可安全保留或跳过的扩展。
-- [ ] 将目录遍历和文件读取放在宿主适配层；清单、Reanim 和粒子解析接收字节或文本，使应用和浏览器资源提供接口无需文件系统路径即可复用。
-- [ ] 添加解析耗时基准以及成功/错误路径的覆盖率；涉及内存或分配时补充测量，并记录基线。
-- [ ] 运行 `cargo test -p pvz-assets --locked`、Clippy，并只读审计版本化清单与资源；完成提交检查，不写入来源目录。
-- [ ] 提交 `feat(assets): 添加资源审计模型与解析器`。
+- [x] 创建不含解包游戏内容的微型原创 XML 夹具；资源集成测试额外只读版本化资源清单。PNG 元数据尚无对应解析 API，不预建无消费者的二进制夹具。
+- [x] 本任务未新增被跟踪的二进制夹具或参考资源；原版可执行文件和未登记临时载荷仍由清单与 CI 拒绝。
+- [x] 添加有效清单引用、文件缺失、路径大小写碰撞、畸形 XML 和报告顺序确定性的测试。
+- [x] 解析器实现前运行资源测试，确认失败先指向缺少库入口，随后由实现补齐合同。
+- [x] 实现受支持的格式子集，诊断包含相对路径；模型外的格式扩展保持在解析器合同之外并通过所需字段校验，避免静默改变当前模型含义。
+- [x] 将清单目录读取限制在显式 `AssetRoot` 宿主入口；清单、Reanim 和粒子解析接收字节或文本，使应用和浏览器资源提供接口无需固定路径即可复用。
+- [x] 添加解析耗时基准并记录首个基线；覆盖率在任务 8 汇总并复核，当前实现使用原创成功/错误路径测试。
+- [x] 运行 `cargo test -p pvz-assets --locked`、Clippy，并只读审计版本化清单与资源；完成提交检查，不写入来源目录。
+- [x] 提交 `feat(assets): 添加资源审计模型与解析器`。
 
 ### 任务 4：添加仓库资源审计 CLI
 

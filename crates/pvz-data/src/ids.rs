@@ -68,12 +68,15 @@ fn validate(value: &str, is_path: bool) -> Result<(), IdentifierError> {
         if segment.is_empty() {
             return Err(IdentifierError::EmptyPathSegment);
         }
+        if segment.trim() != segment {
+            return Err(IdentifierError::SurroundingWhitespace);
+        }
         if matches!(segment, "." | "..") {
             return Err(IdentifierError::PathTraversal);
         }
         if let Some(character) = segment
             .chars()
-            .find(|character| !is_token_character(*character))
+            .find(|character| !is_token_character(*character) && *character != ' ')
         {
             return Err(IdentifierError::InvalidCharacter(character));
         }
