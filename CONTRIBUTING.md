@@ -28,6 +28,8 @@ cargo install cargo-llvm-cov --version 0.9.1 --locked
 rustup component add llvm-tools-preview
 ```
 
+Web 包生成额外使用 `wasm-bindgen-cli 0.2.129`，对应当前锁文件中的 wasm-bindgen；安装后读取 `wasm-bindgen --version` 核对。生成命令和后台开发入口见 [Web 说明](web/README.md)，工具本身的安装日志与项目依赖审计分开记录。
+
 覆盖率 CI 生成 LCOV 报告并保存为工作流产物；基准入口在 CI 编译验证，本机在没有并发测试竞争时执行实际计时。报告与构建产物位于忽略的 `target/`。
 
 ## 编码、命名与 Rust 风格
@@ -77,6 +79,8 @@ new = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standar
 names = set(filter(None, tracked + new))
 manifest = json.loads(Path('assets/manifest.json').read_text(encoding='utf-8'))
 records = {item['path']: item for item in manifest['files']}
+support = json.loads(Path('assets/third-party/manifest.json').read_text(encoding='utf-8'))
+support_records = {'assets/third-party/' + item['path']: item for item in support['files']}
 if len(records) != len(manifest['files']):
     raise SystemExit('资源清单中存在重复路径')
 asset_prefix = 'assets/original/'
@@ -85,6 +89,11 @@ if assets != set(records):
     raise SystemExit('资源文件集合与清单不一致')
 for name in sorted(names):
     data = Path(name).read_bytes()
+    if name in support_records:
+        support_record = support_records[name]
+        if len(data) != support_record['size'] or hashlib.sha256(data).hexdigest() != support_record['sha256']:
+            raise SystemExit(f'第三方资源大小或哈希不匹配：{name}')
+        continue
     record = records[name.removeprefix(asset_prefix)] if name.startswith(asset_prefix) else None
     if record is not None:
         if len(data) != record['size'] or hashlib.sha256(data).hexdigest() != record['sha256']:

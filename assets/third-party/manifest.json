@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "path": "noto-sans-sc.ttf",
+      "size": 17772300,
+      "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+      "source_url": "https://github.com/google/fonts/blob/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+      "source_git_blob": "fb0637bafbcd804fe32152370a1225990745b4bc",
+      "license": "OFL-1.1",
+      "license_file": "OFL.txt"
+    }
+  ]
+}

@@ -8,6 +8,7 @@
 assets/
 ├─ original/       已核对的目录资源与 main.pak
 ├─ manifest.json   每个资源的来源、转换记录和 SHA-256
+├─ third-party/    中文字体等独立登记的第三方支持资源
 └─ README.md       本说明
 ```
 

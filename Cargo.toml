@@ -5,6 +5,7 @@ members = [
     "crates/pvz-data",
     "crates/pvz-core",
     "crates/pvz-assets",
+    "crates/pvz-app",
     "tools/pvz-asset-tool",
 ]
 
@@ -19,6 +20,16 @@ publish = false
 [workspace.dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
 criterion = "0.5"
+bevy = { version = "=0.20.0", default-features = false, features = [
+    "std", "async_executor", "bevy_asset", "bevy_log", "bevy_winit",
+    "bevy_render", "bevy_core_pipeline", "bevy_sprite", "bevy_sprite_render",
+    "bevy_mesh", "bevy_camera", "bevy_color", "bevy_image", "bevy_text",
+    "bevy_audio", "vorbis", "png", "jpeg", "multi_threaded", "webgl2", "x11",
+    "complex_script_segmentation",
+] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+lewton = "0.10.2"
+gloo-net = { version = "0.7.0", default-features = false, features = ["http"] }
 oorandom = "=11.1.5"
 quick-xml = "0.41"
 serde = { version = "1.0", features = ["derive"] }

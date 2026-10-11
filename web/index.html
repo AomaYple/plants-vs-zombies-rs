@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>植物大战僵尸 — Rust 开发应用</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #101820; }
+    canvas { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
+    #status { position: fixed; color: white; background: #101820; padding: 0.5rem; font-family: sans-serif; }
+    #start { position: fixed; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 1rem 2rem; font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+  <div id="status" role="status">正在准备应用；完成后点击启动。</div>
+  <button id="start" type="button" disabled>启动开发应用</button>
+  <canvas id="pvz-canvas" tabindex="0" aria-label="植物大战僵尸开发画布"></canvas>
+  <script type="module">
+    const probe = new URLSearchParams(location.search).get("probe") === "1";
+    const directory = probe ? "../target/web-probe" : "../target/web";
+    document.getElementById("pvz-canvas").addEventListener("pointerdown", () => {
+      document.getElementById("status").hidden = true;
+    });
+    try {
+      const { default: init } = await import(`${directory}/pvz_app.js`);
+      const response = await fetch(`${directory}/pvz_app_bg.wasm`);
+      if (!response.ok) throw new Error("无法读取应用构建产物");
+      const module = await WebAssembly.compile(await response.arrayBuffer());
+      document.getElementById("status").textContent = "点击启动，允许浏览器初始化游戏音频。";
+      document.getElementById("start").disabled = false;
+      document.getElementById("start").addEventListener("click", async (event) => {
+        event.currentTarget.disabled = true;
+        document.getElementById("status").textContent = "正在启动开发应用。";
+        try {
+          await init({ module_or_path: module });
+          document.getElementById("start").hidden = true;
+          document.getElementById("status").textContent = "开发应用已启动；点击画布开始操作。";
+        } catch (error) {
+          document.getElementById("status").textContent = "应用启动失败，请检查构建产物和浏览器日志。";
+          console.error("Bevy 应用启动失败", error);
+        }
+      }, { once: true });
+    } catch (error) {
+      document.getElementById("status").textContent = "应用启动失败，请检查 WASM 构建产物和浏览器日志。";
+      console.error("Bevy 应用启动失败", error);
+    }
+  </script>
+</body>
+</html>

@@ -1,16 +1,16 @@
 # Plants vs. Zombies — Rust 重写
 
-**plants-vs-zombies-rs** 是计划使用 Rust 与 Macroquad 实现的非官方跨平台重写项目。
+**plants-vs-zombies-rs** 是使用 Rust 与 Bevy 实现的非官方跨平台重写项目。
 目标是以版本化的原版参考资源和可观察行为为参考，重新编写游戏逻辑、动画播放器、渲染、音频接线、关卡系统与工具。
 
 ## 当前状态
 
-仓库已进入 **Rust 基础设施实现阶段**：设计、实施计划、Git 配置和版本化参考资源已经建立，`pvz-data`、`pvz-core`、`pvz-assets` 和 `pvz-asset-tool` 已注册。当前提供版本化领域标识符、确定性空棋盘模拟、资源清单/XML 审计和宿主 CLI，没有可运行游戏或已验收的跨平台窗口。
+仓库已进入 **Rust 基础设施实现阶段**：`pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app` 已注册。当前提供版本化领域标识符、确定性空棋盘模拟、资源清单/XML 审计、宿主 CLI 和 Bevy 视口/资源/音频探针。Windows 隐藏窗口及 Web 浏览器已取得实际运行证据，首个可玩切片仍在实施；完整原版行为和其余平台尚未验收。
 这三个基础 crate 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式仓库根目录审计时读取清单登记输入。
 
 ## 已确定的路线
 
-- 引擎：Macroquad；模拟内核保持纯 Rust，与引擎分离。
+- 引擎：Bevy；模拟内核保持纯 Rust，与引擎分离。
 - 命名：GitHub 仓库 plants-vs-zombies-rs；crate 前缀 pvz-。
 - 许可证：原创代码、文档和自制测试数据使用 MIT。
 - 平台：支持目标为 Windows、macOS、Linux、Web、Android 和 iOS；桌面与 Web 先行，移动端随后接入，实际支持状态以各平台构建与运行验收为准。
@@ -47,7 +47,7 @@ docs/              设计、计划、行为证据和技术决策
 使用 Rust 2024 Edition、Cargo resolver 3，工具链固定为 1.99.0，包含 rustfmt 与 Clippy。
 项目尚未宣布支持更早的最低 Rust 版本。
 
-当前可以验证 workspace 元数据、三个基础 crate 和资源工具：
+当前可以验证 workspace、基础 crate、资源工具和应用探针：
 
 ```sh
 cargo metadata --no-deps --format-version 1
@@ -57,10 +57,11 @@ cargo fmt --all -- --check
 git diff --check
 cargo run -p pvz-asset-tool --locked -- audit --format json
 cargo run -p pvz-asset-tool --locked -- inspect-reanim PeaShooter
+cargo run -p pvz-app --locked -- --probe --smoke 120 --screenshot
 ```
 
 已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
-具体任务见实施计划，完整验收命令见贡献指南；当前仍没有可用的游戏 `cargo run` 命令。
+具体任务见实施计划，完整验收命令见贡献指南。默认资源探针使用 `cargo run -p pvz-app --locked`；Web 构建及启动见 [Web 入口](web/README.md)，实测范围和限制见 [平台探针结果](docs/behavior/platform-probe-results.md)。
 
 ## 原版资源与许可
 

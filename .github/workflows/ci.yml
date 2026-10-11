@@ -63,6 +63,23 @@ jobs:
           tracked = list(filter(None, subprocess.check_output(
               ["git", "ls-files", "-z"]
           ).decode("utf-8").split("\0")))
+          support = json.loads(Path("assets/third-party/manifest.json").read_text(encoding="utf-8"))
+          if support["schema_version"] != 1:
+              raise SystemExit("不支持的第三方资源清单版本")
+          support_records = {}
+          for record in support["files"]:
+              path = record["path"]
+              name = "assets/third-party/" + path
+              if PurePosixPath(path).name != path or "\\" in path or ":" in path or PurePosixPath(path).suffix != ".ttf" or name in support_records:
+                  raise SystemExit("无效或重复的第三方字体路径")
+              if record["license"] != "OFL-1.1" or not record["source_url"].startswith("https://"):
+                  raise SystemExit("第三方字体缺少许可或来源")
+              if type(record["size"]) is not int or record["size"] <= 0 or len(record["sha256"]) != 64 or any(c not in "0123456789abcdef" for c in record["sha256"]):
+                  raise SystemExit("无效的第三方资源大小或指纹")
+              support_records[name] = record
+          tracked_fonts = {name for name in tracked if Path(name).suffix.lower() == ".ttf"}
+          if tracked_fonts != set(support_records):
+              raise SystemExit("跟踪字体与第三方资源清单不一致")
           manifest_path = Path("assets/manifest.json")
           manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
           if manifest["schema_version"] != 1 or manifest["root"] != "assets/original":
@@ -125,6 +142,11 @@ jobs:
               raise SystemExit("禁止跟踪未登记的游戏载荷文件：\n" + "\n".join(forbidden))
           for name in tracked:
               data = Path(name).read_bytes()
+              if name in support_records:
+                  record = support_records[name]
+                  if len(data) != record["size"] or hashlib.sha256(data).hexdigest() != record["sha256"]:
+                      raise SystemExit(f"第三方资源大小或哈希不匹配：{name}")
+                  continue
               asset_path = name.removeprefix("assets/original/") if name.startswith("assets/original/") else None
               if asset_path is not None:
                   record = records[asset_path]
@@ -163,6 +185,9 @@ jobs:
         with:
           toolchain: 1.99.0
           components: rustfmt, clippy
+      - name: 安装 Linux 音频构建依赖
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes libasound2-dev
       - name: 检查代码
         run: cargo check --workspace --all-targets --locked
       - name: 检查格式
@@ -173,6 +198,14 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: 构建文档
         run: cargo doc --workspace --no-deps --locked
+      - name: 检查探针 feature
+        run: cargo clippy -p pvz-app --all-targets --features probe --locked -- -D warnings
+      - name: 验证全部兼容 feature
+        run: |
+          cargo check --workspace --all-targets --all-features --locked
+          cargo test --workspace --all-features --locked
+          cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+          cargo doc --workspace --all-features --no-deps --locked
 
   dependency-audit:
     needs: structure
@@ -201,6 +234,8 @@ jobs:
         with:
           toolchain: 1.99.0
           components: llvm-tools-preview
+      - name: 安装音频构建依赖
+        run: sudo apt-get update && sudo apt-get install --yes libasound2-dev
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov@0.9.1
@@ -227,3 +262,12 @@ jobs:
           targets: wasm32-unknown-unknown
       - name: 构建 app 的 WebAssembly
         run: cargo build -p pvz-app --target wasm32-unknown-unknown --release --locked
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.129
+      - name: 生成默认 Web 包
+        run: wasm-bindgen --target web --out-name pvz_app --out-dir target/web target/wasm32-unknown-unknown/release/pvz-app.wasm
+      - name: 构建无资源 Web 探针
+        run: cargo build -p pvz-app --target wasm32-unknown-unknown --release --features probe --locked
+      - name: 生成无资源 Web 探针包
+        run: wasm-bindgen --target web --out-name pvz_app --out-dir target/web-probe target/wasm32-unknown-unknown/release/pvz-app.wasm

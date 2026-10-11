@@ -8,6 +8,7 @@
 *.au binary
 *.pak binary
 *.compiled binary
+*.ttf binary
 
 # 保留参考文本的正文空白；编码和哈希由 CI 检查。
 assets/original/** whitespace=-blank-at-eol,-blank-at-eof
