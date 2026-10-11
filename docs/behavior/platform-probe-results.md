@@ -1,8 +1,12 @@
 # 视口、资源与音频探针验收
 
-2026-10-11 在 Windows 宿主使用 Rust 1.99.0、Bevy 0.20.0 和锁定依赖执行。此记录只验证基础设施，不是原版规则或首个可玩切片的验收。原版行为测量状态见 [参考基线](reference-baseline.md)。
+2026-10-11 在 Windows 宿主使用 Rust 1.99.0、Bevy 0.20.0 和锁定依赖执行。本文保留任务 5 的早期快照与输入修复后的最终复验，属于基础设施历史记录，不是当前切片或原版规则验收。当前结果见 [切片阶段性结果](vertical-slice-results.md)，原版测量状态见 [参考基线](reference-baseline.md)。
 
-## Windows 实际运行
+## 任务 5 早期快照（64bb00f）
+
+以下截图、音频游标、测试计数与覆盖率对应输入顺序修复前的代码，完成范围由最终复验补充；不将这里的“最新”结果应用于后续版本。
+
+### Windows 实际运行
 
 从仓库根目录运行已构建的 `pvz-app`，使用隐藏且不请求焦点的窗口；启动进程也使用 Windows 后台模式。没有切换维护者的前台窗口。
 
@@ -11,11 +15,11 @@ pvz-app --probe --smoke 120 --screenshot
 pvz-app --smoke 160 --audio-smoke --screenshot
 ```
 
-两种模式都退出 0，真实 GPU 截图为 1000×750，最新 stderr 为空。逐张查看了截图：原创探针显示网格和双轴仿射/裁剪夹具；登记模式显示原版背景和完整豌豆射手的开发待机片段。资源提供层实际验证并解码 19 张 PNG、背景、PeaShooter 文本和 OGG；失败不回退占位。截图与日志留在忽略的 `artifacts/viewport/`。
+两种模式都退出 0，真实 GPU 截图为 1000×750，这次 stderr 为空。逐张查看了截图：原创探针显示网格和双轴仿射/裁剪夹具；登记模式显示原版背景和完整豌豆射手的开发待机片段。资源提供层实际验证并解码 19 张 PNG、背景、PeaShooter 文本和 OGG；失败不回退占位。截图与日志留在忽略的 `artifacts/viewport/`。
 
 音频探针实际取得 AudioSink。暂停期间两次游标均为 154.648526ms，恢复后推进到 379.138322ms，随后停止循环。一次音效及循环音乐的请求已提交；短时探针没有跨越完整曲目的末尾，也没有进行人工听辨，因此不据此声称音质或曲尾循环已验收。MO3 未支持，未把 OGG 当作 MO3 验收。
 
-## Web 构建与实际运行
+### Web 构建与实际运行
 
 按 [Web 入口](../../web/README.md) 构建默认及 `probe` 两种 release WASM，并使用与锁文件一致的 wasm-bindgen-cli 0.2.129 生成包；各命令退出 0。服务只监听 `127.0.0.1:8000`，使用隐藏的 Codex In-app Browser 实际运行两种模式。图形日志识别 WebGL2、Chromium/ANGLE 与 NVIDIA GeForce RTX 3060 Laptop GPU。
 
@@ -36,9 +40,11 @@ pvz-app --smoke 160 --audio-smoke --screenshot
 
 WebGL2 日志保留 OIT 与 BackgroundMotionVectors 两项可选 3D 管线能力诊断，以及 CPU 预处理回退信息。当前 2D 路径实际绘制成功；没有屏蔽日志，也没有为关闭内部插件而复制引擎管线。初版空轨道网格警告已修复：只注册有图像消费者的轨道，完全裁剪时隐藏而不提交空网格。中文模型缺失错误通过正式 complex_script_segmentation feature 修复。
 
-## 自动验证与六平台状态
+### 自动验证与六平台状态
 
-本次 workspace 默认和全部兼容 feature 的测试各通过 82 项（包括 doctest），app 占 20 项；fmt、all-targets/all-features 检查、Clippy `-D warnings`、文档与 cargo-deny 均通过。依赖审计没有安全公告忽略项；多版本 warning 保留为依赖图观察。覆盖率和基准报告在对应策略文档中维护，不能由平台截图代替。
+这次 workspace 默认和全部兼容 feature 的测试各通过 82 项（包括 doctest），app 占 20 项；fmt、all-targets/all-features 检查、Clippy `-D warnings`、文档与 cargo-deny 均通过。依赖审计没有安全公告忽略项；多版本 warning 保留为依赖图观察。
+
+早期覆盖率使用 cargo-llvm-cov 0.9.1：纯默认测试为 67.31%，main/render 没有运行且未排除分母；追加同一次 instrumented 构建的隐藏原创/登记音频 smoke 后为 2158/2395 行（90.10%）。运行范围不同，不据此声称测试质量或性能提升。原始 profile 初次位于错误输出位置，核对并复制到对应 target 后重新生成报告；未纳入窗口的首次报告仍为 67.31%，没有当作合并成功。Web 条件代码和真实设备输入不在本机 native profile 中。
 
 | 平台 | 构建/运行证据 | 后续事项 |
 | --- | --- | --- |
@@ -49,4 +55,18 @@ WebGL2 日志保留 OIT 与 BackgroundMotionVectors 两项可选 3D 管线能力
 | Android | 纯核心与资源字节接口不绑定桌面路径，尚未接入入口 | Activity、资源包、触摸、生命周期、构建与实机 |
 | iOS | 纯核心与资源字节接口不绑定桌面路径，尚未接入入口 | macOS/Xcode、签名、打包、触摸与实机 |
 
-远端 CI 尚未由本轮改动触发；本地脚本及工作流语法验收单独执行。Bevy 迁移原因与许可评估见 [ADR 0004](../adr/0004-bevy-runtime.md)。
+远端 CI 未由该阶段改动触发；本地脚本及工作流语法验收单独执行。Bevy 迁移原因与许可评估见 [ADR 0004](../adr/0004-bevy-runtime.md)。
+
+## 任务 5 最终复验（534d81c）
+
+独立复核发现同帧快速指针事件丢失，以及批内多次 resize/DPI 事件过早使用最终映射；两轮修复后分别由 `46fe7f3`、`534d81c` 保留完整输入阶段与逐事件视口映射。规范/质量复核通过，默认与 all-features workspace 各 100 项含 doctest 通过；不是沿用上面 82 项快照验收修复。
+
+| 范围 | 修复后实际结果 | 限制 |
+| --- | --- | --- |
+| Windows 隐藏窗口 | 原创 probe 与登记 audio-smoke 均 exit 0，1000×750 GPU 截图已逐张查看，完整植物/背景正常 | probe stderr 为空；登记运行一次保留 285 字节的 mesh2d shader unresolved import WARN，未屏蔽诊断 |
+| Windows 音频 | 暂停游标 154.648526 ms 保持，恢复至 359.183673 ms | 验证真实 sink 推进，仍非人工听辨或完整曲尾循环验收 |
+| Web 构建 | 默认/probe WASM release 及匹配的 wasm-bindgen 包生成均 exit 0 | 只含 app，不含宿主 CLI |
+| Web 尺寸与输入 | 1280×720、2560×1440、3840×2160 的 framebuffer 与中心逻辑坐标 400×300 实查；登记模式阳光 50→51→52→53；probe 留边点击仍为 51 | 实际 DPR 均为 1，大尺寸截图不作为整帧像素比对 |
+| Web 暂停/恢复 | probe 暂停 tick 977、动画 16.30 s 保持，恢复至 tick 3042、动画 50.70 s | 修复后的输入与暂停合同复验；其他浏览器与设备仍待验 |
+
+任务 5 因此完成基础设施验收；截图最终等待边界和 instrumented shader 诊断由 [任务 8](../superpowers/plans/2026-10-07-foundation-and-asset-audit.md#任务-8复核覆盖率与性能基线)继续跟踪。真实 DPR 2/4、设备触摸、macOS/Linux/移动端及原版行为测量仍未完成。后续任务 6 的 94 图像静态构图、119 项测试与覆盖率属于切片阶段，见阶段性结果，不覆盖这里的历史记录。

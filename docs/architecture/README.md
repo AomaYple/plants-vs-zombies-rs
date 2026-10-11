@@ -1,45 +1,47 @@
 # 模块与依赖
 
-本目录描述模块合同。当前已注册 `pvz-data`、`pvz-core` 和 `pvz-assets`，其余 package 按实施计划接入；实际成员以根 `Cargo.toml` 为准。运行时分层、行为还原和平台边界的长期约束见 [游戏开发原则](../principles/game-development.md)。
+本目录维护实际模块合同及依赖方向；五个 package 均已注册，成员和第三方依赖以根 [Cargo.toml](../../Cargo.toml) 为准。当前实施暂停，切片独立复核待完成，进度见 [实施计划](../superpowers/plans/2026-10-07-foundation-and-asset-audit.md)。长期边界见 [游戏开发原则](../principles/game-development.md)。
 
 ## 依赖方向
 
-```text
-pvz-app ---------> pvz-core -------> pvz-data
-   |                                    ^
-   +-------------> pvz-assets ----------+
-
-pvz-asset-tool --> pvz-assets
+```mermaid
+flowchart TD
+    app[pvz-app] --> core[pvz-core]
+    app --> assets[pvz-assets]
+    app --> data[pvz-data]
+    core --> data
+    assets --> data
+    tool[pvz-asset-tool] --> assets
 ```
 
-箭头表示“依赖”。pvz-data 是独立的类型与数据定义层，没有引擎依赖。
-pvz-core 与 pvz-assets 不互相依赖；资源解析结果由 app 装配，不在模拟里访问资源。
-pvz-asset-tool 是宿主机 CLI，不加入 wasm 应用的依赖图。
-serde 等依赖需在实际采用时说明用途；文件读取、格式解析和转换归 assets/tool，不能放入 data 或 core。
+箭头表示 workspace 内部的直接依赖。data、core、assets 没有引擎依赖；core 与 assets 不互相依赖。平台字节加载与媒体解码在 app，宿主目录审计在 assets/tool，data 与 core 不做文件 I/O。tool 是宿主 CLI，不加入 WASM 应用依赖图。
 
 ## crate 职责
 
-| crate | 提供 | 不承担 |
-| --- | --- | --- |
-| pvz-data | 实体定义、关卡/波次 schema、内部 ID、版本和校验规则 | 文件 I/O、贴图、设备、原版文本内嵌 |
-| pvz-core | 棋盘、实体、状态机、碰撞、规则更新、RNG、逻辑事件与回放 | 渲染、音频、资产加载、墙钟时间 |
-| pvz-assets | 清单/Reanim/粒子解析、资源索引、CPU 数据和加载报告 | 游戏伤害、波次决策、GPU 纹理句柄 |
-| pvz-app | 窗口、平台输入、资源装配、Bevy 渲染/音频和存档 | 隐藏的第二套游戏规则 |
-| pvz-asset-tool | 版本化资源检查、报告、转换、打包 | 运行原版、修改 core 规则、自动生成未登记的公开资源 |
+| crate | 当前能力 | 后续方向 | 职责边界 |
+| --- | --- | --- | --- |
+| pvz-data | 强类型 ID、schema/规则版本、参考基线 ID、序列化合同 | 完整内容数据 schema | 不做 I/O、引擎与设备操作 |
+| pvz-core | 空棋盘 1.0、开发切片 2.0 的规则/实体/碰撞、RNG、命令/事件与完整摘要 | 按参考证据扩展规则和持久回放 | 不依赖资源、平台、引擎或墙钟 |
+| pvz-assets | JSON 清单审计、资源索引、Reanim/粒子 XML 子集、CPU 模型与诊断 | 按需求扩展受支持格式 | 不决定伤害/波次，不持有 GPU 句柄 |
+| pvz-app | 窗口、输入、native/Web 资源装配、静态构图、切片 UI、事件音效与探针 | 完整动画/粒子、存档、生命周期及移动入口 | 消费 core 状态/事件，不复制规则 |
+| pvz-asset-tool | `audit` 与 `inspect-reanim`，只读检查登记资源 | 有实际需求时引入转换/打包 | 不运行原版或修改来源资源/core 规则 |
 
 ## 数据流
 
-平台输入 → 逻辑坐标映射 → 带顺序的游戏命令 → 固定 tick 模拟 → 状态/事件 → 动画与视听表现。
-游戏事件包含种植成功、扣费、发射、伤害、产阳光、死亡、胜负；声音与特效消费事件，不反向决定伤害。
-文件/包/浏览器字节输入 → assets 解析 → app 资源缓存 → 渲染和音频。
-单元测试直接向 core 提交命令，无需窗口、资源包或系统路径。
+平台有序窗口事件 → 物理/逻辑坐标映射 → 有序游戏命令 → core 更新 → 状态/事件 → UI、构图与音频。切片暂停、重开和终局可以不推进 tick，具体见 [开发切片合同](../behavior/development-slice.md)。声音与表现消费事件，不反向决定伤害。
+
+宿主文件或浏览器字节 → 清单/指纹校验与 assets 解析 → app 媒体解码、CPU 模型与引擎资源 → 绘制和音频。`main.pak` 保留为参考来源包，当前运行时直接加载登记的解包文件。core 测试直接提交命令，无需窗口、资源包或系统路径。
 
 ## pvz-app 内部模块
 
-- input：鼠标、触摸、取消与暂停映射，维护物理与逻辑坐标变换。
-- render：有序绘制、Reanim 仿射矩阵、纹理/图集、粒子和裁剪。
-- audio：音效去重、音乐循环与暂停恢复；单独验证 MO3 路线。
-- platform：资源读取、存档介质、应用生命周期；宿主文件系统与 Web storage 分开实现。
-- bootstrap：版本化资源装配、资源验证报告和加载失败界面。
+| 模块 | 当前职责 |
+| --- | --- |
+| `viewport`、`input`、`platform_input` | 纯坐标变换、指针状态及按事件顺序处理尺寸/DPI/取消 |
+| `runtime` | 模拟与表现时钟接线、逻辑输入到 core 命令及 UI/事件适配 |
+| `resources` | native/Web 字节加载、清单验证、媒体解码及显式图像映射 |
+| `animation`、`geometry` | 纯动画准备/采样、双轴仿射与 UV 裁剪合同 |
+| `render` | Bevy 网格/纹理、切片静态实体构图和中文 UI |
+| `audio` | 媒体支持检查与事件音效映射；MO3 明确未支持 |
+| `main` | 窗口/调度装配、平台事件、资源加载状态、播放游标与后台冒烟 |
 
-独立 crate 的拆分条件是已有稳定接口、独立消费者或独立测试需要。不会仅为“以后可能”预建更多空 package。
+完整动画播放器、原版粒子、存档和移动生命周期属于后续工作，不以不存在的模块名表示已经接入。独立 crate 的拆分依据稳定接口、实际消费者或独立测试需要，不为未来设想预建空 package/API。

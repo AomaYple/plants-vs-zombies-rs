@@ -39,7 +39,7 @@ tempfile = "3.23"
 
 [workspace.metadata.project]
 name = "plants-vs-zombies-rs"
-stage = "rust-foundation-and-reference-assets"
+stage = "development-slice-pending-review"
 design = "docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md"
 plan = "docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md"
 

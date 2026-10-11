@@ -6,7 +6,7 @@
 
 先阅读 [README](README.md) 的当前状态、[项目原则](docs/principles/README.md)和 [路线图](docs/roadmap.md)，再按任务查阅架构、行为基线和实施计划。本指南维护操作步骤与验收命令，长期规则和文档职责在原则文档中维护。
 
-文档与结构阶段只处理已授权的文档、目录和仓库配置；开始 Rust 实现需要用户明确授权。发现计划与实际接口、配置或阶段不符时先说明差异，按实际任务更新相关文档。
+按当次任务确定工作范围；文档与结构任务不自行扩展为游戏源码，暂停期间不自行恢复实施。发现计划与实际接口、配置或阶段不符时说明差异，按实际任务更新相关文档。
 
 项目为非官方 Rust 全量重写，版本化原版参考资源位于 `assets/original/`；缓存与转换产物使用被忽略的 `target/`，本机测量证据使用被忽略的 `artifacts/`。重写与资源边界见 [游戏开发原则](docs/principles/game-development.md)。
 
@@ -14,7 +14,7 @@
 
 - 使用 Rustup 和 [rust-toolchain.toml](rust-toolchain.toml) 声明的工具链及组件；Edition、resolver、最低版本字段和 lint 读取 [Cargo.toml](Cargo.toml)。不要在命令中擅自切换到另一 stable/nightly 或承诺未验证的兼容版本。
 - 更新工具链时同步配置、CI 和受影响文档，并运行适用检查；“采用现代 stable Rust”不代表每次任务自动升级编译器或依赖。
-- `crates/` 放 data、core、assets、app；`tools/` 放宿主 CLI；各 package 的集成测试放 `tests/`，基准放 `benches/`，仓库级共享原创夹具与回放放根目录 `tests/`。拆分依据是职责和实际消费者，不预建无用途 package、模块或目录；预留目录必须有明确用途说明。
+- `crates/` 放 data、core、assets、app；`tools/` 放宿主 CLI；各 package 的集成测试放 `tests/`，基准放 `benches/`，仓库级共享原创夹具与回放放根目录 `tests/`。拆分依据是职责和实际消费者，不预建无用途 package、模块或目录。
 - 首次注册 package 时生成并提交 `Cargo.lock`；之后由 Cargo 维护，依赖变更同步锁文件。验收使用 `--locked`，依赖升级使用明确的更新操作，不手改锁文件。
 - 新 package 继承适用的 workspace package 字段，通过 `[lints] workspace = true` 显式继承 lint；先检查实际依赖图，确保满足架构边界。
 - 实现通用能力前查阅已有模块和成熟库。选择能满足合同的方案，记录用途、兼容性与许可；自行实现时说明现有方案的具体缺口，避免重复编写参数解析、通用格式解析等已有可靠方案的逻辑。
@@ -48,7 +48,7 @@ Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principl
 2. 默认并行，局部串行附原因。Cargo 的 `--jobs` 控制编译并发，测试线程由测试运行器控制。
 3. 核对原创夹具来源与版本化资源清单，固定输入回放的状态摘要和事件序列；原版 EXE 的行为测量与运行比对单独记录。
 4. 相关实现接入覆盖率报告，说明范围、target/feature 组合、遗漏和补测安排。
-5. 关键路径接入代表性时间基准，复用已有场景；关键路径内存布局/分配策略变化或内存改善主张补充测量，其他变更按影响与风险选择检查。性能优化附同条件比较、时间/空间取舍和正确性结果。
+5. 关键路径接入代表性时间基准，复用已有场景；关键路径内存布局/分配策略变化或内存改善主张补充测量，其他变更按影响与风险选择检查。按 [共同原则](docs/principles/README.md#共同原则)评估优化，附同条件比较、时间/空间取舍和正确性结果。
 
 上述检查及应用运行优先通过后台工具、隔离进程和隐藏浏览器完成，日志和报告写入忽略目录；不要为执行命令切换到维护者正在使用的前台终端。真实窗口验收先尝试后台启动与目标窗口捕获；无法取得有效证据时记录原因，再进行最小范围的前台交互。后台运行后核对进程结果并清理本次启动的服务和进程，不干扰无关应用。
 
@@ -56,16 +56,16 @@ Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principl
 
 以下命令均在仓库根目录运行。命令成功只证明对应检查通过；`cargo check` 不等于完整构建或实际运行，文档生成不等于 doctest 或平台验证。
 
-### 文档与空 workspace
+### 文档与结构变更
 
 ```sh
-cargo metadata --no-deps --format-version 1
+cargo metadata --no-deps --locked --format-version 1
 git diff --check
 git diff --cached --check
 git ls-files
 ```
 
-核对文档链接、命令、阶段描述与跟踪文件。以下命令检查已跟踪及未忽略的新文件，按资源清单区分文本与二进制，适用于 Bash 和 PowerShell，需要 Python 3：
+核对文档链接、命令、阶段描述与跟踪文件；涉及 Cargo 配置时运行元数据检查。纯文档变更无需重复无关的 Rust 编译、覆盖率、性能或窗口验收。以下命令检查工作区中已跟踪及未忽略的新文件，跳过 Git 已识别的删除，并核对资源集合与清单；适用于 Bash 和 PowerShell，需要 Python 3：
 
 ```sh
 python -X utf8 -c "
@@ -76,7 +76,8 @@ import subprocess
 
 tracked = subprocess.check_output(['git', 'ls-files', '-z']).decode('utf-8').split('\0')
 new = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '-z']).decode('utf-8').split('\0')
-names = set(filter(None, tracked + new))
+deleted = subprocess.check_output(['git', 'ls-files', '--deleted', '-z']).decode('utf-8').split('\0')
+names = set(filter(None, tracked + new)) - set(filter(None, deleted))
 manifest = json.loads(Path('assets/manifest.json').read_text(encoding='utf-8'))
 records = {item['path']: item for item in manifest['files']}
 support = json.loads(Path('assets/third-party/manifest.json').read_text(encoding='utf-8'))
@@ -117,9 +118,9 @@ print(f'已检查 {len(names)} 个文件和 {len(records)} 个参考资源')
 
 删除文件时先核对引用和来源，再更新 Git 跟踪状态。修改工作流时用 actionlint 等验证语法，并实际执行受影响脚本。
 
-### 首次注册 package 与后续实现
+### Rust、依赖与构建配置变更
 
-第一次变更同时完成 workspace 注册、`Cargo.lock`、workspace lint 继承、阶段文档和 CI 更新。以下为默认 feature 的验收基线；首次注册时同步 CI 命令与工具安装，不把当前仅启用的结构检查当成实现验收：
+以下为默认 feature 的验收基线，实际 CI 见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。新增 package 同时完成 workspace 注册、锁文件更新、workspace lint 继承、阶段文档和适用 CI 更新。
 
 实施计划中各任务列出的命令是局部验证，不替代本节的提交验收；后续门槛任务用于完善专项检查，不能延后首次 package 或热路径实现时已适用的要求。
 
@@ -136,7 +137,7 @@ git diff --cached --check
 
 按 [游戏开发效率原则](docs/principles/game-development.md#游戏开发效率)拆成可独立验收的小功能增量，开发中先运行受影响 package/测试以缩短反馈，提交前完成适用的 workspace 检查。`cargo test --workspace --locked` 保留默认 doctest；不要用 `--all-targets` 代替它后漏掉文档示例测试。
 
-所有 feature 可共存时，为检查、测试、Clippy 和文档补充 `--all-features`；存在互斥平台/backend feature 时记录有效组合并建立矩阵，不靠单次全开代替实际支持验证。新增 feature 同步测试与 CI；现有预置 CI 在首次 package 注册时按这一约定核对。
+所有 feature 可共存时，为检查、测试、Clippy 和文档补充 `--all-features`；存在互斥平台/backend feature 时记录有效组合并建立矩阵，不靠单次全开代替实际支持验证。新增 feature 同步测试与 CI；按变更核对矩阵和工具安装，不能把结构检查当成实现验收。
 
 涉及核心规则、资源解析或热路径时运行相应覆盖率和基准，说明实际范围：
 

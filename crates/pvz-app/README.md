@@ -1,33 +1,36 @@
 # pvz-app
 
-Bevy 0.20 验证应用，当前消费者包括纯视口/输入合同、资源清单校验、开发动画、2D 仿射网格和音频探针。它验证跨平台基础设施；800×600、模拟 60 tick/s、背景 x=220 裁剪和动画 marker 解释均为开发合同，尚不是原版游戏行为验收。
+Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片采用六类对象的登记静态构图，尚未接入完整动作混合与原版粒子。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
 
 ## 运行与探针
 
-所有命令从仓库根执行。默认读取 `assets/manifest.json` 登记的背景、PeaShooter 文本与 19 张 PNG、`seedlift.ogg` 音效和 `ZombiesOnYourLawn.ogg` 音乐；先检查大小/SHA-256/文本规范，再解码。native 使用 `AssetRoot` 只读输入，Web 使用 gloo-net 同源 `/assets/` 下载并复用同一清单校验。没有安装目录或资源根覆盖参数。缺失、损坏、未登记图像引用与下载失败会显示中文错误，不会静默变成占位资源。
+所有命令从仓库根执行。默认读取 `assets/manifest.json` 登记的背景、六类对象所需的 Reanim/图像集合（94 张图像）、四类事件音效，以及原有 `seedlift.ogg`/`ZombiesOnYourLawn.ogg` 音频探针素材；先检查大小/SHA-256/文本规范，再解码。native 使用 `AssetRoot` 只读输入，Web 使用 gloo-net 同源 `/assets/` 下载并复用同一清单校验。没有安装目录或资源根覆盖参数。缺失、损坏、未登记图像引用与下载失败会显示中文错误，不会静默变成占位资源。
 
 ```sh
 cargo run -p pvz-app --locked
 cargo run -p pvz-app --locked -- --probe
 cargo run -p pvz-app --locked -- --probe --smoke 120 --screenshot
 cargo run -p pvz-app --locked -- --smoke 160 --audio-smoke --screenshot
+cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot
 ```
 
-`--probe` 只显示原创背景、网格与仿射夹具，不读取原版素材或音频。`--smoke` 创建不可见且不请求焦点的窗口，持续更新，在指定真实绘制帧数后退出；`--screenshot` 等 GPU 截图回调完成，写入忽略目录 `artifacts/viewport/`，保存失败或资源失败返回错误。应用内加载等待上限为 30 秒。后台运行与截图验收由主代理统一协调。
+`--probe` 只显示原创背景、网格与仿射夹具，不读取原版素材或音频。`--smoke` 创建不可见且不请求焦点的窗口，持续更新，在指定真实绘制帧数后进入退出流程。`--slice-smoke` 用正常游戏命令驱动切片，每帧推进 15 个开发模拟 tick。`--screenshot` 等 GPU 回调完成后退出，probe 写入 `artifacts/viewport/probe.png`，登记切片写入 `artifacts/vertical-slice/registered.png`；两者均被忽略，保存或资源失败返回错误。资源加载等待上限为 30 秒，截图请求后的最终等待上限尚待任务 8 补齐。后台运行与截图验收统一协调。
 
-鼠标与触摸通过 Bevy 有序 `WindowEvent` 消息适配，只消费主窗口并完整保留同一更新批次内的开始、移动、结束和取消阶段。坐标先乘窗口 DPI，再逆变换成逻辑点。视口外按下不产生游戏命令；捕获的指针越界、取消、失焦或视口变化会取消，多个指针状态相互独立。逻辑按下在未暂停时向 core 提交一个开发 `AddSun` 命令，模拟只消费 core 的状态/事件。P 或空格冻结模拟与动画，渲染计数继续推进。
+鼠标与触摸通过 Bevy 有序 `WindowEvent` 适配，只消费主窗口并完整保留同批开始、移动、结束、取消及尺寸/DPI 变化的顺序。坐标先乘当时的窗口 DPI，再逆变换到逻辑点。视口外按下不产生游戏命令；捕获的指针越界、取消、失焦或视口变化会取消，多个指针状态相互独立。
 
-E 播放一次音效，M 启停循环音乐。P/空格在音乐已播放时使用 Bevy `AudioSink::pause/play` 保留游标；UI 显示实际播放位置。`--audio-smoke` 要求登记资源模式且至少 120 帧：提交一次音效和循环音乐，比较暂停期间两次游标，再确认恢复推进并停止。这个探针验证音频后端和播放请求，不等于人工听辨声音质量，也不单独证明已经跨过曲目末尾的循环边界。浏览器还需要用户手势解锁音频，是否成功须用目标浏览器实测，不能由 Web 构建代替。
+正常切片将 UI/草坪按下映射为选卡、种植、收集、铲除、暂停或重开；P/空格暂停与恢复，R 重开。伤害、阳光、冷却和胜负由 core 决定，表现只消费状态与事件。只有原创 probe 的空棋盘路径保留开发 `AddSun`；正常切片拒绝该命令。暂停冻结模拟与可冻结表现时钟，渲染帧计数继续推进，控制因果见 [开发切片合同](../../docs/behavior/development-slice.md)。
 
-Web 入口先编译 WebAssembly 模块，再等待用户点击“启动”按钮，在该手势内调用 wasm-bindgen 生成的异步 `init({ module_or_path: module })` 初始化应用和音频输出。这样保留浏览器用户手势要求；直接自动启动应用可能让初始化的 AudioContext 悬停，此时音乐 sink 存在也可能始终为零。主代理已在实际浏览器测得播放至 26.19s、暂停保持、恢复至 59.81s；该证据只覆盖本次浏览器，其他浏览器和移动端仍需验收。
+M 启停已加载的开发循环音乐；E 音效键仅在 probe/音频冒烟路径启用，原创 probe 没有加载音频。暂停通过 Bevy `AudioSink::pause/play` 保留实际游标。`--audio-smoke` 要求登记资源模式且至少 120 帧：提交一次音效和循环音乐，比较暂停期间两次游标，再确认恢复推进并停止。这个探针不等于人工听辨或完整曲尾循环验收。浏览器须通过用户手势解锁音频，并用实际游标验证，不能由 Web 构建替代。
+
+Web 入口先编译 WebAssembly 模块，再等待用户点击“启动”按钮，在该手势内调用 wasm-bindgen 生成的异步 `init({ module_or_path: module })` 初始化应用和音频输出。自动启动曾实测 AudioContext 悬停，sink 存在而游标始终为零；当前入口的实际验证与限制见 [平台探针结果](../../docs/behavior/platform-probe-results.md)，构建命令见 [Web 说明](../../web/README.md)。
 
 ## 仿射与开发动画合同
 
-纯 `PreparedAnimation` 在装配时继承缺省字段，保留显式空图片，源轨道顺序作为图层顺序；marker 取首个非负 `f` 连续区段，按资源 fps 离散循环，不反向驱动模拟。登记 PeaShooter 的开发默认选择 `anim_full_idle`（79..104），这个 XML 区段包含头、嘴、叶与茎；`anim_idle`（4..29）只启用叶与茎，不适合作为完整植物探针。`kx` 控制 y 基向量、`ky` 控制 x 基向量，分别生成 `[-sy*sin(kx), sy*cos(kx)]` 与 `[sx*cos(ky), sx*sin(ky)]`。独立角度、缩放和平移使用原创夹具验证。原版完整的插值、锚点、marker、sprite atlas 和 `f` 语义仍待原版测量。
+纯 `PreparedAnimation` 在装配时继承缺省字段，保留显式空图片，源轨道顺序作为图层顺序；marker 取首个非负 `f` 连续区段，按资源 fps 离散循环，不反向驱动模拟。该采样能力已测试，当前切片仍使用静态构图。PeaShooter 选择 `anim_full_idle`（79..104）的帧 79，包含头、嘴、叶与茎；`anim_idle`（4..29）只启用叶与茎。`kx` 控制 y 基向量、`ky` 控制 x 基向量，分别生成 `[-sy*sin(kx), sy*cos(kx)]` 与 `[sx*cos(ky), sx*sin(ky)]`。独立角度、缩放和平移使用原创夹具验证；原版完整插值、锚点、marker、sprite atlas 和 `f` 语义仍待测量。其他构图的来源与轨道选择见开发切片合同。
 
 Bevy 世界坐标 Y 向上，纯逻辑坐标 Y 向下；适配层执行 `(x-400, 300-y)`。Camera viewport 使用 framebuffer 像素，正交投影覆盖 800×600 逻辑单位，直接在实际 framebuffer 绘制。纹理顶点经 CPU 凸多边形裁剪，同时插值 UV，再送入 `Mesh2d/ColorMaterial`；没有低分辨率渲染纹理作为中间输出。右侧红蓝原创四边形验证独立错切、图层遮挡和右侧裁剪。1400×600 背景使用 800×600 开发裁剪，不横向挤压。
 
-`properties/resources.xml` 实查没有 PeaShooter 图像登记，因此 `resources.rs` 保存 19 项经清单逐项核对的显式开发 ID 映射；每个动画引用必须精确匹配唯一登记文件。运行时不使用大小写或文件名猜测。这个映射尚不宣称复现原版资源管理系统。
+`properties/resources.xml` 实查没有 PeaShooter 图像登记。`resources.rs` 当前保存 93 项经 Reanim 引用与清单逐项核对的显式图像映射，另加载豌豆图像，共 94 张；每个引用必须精确匹配唯一登记文件。运行时不使用大小写或文件名猜测，该映射不宣称复现原版资源管理系统。
 
 ## 测试与性能入口
 
@@ -38,7 +41,7 @@ cargo clippy -p pvz-app --all-targets --all-features --locked -- -D warnings
 cargo bench -p pvz-app --bench presentation --locked
 ```
 
-纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码默认最小集合。Criterion 覆盖 4K 视口输入映射、两个角度的仿射/裁剪、原创 8 轨道×128 帧、12fps 开发动画的时间索引；原创稀疏夹具的构造/解析位于计时区外，基准不读取或嵌入原版素材。GPU 每帧网格更新、驱动、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。
+纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；构造/解析位于计时区外，基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。当前切片的实际结果与待验范围见 [阶段性结果](../../docs/behavior/vertical-slice-results.md)。
 
 ## 平台与依赖边界
 
