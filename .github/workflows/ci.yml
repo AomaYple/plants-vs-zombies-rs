@@ -252,7 +252,9 @@ jobs:
         with:
           tool: cargo-llvm-cov@0.9.1
       - name: 生成覆盖率报告
-        run: cargo llvm-cov --workspace --locked --lcov --output-path target/coverage/lcov.info
+        run: |
+          mkdir -p target/coverage
+          cargo llvm-cov --workspace --locked --lcov --output-path target/coverage/lcov.info
       - name: 保存覆盖率报告
         uses: actions/upload-artifact@v4
         with:
