@@ -1,0 +1,10 @@
+<Emitter>
+  <Name>a</Name>
+  <ParticleScale>[.4 .6] [.8 1.2]</ParticleScale>
+  <Field><FieldType>Friction</FieldType><X>0,40 .1</X></Field>
+</Emitter>
+<Emitter>
+  <Image>b</Image>
+  <SystemDuration>[20 30]</SystemDuration>
+  <SystemField><FieldType>Acceleration</FieldType><Y>10</Y></SystemField>
+</Emitter>

@@ -21,7 +21,13 @@ pub enum Diagnostic {
     /// 目录中存在未登记文件。
     Unexpected { path: String },
     /// 审计读取文件时发生错误。
-    Io { path: String, message: String },
+    Io {
+        path: String,
+        kind: std::io::ErrorKind,
+        message: String,
+    },
+    /// 文本资源不符合 UTF-8、LF、无 BOM 或末尾换行合同。
+    InvalidText { path: String },
 }
 
 impl Diagnostic {
@@ -37,7 +43,8 @@ impl Diagnostic {
             | Self::SizeMismatch { path, .. }
             | Self::HashMismatch { path }
             | Self::Unexpected { path }
-            | Self::Io { path, .. } => path,
+            | Self::Io { path, .. }
+            | Self::InvalidText { path } => path,
         }
     }
 }

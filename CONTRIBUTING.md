@@ -19,6 +19,16 @@
 - 新 package 继承适用的 workspace package 字段，通过 `[lints] workspace = true` 显式继承 lint；先检查实际依赖图，确保满足架构边界。
 - `cargo-deny`、`cargo-llvm-cov`、actionlint 等属于额外工具。需要时检查安装情况和版本；首次启用应记录兼容版本及 CI 安装方式，不把它们写成 Cargo 内建能力或已经安装的事实。
 
+当前实现验收使用 `cargo-deny 0.20.2`、`cargo-llvm-cov 0.9.1` 和工具链对应的 `llvm-tools-preview`；CI 通过 `taiki-e/install-action@v2` 显式固定两个 Cargo 工具版本。工作流语法使用 `actionlint 1.7.12` 检查。安装命令如下：
+
+```sh
+cargo install cargo-deny --version 0.20.2 --locked
+cargo install cargo-llvm-cov --version 0.9.1 --locked
+rustup component add llvm-tools-preview
+```
+
+覆盖率 CI 生成 LCOV 报告并保存为工作流产物；基准入口在 CI 编译验证，本机在没有并发测试竞争时执行实际计时。报告与构建产物位于忽略的 `target/`。
+
 ## 编码、命名与 Rust 风格
 
 Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principles/engineering.md#现代-rust-与仓库结构)，文件格式与无死代码要求见 [代码与仓库卫生](docs/principles/engineering.md#代码与仓库卫生)。提交前：

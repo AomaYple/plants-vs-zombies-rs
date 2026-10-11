@@ -28,5 +28,4 @@
 Thumbs.db
 Desktop.ini
 
-# 不忽略 Cargo.lock。注册首个 Cargo package 时生成并提交；
-# 当前空 workspace 尚无锁文件。
+# Cargo.lock 已生成并跟踪，后续由 Cargo 维护。

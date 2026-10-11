@@ -13,8 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has_packages: ${{ steps.metadata.outputs.has_packages }}
+      has_app: ${{ steps.metadata.outputs.has_app }}
     steps:
       - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: actionlint@1.7.12
+      - name: 检查工作流语法
+        run: actionlint .github/workflows/ci.yml
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.0
@@ -32,8 +38,10 @@ jobs:
               ["cargo", "metadata", "--no-deps", "--format-version", "1"], text=True
           ))
           has_packages = str(bool(metadata["workspace_members"])).lower()
+          has_app = str(any(package["name"] == "pvz-app" for package in metadata["packages"])).lower()
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"has_packages={has_packages}\n")
+              output.write(f"has_app={has_app}\n")
           print(f"workspace 成员数：{len(metadata['workspace_members'])}")
           PY
       - name: 检查跟踪文本格式与资源清单
@@ -173,4 +181,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2
+      - name: 审计锁定依赖
+        run: cargo deny check
+
+  coverage:
+    needs: structure
+    if: ${{ needs.structure.outputs.has_packages == 'true' }}
+    name: 覆盖率与基准入口
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov@0.9.1
+      - name: 生成覆盖率报告
+        run: cargo llvm-cov --workspace --locked --lcov --output-path target/coverage/lcov.info
+      - name: 保存覆盖率报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: target/coverage/lcov.info
+      - name: 编译基准场景
+        run: cargo bench --workspace --locked --no-run
+
+  web-build:
+    needs: structure
+    if: ${{ needs.structure.outputs.has_app == 'true' }}
+    name: Web 应用构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+          targets: wasm32-unknown-unknown
+      - name: 构建 app 的 WebAssembly
+        run: cargo build -p pvz-app --target wasm32-unknown-unknown --release --locked

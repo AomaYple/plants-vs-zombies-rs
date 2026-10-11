@@ -1,6 +1,6 @@
 # 模块与依赖
 
-本目录描述目标结构；目前各 crate 只有用途说明 README，没有 src 目录或 Rust 源码，未注册为 Cargo package。运行时分层、行为还原和平台边界的长期约束见 [游戏开发原则](../principles/game-development.md)。
+本目录描述模块合同。当前已注册 `pvz-data`、`pvz-core` 和 `pvz-assets`，其余 package 按实施计划接入；实际成员以根 `Cargo.toml` 为准。运行时分层、行为还原和平台边界的长期约束见 [游戏开发原则](../principles/game-development.md)。
 
 ## 依赖方向
 

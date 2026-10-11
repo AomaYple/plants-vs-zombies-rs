@@ -12,6 +12,26 @@ fn 解析原创夹具(c: &mut Criterion) {
     c.bench_function("粒子 XML 最小夹具解析", |bencher| {
         bencher.iter(|| black_box(parse_particle(black_box(PARTICLE)).unwrap()));
     });
+    c.bench_function("Reanim 稀疏帧字段解析", |bencher| {
+        bencher.iter(|| {
+            black_box(
+                parse_reanim(black_box(include_str!(
+                    "../../../tests/fixtures/assets-minimal/sparse-frames.reanim"
+                )))
+                .unwrap(),
+            )
+        });
+    });
+    c.bench_function("粒子 XML 多发射器解析", |bencher| {
+        bencher.iter(|| {
+            black_box(
+                parse_particle(black_box(include_str!(
+                    "../../../tests/fixtures/assets-minimal/multiple-emitters.xml"
+                )))
+                .unwrap(),
+            )
+        });
+    });
 }
 
 criterion_group!(benches, 解析原创夹具);

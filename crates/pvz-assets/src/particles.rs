@@ -1,150 +1,204 @@
-use crate::manifest::AssetError;
-use quick_xml::{Reader, events::Event};
+use crate::{AssetError, xml};
+use std::collections::BTreeSet;
 
-/// 粒子系统 XML 的最小模型。
-#[derive(Debug, Clone, PartialEq)]
+/// 粒子描述树，保留多个发射器及曲线原文，不宣称实现粒子运行语义。
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParticleSystem {
-    name: String,
-    image: String,
-    emitter_type: String,
-    system_duration: Option<f32>,
-    fields: Vec<String>,
+    emitters: Vec<ParticleEmitter>,
 }
-
 impl ParticleSystem {
-    /// 创建粒子系统夹具或解析结果。
-    pub fn new(
-        name: impl Into<String>,
-        image: impl Into<String>,
-        emitter_type: impl Into<String>,
-        system_duration: Option<f32>,
-        fields: Vec<String>,
-    ) -> Self {
-        Self {
-            name: name.into(),
-            image: image.into(),
-            emitter_type: emitter_type.into(),
-            system_duration,
-            fields,
-        }
+    pub fn emitters(&self) -> &[ParticleEmitter] {
+        &self.emitters
     }
-
-    /// 返回系统名称。
+    /// 兼容单发射器消费者；多发射器消费者应遍历 `emitters`。
+    pub fn name(&self) -> &str {
+        self.emitters[0].name().unwrap_or("")
+    }
+    pub fn image(&self) -> &str {
+        self.emitters[0].image().unwrap_or("")
+    }
+    pub fn emitter_type(&self) -> &str {
+        self.emitters[0].emitter_type().unwrap_or("")
+    }
+    /// 仅首发射器声明单个有限常数时返回数值；曲线应通过属性树读取。
+    pub fn system_duration(&self) -> Option<f32> {
+        self.emitters[0]
+            .property("SystemDuration")
+            .and_then(|p| p.text.parse::<f32>().ok())
+            .filter(|v| v.is_finite() && *v >= 0.0)
+    }
+    /// 首发射器的 FieldType，保持旧接口；完整结构见属性树。
+    pub fn fields(&self) -> &[String] {
+        &self.emitters[0].field_types
+    }
+}
+/// 一个完整发射器；实际资源允许 Name、Image 和 EmitterType 缺省。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParticleEmitter {
+    properties: Vec<ParticleProperty>,
+    field_types: Vec<String>,
+}
+impl ParticleEmitter {
+    pub fn properties(&self) -> &[ParticleProperty] {
+        &self.properties
+    }
+    /// 返回首个同名属性，重复的 Field 与 SystemField 请遍历 `properties`。
+    pub fn property(&self, name: &str) -> Option<&ParticleProperty> {
+        self.properties.iter().find(|p| p.name == name)
+    }
+    pub fn name(&self) -> Option<&str> {
+        self.property("Name").map(ParticleProperty::text)
+    }
+    pub fn image(&self) -> Option<&str> {
+        self.property("Image").map(ParticleProperty::text)
+    }
+    pub fn emitter_type(&self) -> Option<&str> {
+        self.property("EmitterType").map(ParticleProperty::text)
+    }
+}
+/// 标量或 Field/SystemField 子树，曲线字符串只做结构校验。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParticleProperty {
+    name: String,
+    text: String,
+    children: Vec<ParticleProperty>,
+}
+impl ParticleProperty {
     pub fn name(&self) -> &str {
         &self.name
     }
-
-    /// 返回图像资源 ID。
-    pub fn image(&self) -> &str {
-        &self.image
+    pub fn text(&self) -> &str {
+        &self.text
     }
-
-    /// 返回发射器类型。
-    pub fn emitter_type(&self) -> &str {
-        &self.emitter_type
-    }
-
-    /// 返回系统持续时间。
-    pub const fn system_duration(&self) -> Option<f32> {
-        self.system_duration
-    }
-
-    /// 返回 FieldType 列表。
-    pub fn fields(&self) -> &[String] {
-        &self.fields
+    pub fn children(&self) -> &[ParticleProperty] {
+        &self.children
     }
 }
-
-pub(crate) fn parse(source: &str) -> Result<ParticleSystem, AssetError> {
-    let mut reader = Reader::from_str(source);
-    reader.config_mut().trim_text(true);
-    let mut current_tag = None;
-    let mut field_depth = 0_u32;
-    let mut name = None;
-    let mut image = None;
-    let mut emitter_type = None;
-    let mut system_duration = None;
-    let mut fields = Vec::new();
-
-    loop {
-        match reader.read_event() {
-            Ok(Event::Start(start)) => {
-                let tag = String::from_utf8_lossy(start.name().as_ref()).into_owned();
-                if tag == "Field" {
-                    field_depth += 1;
-                }
-                if matches!(
-                    tag.as_str(),
-                    "Name" | "Image" | "EmitterType" | "SystemDuration" | "FieldType"
-                ) {
-                    current_tag = Some(tag);
-                }
+const SCALARS: &[&str] = &[
+    "Name",
+    "Image",
+    "EmitterType",
+    "ImageCol",
+    "ImageRow",
+    "ImageFrames",
+    "Animated",
+    "AnimationRate",
+    "SystemDuration",
+    "SystemLoops",
+    "SystemAlpha",
+    "ParticleDuration",
+    "ParticleLoops",
+    "ParticleAlpha",
+    "ParticleScale",
+    "ParticleStretch",
+    "ParticleRed",
+    "ParticleGreen",
+    "ParticleBlue",
+    "ParticleBrightness",
+    "ParticleSpinAngle",
+    "ParticleSpinSpeed",
+    "SpawnRate",
+    "SpawnMinActive",
+    "SpawnMaxActive",
+    "SpawnMaxLaunched",
+    "LaunchSpeed",
+    "LaunchAngle",
+    "EmitterRadius",
+    "EmitterBoxX",
+    "EmitterBoxY",
+    "EmitterOffsetX",
+    "EmitterOffsetY",
+    "EmitterSkewX",
+    "RandomLaunchSpin",
+    "AlignLaunchSpin",
+    "Additive",
+    "CollisionReflect",
+    "CollisionSpin",
+    "ParticlesDontFollow",
+    "DieIfOverloaded",
+    "FullScreen",
+    "CrossFadeDuration",
+    "RandomStartTime",
+    "HardwareOnly",
+    "ClipTop",
+];
+fn property(node: xml::Node) -> Result<ParticleProperty, AssetError> {
+    if node.tag == "Field" || node.tag == "SystemField" {
+        xml::container(&node)?;
+        let mut seen = BTreeSet::new();
+        let mut children = Vec::new();
+        for child in node.children {
+            if !matches!(child.tag.as_str(), "FieldType" | "X" | "Y") {
+                return Err(xml::error("Field 中存在未知或错误上下文的标签"));
             }
-            Ok(Event::Text(text)) => {
-                let value = text
-                    .decode()
-                    .map_err(|error| AssetError::Xml {
-                        message: error.to_string(),
-                    })?
-                    .into_owned();
-                match current_tag.as_deref() {
-                    Some("Name") => name = Some(value),
-                    Some("Image") => image = Some(value),
-                    Some("EmitterType") => emitter_type = Some(value),
-                    Some("SystemDuration") => {
-                        let duration = value.parse::<f32>().map_err(|error| AssetError::Xml {
-                            message: format!("SystemDuration 无效：{error}"),
-                        })?;
-                        if !duration.is_finite() || duration < 0.0 {
-                            return Err(AssetError::Xml {
-                                message: "SystemDuration 必须是非负有限数".to_owned(),
-                            });
-                        }
-                        system_duration = Some(duration);
-                    }
-                    Some("FieldType") if field_depth > 0 => fields.push(value),
-                    _ => {}
-                }
+            if !seen.insert(child.tag.clone()) {
+                return Err(xml::error("Field 的标量字段重复"));
             }
-            Ok(Event::End(end)) => {
-                let tag = String::from_utf8_lossy(end.name().as_ref()).into_owned();
-                if tag == "Field" {
-                    field_depth = field_depth.saturating_sub(1);
-                }
-                if current_tag.as_deref() == Some(tag.as_str()) {
-                    current_tag = None;
-                }
+            xml::scalar(&child)?;
+            if child.text.is_empty() {
+                return Err(xml::error("Field 的标量字段不得为空"));
             }
-            Ok(Event::Eof) => break,
-            Err(error) => {
-                return Err(AssetError::Xml {
-                    message: error.to_string(),
-                });
-            }
-            _ => {}
+            children.push(ParticleProperty {
+                name: child.tag,
+                text: child.text,
+                children: Vec::new(),
+            });
         }
+        if !seen.contains("FieldType") {
+            return Err(xml::error("Field 缺少 FieldType"));
+        }
+        Ok(ParticleProperty {
+            name: node.tag,
+            text: node.text,
+            children,
+        })
+    } else {
+        if !SCALARS.contains(&node.tag.as_str()) {
+            return Err(xml::error("Emitter 中存在未知或错误上下文的标签"));
+        }
+        xml::scalar(&node)?;
+        if node.text.is_empty() {
+            return Err(xml::error("Emitter 的标量字段不得为空"));
+        }
+        Ok(ParticleProperty {
+            name: node.tag,
+            text: node.text,
+            children: Vec::new(),
+        })
     }
-
-    let name = name
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| AssetError::Xml {
-            message: "缺少 Name".to_owned(),
-        })?;
-    let image = image
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| AssetError::Xml {
-            message: "缺少 Image".to_owned(),
-        })?;
-    let emitter_type = emitter_type
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| AssetError::Xml {
-            message: "缺少 EmitterType".to_owned(),
-        })?;
-    Ok(ParticleSystem::new(
-        name,
-        image,
-        emitter_type,
-        system_duration,
-        fields,
-    ))
+}
+pub(crate) fn parse(source: &str) -> Result<ParticleSystem, AssetError> {
+    let roots = xml::parse(source)?;
+    let mut emitters = Vec::new();
+    for node in roots {
+        if node.tag != "Emitter" {
+            return Err(xml::error("粒子顶层必须是 Emitter"));
+        }
+        xml::container(&node)?;
+        if node.children.is_empty() {
+            return Err(xml::error("Emitter 不能为空"));
+        }
+        let mut seen = BTreeSet::new();
+        let mut properties = Vec::new();
+        let mut field_types = Vec::new();
+        for child in node.children {
+            if !matches!(child.tag.as_str(), "Field" | "SystemField")
+                && !seen.insert(child.tag.clone())
+            {
+                return Err(xml::error("Emitter 的标量字段重复"));
+            }
+            let value = property(child)?;
+            if value.name == "Field"
+                && let Some(field_type) = value.children.iter().find(|p| p.name == "FieldType")
+            {
+                field_types.push(field_type.text.clone());
+            }
+            properties.push(value);
+        }
+        emitters.push(ParticleEmitter {
+            properties,
+            field_types,
+        });
+    }
+    Ok(ParticleSystem { emitters })
 }

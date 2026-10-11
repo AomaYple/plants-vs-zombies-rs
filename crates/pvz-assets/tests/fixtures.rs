@@ -1,6 +1,4 @@
-use pvz_assets::{
-    AssetError, AssetRoot, Diagnostic, EventKind, ParticleSystem, parse_particle, parse_reanim,
-};
+use pvz_assets::{AssetError, AssetRoot, Diagnostic, EventKind, parse_particle, parse_reanim};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -22,7 +20,7 @@ fn repository() -> TempDir {
 type Record<'a> = (&'a str, Option<&'a [u8]>, &'a [u8]);
 
 fn write_manifest(repository: &TempDir, records: &[Record<'_>]) {
-    let files = records
+    let mut files = records
         .iter()
         .map(|(path, existing, expected)| {
             if let Some(bytes) = existing {
@@ -43,9 +41,21 @@ fn write_manifest(repository: &TempDir, records: &[Record<'_>]) {
             })
         })
         .collect::<Vec<_>>();
+    // 原创的九字节包夹具只用于来源合同，不宣称是可解包的原版 PAK。
+    let package_bytes = b"123456789";
+    fs::write(
+        repository.path().join("assets/original/main.pak"),
+        package_bytes,
+    )
+    .unwrap();
+    files.push(json!({"path":"main.pak","kind":"package","size":9,"source_size":9,"sha256":hash(package_bytes),"source_sha256":hash(package_bytes)}));
     let manifest = json!({
         "schema_version": 1,
+        "baseline_id":"original-test",
         "root": "assets/original",
+        "text_normalization":"原创文本采用 UTF-8 和 LF",
+        "source_archive":{"name":"main.pak","size":9,"sha256":hash(package_bytes)},
+        "package":{"path":"main.pak","size":9,"sha256":hash(package_bytes),"index_bytes":8,"entry_count":records.len(),"extraction_check":"原创夹具"},
         "files": files
     });
     fs::write(
@@ -64,6 +74,7 @@ fn 有效原创清单可以审计通过() {
     let index = AssetRoot::open(repository.path()).unwrap();
     let report = index.audit();
 
+    assert_eq!(index.read("a.txt").unwrap(), content);
     assert!(report.is_clean());
     assert!(report.diagnostics().is_empty());
 }
@@ -139,7 +150,7 @@ fn 缺失或不支持的清单版本会被拒绝() {
 fn reanim和粒子原创夹具可以解析() {
     let reanim = "<root><fps>12</fps><track><name>idle</name><t><f>0</f></t><t></t></track></root>";
     let animation = parse_reanim(reanim).unwrap();
-    assert_eq!(animation.fps(), 12);
+    assert_eq!(animation.fps(), 12.0);
     assert_eq!(animation.tracks()[0].name(), "idle");
     assert_eq!(animation.tracks()[0].frame_count(), 2);
 
@@ -147,16 +158,11 @@ fn reanim和粒子原创夹具可以解析() {
         "<Emitter><Name>原创</Name><EmitterType>Box</EmitterType><Image>IMAGE_TEST</Image><SystemDuration>100</SystemDuration><Field><FieldType>Position</FieldType></Field></Emitter>",
     )
     .unwrap();
-    assert_eq!(
-        particle,
-        ParticleSystem::new(
-            "原创",
-            "IMAGE_TEST",
-            "Box",
-            Some(100.0),
-            vec!["Position".to_owned()]
-        )
-    );
+    assert_eq!(particle.name(), "原创");
+    assert_eq!(particle.image(), "IMAGE_TEST");
+    assert_eq!(particle.emitter_type(), "Box");
+    assert_eq!(particle.system_duration(), Some(100.0));
+    assert_eq!(particle.fields(), &["Position".to_owned()]);
 }
 
 #[test]
@@ -170,7 +176,7 @@ fn 畸形_xml会被拒绝() {
         Err(AssetError::Xml { .. })
     ));
     assert!(parse_reanim("<root><track><name>idle</name></track></root>").is_err());
-    assert!(parse_particle("<Emitter><Name>缺字段</Name></Emitter>").is_err());
+    assert!(parse_particle("<Emitter><Field><X>缺字段</X></Field></Emitter>").is_err());
 }
 
 #[test]
