@@ -12,7 +12,7 @@
 
 - 引擎：Bevy；模拟内核保持纯 Rust，与引擎分离。
 - 命名：GitHub 仓库 plants-vs-zombies-rs；crate 前缀 pvz-。
-- Git：仓库只保留 `main`，默认直接在 `main` 上开发、验证、提交和推送；提交消息使用中文。
+- Git：`main` 是唯一长期分支，独立任务使用短期分支，经验证和评审后通过 PR 合入并清理；提交使用中文 Conventional Commits，流程见 [贡献指南](CONTRIBUTING.md#提交推送与评审)。
 - 许可证：原创代码、文档和自制测试数据使用 MIT。
 - 平台：支持目标为 Windows、macOS、Linux、Web、Android 和 iOS；桌面与 Web 先行，移动端随后接入，实际支持状态以各平台构建与运行验收为准。
 - 资源：版本化资源位于 `assets/original/`，先读取已解包目录，再按需求增加转换；`main.pak` 读取不是初期功能。

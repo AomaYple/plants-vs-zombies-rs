@@ -20,7 +20,7 @@
 - 实现通用能力前查阅已有模块和成熟库。选择能满足合同的方案，记录用途、兼容性与许可；自行实现时说明现有方案的具体缺口，避免重复编写参数解析、通用格式解析等已有可靠方案的逻辑。
 - `cargo-deny`、`cargo-llvm-cov`、actionlint 等属于额外工具。需要时检查安装情况和版本；首次启用应记录兼容版本及 CI 安装方式，不把它们写成 Cargo 内建能力或已经安装的事实。
 
-当前实现验收使用 `cargo-deny 0.20.2`、`cargo-llvm-cov 0.9.1` 和工具链对应的 `llvm-tools-preview`；CI 通过 `taiki-e/install-action@v2` 显式固定两个 Cargo 工具版本。工作流语法使用 `actionlint 1.7.12` 检查。安装命令如下：
+当前实现验收使用 `cargo-deny 0.20.2`、`cargo-llvm-cov 0.9.1` 和工具链对应的 `llvm-tools-preview`；CI 通过 `taiki-e/install-action@v2` 显式固定两个 Cargo 工具版本。工作流语法使用 `actionlint 1.7.12` 检查；它从上游固定版本的发布包安装并核对 SHA-256，不通过 Cargo 安装。安装命令如下：
 
 ```sh
 cargo install cargo-deny --version 0.20.2 --locked
@@ -152,25 +152,59 @@ cargo bench --workspace --locked
 
 按 [跨平台目标](docs/principles/game-development.md#跨平台目标)检查相关平台与有效 feature 组合。涉及 app、存档、音频或生命周期时增加构建与最小运行检查；记录系统/浏览器、工具链、目标、命令、结果、限制与未验证项，Web 构建不包含宿主 CLI。
 
+宿主资源测试的临时夹具须满足目录及祖先无符号链接的合同；macOS 默认临时目录可能经过系统链接，本机测试时将 `TMPDIR` 指向真实临时目录。CI 在 macOS 上将 `$RUNNER_TEMP` 解析为真实路径后设置 `TMPDIR`，各测试仍各自创建临时子目录并默认并行。
+
 规则还原及视口相关变更，按 [游戏开发原则](docs/principles/game-development.md)、行为基线和架构合同验收。构建、实际运行、截图检查和原版行为比对分别记录，参考截图及录像留在本机忽略目录。
 
 ## 提交、推送与评审
 
-- 仓库只保留 `main`；维护者与代理默认直接在 `main` 上开发、验证、提交和推送，一个提交围绕一个可审阅目的。未经用户另行要求，不创建开发分支或采用分支合并流程。
-- 提交前检查工作区、暂存差异、适用验证与文件来源，只暂存本次改动。接口变化同步设计、计划或 ADR。
-- 自动化代理的外部操作遵循用户授权范围，已有持续授权按其范围执行；配置远端本身不扩大授权，共享历史改写须有明确授权。外部贡献者可通过 fork 提交 PR，由维护者按授权评审处理，不要求在本仓库保留开发分支。
+长期约束见 [Git、评审与交付](docs/principles/engineering.md#git评审与交付)。按下面的流程组织变更，实际外部操作遵循用户授权范围；已有持续授权按其范围执行。
+
+### 分支与贡献流程
+
+1. 检查当前分支、工作区及已有改动，保留其他任务的修改；更新远端引用，核对本地 `main` 与远端主线的差异。仅在工作区安全且历史允许时快进更新，不用重置或强推覆盖分歧。
+2. 从最新 `main` 为一个独立目的创建短期分支。分支名使用英文小写与连字符，如 `fix/sun-collection`；代理使用 `codex/fix-sun-collection`、`codex/add-replay-validation` 等名称。并行任务隔离分支或工作区，不在共享 checkout 中并发切换分支。
+3. 完成小而完整的变更，随实现补齐适用测试和必要文档；接口变化同步设计、计划或 ADR。提交前核对工作区、暂存差异、来源与 [适用验证](#验证流程)，只暂存当前目的所需改动。
+4. 按授权推送任务分支并向 `main` 提交 PR，完成复核和必要 CI 检查后合入。外部贡献者可在自己的 fork 创建任务分支；评审意见针对可核查的行为与契约，单人维护时也记录实际自查结果和验证范围。
+5. 核验合入结果及 `main` 上对应的 CI，安全更新本地 `main`；确认任务分支没有未保留的改动或独有提交后，按授权删除已完成的本地与远端分支。squash 后 Git 可能无法识别分支已合并，应核对 PR 和最终内容，再决定清理方式，不机械强制删除。
+
+`main` 是唯一长期分支，不预设 `develop`、`test` 或 `release` 等常驻分支；分支应尽早完成，避免混入其他任务或长期偏离主线。有实际多版本维护需求时再另行设计维护分支。用户明确要求直接向 `main` 提交和推送时，仍执行提交前验证，并核验推送后的 CI；该路径的远端 CI 发生在变更进入主线之后。
+
+### 提交格式
 
 提交遵循 Conventional Commits：`type(scope): 中文说明`，scope 可省略；type/scope 用英文标记，描述和正文用中文，技术名称保留原写法。例如：
 
 ```text
-feat(core): 添加确定性模拟基础
-fix(assets): 修复资源路径大小写冲突的诊断
-docs: 记录原版行为核对结果
+fix(core): 修复暂停期间卡片冷却继续推进
+test(assets): 补充 XML 显式空值和缺省值用例
+docs: 明确桌面与 Web 的验收范围
 ```
 
-按变更性质选用 `feat`、`fix`、`docs`、`refactor`、`perf`、`test`、`build`、`ci`、`chore` 或 `revert`。scope 优先使用 `data`、`core`、`assets`、`app`、`tool`；仓库级改动可省略。标题简洁、具体，避免只写“更新”或“修改”。必要正文与标题空一行，说明原因、行为影响和验证结果。
+按提交的完整目的选择类型，修复附带回归测试仍使用 `fix`，功能附带文档仍使用 `feat`；无关的依赖升级或整理另行提交。scope 优先使用 `data`、`core`、`assets`、`app`、`tool`；仓库级改动可省略。
 
-破坏性变更使用 `!` 或 `BREAKING CHANGE:`，用中文说明不兼容之处和迁移方式；关联 issue 可用 `Refs:` 或 `Closes:` 标记。
+| type | 用途 |
+| --- | --- |
+| `feat` | 新增功能或能力 |
+| `fix` | 修复错误 |
+| `refactor` | 调整代码结构，保持可观察行为不变 |
+| `perf` | 改善性能，并提供适用测量 |
+| `test` | 独立补充或调整测试 |
+| `docs` | 文档变更 |
+| `build` | 依赖、工具链或构建配置 |
+| `ci` | 持续集成配置 |
+| `chore` | 其他有明确用途的仓库维护 |
+| `revert` | 撤销已有变更 |
+
+标题简洁、具体，写清动作与对象，避免只写“更新”“修改”或“最终修复”；不为中文标题机械套用英文字符数建议。必要正文与标题空一行，说明原因、行为影响、实际验证和限制，简单改动无需冗长正文。
+
+不兼容的接口、存档或回放格式变更使用 `!` 或 `BREAKING CHANGE:`，用中文说明影响和迁移方式；游戏规则修正同步规则版本及回归测试，是否属于破坏性变更依据兼容合同判断。关联 issue 可用 `Refs:` 或 `Closes:` 标记。
+
+### 合入与历史维护
+
+- 一个任务中零散的修补提交可 squash 为一个完整提交，合入前核对最终提交消息；原有提交各自完整、可审阅且有保留价值时可保留。进入 `main` 的每个提交都完成适用验证，不能把实现所需的测试与文档留到后续补交。
+- PR 标题与合入后的提交消息遵循项目提交约定。本地检查、推送和远端 CI 的状态分别记录，核对检查对应的提交；必要检查未执行或失败时不合入，不降低门槛制造通过。
+- 已推送的 `main` 保持历史稳定，撤销问题变更通常使用 `git revert` 并补充必要验证。强推与共享历史改写须有明确授权；修改任务分支的已共享历史同样遵守授权范围，并先协调受影响的协作者。
+- 实际发布版本使用 `v0.1.0` 等标签，按 SemVer 表达版本变化；不为占位或未完成验收预建标签。创建、推送或移动发布标签，以及推送、PR、合并和远端分支删除，均按用户授权范围执行。
 
 问题报告使用现有 [Issue 模板](.github/ISSUE_TEMPLATE/bug_report.yml)，提供环境、复现步骤、预期与实际结果。PR 使用 [PR 模板](.github/pull_request_template.md)，说明问题、最终行为、验证命令/结果、限制及必要迁移；评审意见针对可核查的行为与契约。
 
@@ -188,7 +222,10 @@ docs: 记录原版行为核对结果
 
 - [AGENTS.md 开放格式](https://agents.md/)：代理任务入口、项目上下文与局部规则；实际指令优先级由执行环境确定。
 - [GitHub 贡献指南建议](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/setting-guidelines-for-repository-contributors)：贡献者入口与问题/PR 流程。
+- [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow)：短期分支、PR、合入与分支清理的轻量流程。
+- [Pro Git 贡献指南](https://git-scm.com/book/en/v2/Distributed-Git-Contributing-to-a-Project)：逻辑独立的提交、差异检查与提交说明。
 - [Cargo 包布局](https://doc.rust-lang.org/cargo/guide/project-layout.html)、[锁文件](https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html)与 [workspace lint](https://doc.rust-lang.org/cargo/reference/workspaces.html#the-lints-table)：可复现构建和标准目录。
 - [Rust Book 并行测试](https://doc.rust-lang.org/book/ch11-02-running-tests.html)与 [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)：测试隔离与 API 设计。
 - [Conventional Commits](https://www.conventionalcommits.org/zh-hans/v1.0.0/)：提交结构；中文消息是本项目的选择。
+- [SemVer](https://semver.org/lang/zh-CN/)：版本号及兼容性变化的表达方式。
 - [Temporal AGENTS.md](https://github.com/temporalio/sdk-java/blob/master/AGENTS.md)和 [Tokio 贡献流程](https://github.com/tokio-rs/tokio/blob/master/docs/contributing/pull-requests.md)：成熟社区项目的职责划分与验收示例。
