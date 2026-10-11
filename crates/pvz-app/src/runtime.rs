@@ -64,6 +64,10 @@ impl Runtime {
         }
     }
     pub fn command(&mut self, command: Command) {
+        // 表现选择在重开提交位置清空，保留之后同批的新选择。
+        if command == Command::Restart {
+            self.shovel = false;
+        }
         self.pending.push(command);
     }
     pub fn take_events(&mut self) -> Vec<Event> {
@@ -74,6 +78,7 @@ impl Runtime {
             match event {
                 InputEvent::Pause => self.paused = true,
                 InputEvent::Resume => self.paused = false,
+                InputEvent::TogglePause => self.paused = !self.paused,
                 InputEvent::PointerDown { .. } if !self.paused => {
                     self.pending.push(Command::AddSun { amount: 1 })
                 }
@@ -84,9 +89,26 @@ impl Runtime {
         match event {
             InputEvent::Pause => self.command(Command::Pause),
             InputEvent::Resume => self.command(Command::Resume),
+            InputEvent::TogglePause => self.toggle_pause(),
+            InputEvent::Restart => self.command(Command::Restart),
             InputEvent::PointerDown { point, .. } => self.pointer(point),
             _ => {}
         }
+    }
+    fn toggle_pause(&mut self) {
+        let paused = self.pending.iter().fold(
+            self.game.board().is_some_and(|board| board.paused()),
+            |paused, command| match command {
+                Command::Pause => true,
+                Command::Resume | Command::Restart => false,
+                _ => paused,
+            },
+        );
+        self.command(if paused {
+            Command::Resume
+        } else {
+            Command::Pause
+        });
     }
     fn pointer(&mut self, point: LogicalPoint) {
         if !point.x.is_finite() || !point.y.is_finite() {
@@ -107,20 +129,7 @@ impl Runtime {
                     });
                 }
                 x if (445.0..550.0).contains(&x) => self.shovel = !self.shovel,
-                x if (550.0..675.0).contains(&x) => self.command(
-                    if self.pending.iter().fold(
-                        self.game.board().is_some_and(|board| board.paused()),
-                        |paused, command| match command {
-                            Command::Pause => true,
-                            Command::Resume | Command::Restart => false,
-                            _ => paused,
-                        },
-                    ) {
-                        Command::Resume
-                    } else {
-                        Command::Pause
-                    },
-                ),
+                x if (550.0..675.0).contains(&x) => self.toggle_pause(),
                 x if (675.0..800.0).contains(&x) => self.command(Command::Restart),
                 _ => {}
             }
@@ -131,7 +140,10 @@ impl Runtime {
             y: (point.y * UNITS_PER_PIXEL as f32) as i32,
         };
         let board = self.game.board().expect("切片输入拥有棋盘");
-        if let Some(id) = board.sun_at(point) {
+        // 已提交的重开会清空旧阳光；后续点击只按新局几何生成命令。
+        if !self.pending.contains(&Command::Restart)
+            && let Some(id) = board.sun_at(point)
+        {
             self.command(Command::CollectSun { id });
         } else if let Some(cell) = BoardGeometry::cell_at(point) {
             self.command(if self.shovel {
@@ -148,7 +160,6 @@ impl Runtime {
         if restarted {
             self.animation_seconds = 0.0;
             self.accumulator = 0.0;
-            self.shovel = false;
         }
         self.events.extend_from_slice(events.as_slice());
         if let Some(board) = self.game.board() {

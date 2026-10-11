@@ -36,12 +36,13 @@ flowchart TD
 
 | 模块 | 当前职责 |
 | --- | --- |
-| `viewport`、`input`、`platform_input` | 纯坐标变换、指针状态及按事件顺序处理尺寸/DPI/取消 |
+| `viewport`、`input`、`platform_input` | 纯坐标变换、指针状态及按窗口事件顺序处理键盘、指针、尺寸/DPI/取消 |
 | `runtime` | 模拟与表现时钟接线、逻辑输入到 core 命令及 UI/事件适配 |
 | `resources` | native/Web 字节加载、清单验证、媒体解码及显式图像映射 |
 | `animation`、`geometry` | 纯动画准备/采样、双轴仿射与 UV 裁剪合同 |
 | `render` | Bevy 网格/纹理、切片静态实体构图和中文 UI |
 | `audio` | 媒体支持检查与事件音效映射；MO3 明确未支持 |
 | `main` | 窗口/调度装配、平台事件、资源加载状态、播放游标与后台冒烟 |
+| `screenshot_wait` | native binary 私有的截图等待上限与一次性结果，由后台冒烟实际消费 |
 
 完整动画播放器、原版粒子、存档和移动生命周期属于后续工作，不以不存在的模块名表示已经接入。独立 crate 的拆分依据稳定接口、实际消费者或独立测试需要，不为未来设想预建空 package/API。

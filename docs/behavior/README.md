@@ -1,6 +1,6 @@
 # 行为测量与还原
 
-参考文件身份见 [reference-baseline.md](reference-baseline.md)。原版行为测量尚未完成；`pvz-core` 已提供空棋盘规则1.0与白天可玩切片开发规则2.0。切片数值、阶段顺序、输入、静态资源构图及待验证项见 [开发切片合同](development-slice.md)，实际验证与暂停后的续做入口见 [切片阶段性结果](vertical-slice-results.md)。
+参考文件身份见 [reference-baseline.md](reference-baseline.md)。原版行为测量尚未完成；`pvz-core` 已提供空棋盘规则1.0与白天可玩切片开发规则2.0。切片数值、阶段顺序、输入、静态资源构图及待验证项见 [开发切片合同](development-slice.md)，本地工程验收、原版缺口与后续入口见 [切片验收结果](vertical-slice-results.md)。
 
 ## 当前模拟合同
 

@@ -246,6 +246,9 @@ jobs:
     needs: structure
     if: ${{ needs.structure.outputs.has_packages == 'true' }}
     name: 覆盖率与基准入口
+    strategy:
+      matrix:
+        features: [default, all]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -259,15 +262,25 @@ jobs:
         with:
           tool: cargo-llvm-cov@0.9.1
       - name: 生成覆盖率报告
+        env:
+          FEATURE_SET: ${{ matrix.features }}
+        shell: bash
         run: |
           mkdir -p target/coverage
-          cargo llvm-cov --workspace --locked --lcov --output-path target/coverage/lcov.info
+          feature_args=()
+          if [[ "$FEATURE_SET" == "all" ]]; then
+            feature_args+=(--all-features)
+          fi
+          cargo llvm-cov --workspace --locked "${feature_args[@]}" --no-report
+          cargo llvm-cov report --lcov --output-path target/coverage/lcov.info
+          cargo llvm-cov report --json --output-path target/coverage/coverage.json
       - name: 保存覆盖率报告
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-lcov
-          path: target/coverage/lcov.info
+          name: coverage-${{ matrix.features }}
+          path: target/coverage/
       - name: 编译基准场景
+        if: matrix.features == 'default'
         run: cargo bench --workspace --locked --no-run
 
   web-build:

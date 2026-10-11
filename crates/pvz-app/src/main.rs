@@ -1,4 +1,6 @@
 mod render;
+#[cfg(not(target_arch = "wasm32"))]
+mod screenshot_wait;
 
 use bevy::{
     app::AppExit,
@@ -53,6 +55,8 @@ struct AppState {
     music_entity: Option<Entity>,
     last_view: (u32, u32, f32),
     screenshot_requested: bool,
+    #[cfg(not(target_arch = "wasm32"))]
+    screenshot_wait: Option<screenshot_wait::ScreenshotWait>,
     loading_started: f64,
     paused_audio_position: Option<std::time::Duration>,
     effects: std::collections::BTreeMap<SoundCue, Handle<AudioSource>>,
@@ -149,6 +153,8 @@ fn initialize(world: &mut World, options: Options) {
         music_entity: None,
         last_view: (0, 0, 0.0),
         screenshot_requested: false,
+        #[cfg(not(target_arch = "wasm32"))]
+        screenshot_wait: None,
         loading_started,
         paused_audio_position: None,
         effects: std::collections::BTreeMap::new(),
@@ -237,11 +243,7 @@ fn apply_input(state: &mut AppState, event: InputEvent) {
 
 fn keyboard_audio(world: &mut World, state: &mut AppState, pause: bool, effect: bool, music: bool) {
     if pause {
-        state.runtime.input(if state.runtime.paused {
-            InputEvent::Resume
-        } else {
-            InputEvent::Pause
-        });
+        state.runtime.input(InputEvent::TogglePause);
         if state.options.probe
             && let Some(sink) = state.music_entity.and_then(|e| world.get::<AudioSink>(e))
         {
@@ -298,15 +300,15 @@ fn update(world: &mut World) {
             render::update_viewport(world, state.camera, view);
             state.last_view = (size.0, size.1, dpi);
         }
-        let keyboard = world.resource::<ButtonInput<KeyCode>>();
-        let pause = keyboard.just_pressed(KeyCode::KeyP) || keyboard.just_pressed(KeyCode::Space);
-        let effect = (state.options.probe || state.options.audio_smoke) && keyboard.just_pressed(KeyCode::KeyE);
-        let music = keyboard.just_pressed(KeyCode::KeyM);
-        let restart = keyboard.just_pressed(KeyCode::KeyR);
-        keyboard_audio(world, &mut state, pause, effect, music);
-        if restart && !state.options.probe { state.runtime.command(pvz_core::Command::Restart); }
         let events = state.input.read(window_entity, size, dpi, render::LOGICAL_SIZE, world.resource::<Messages<WindowEvent>>());
-        for event in events { apply_input(&mut state, event); }
+        for event in events {
+            match event {
+                InputEvent::TogglePause => keyboard_audio(world, &mut state, true, false, false),
+                InputEvent::PlayEffect if state.options.probe || state.options.audio_smoke => keyboard_audio(world, &mut state, false, true, false),
+                InputEvent::ToggleMusic => keyboard_audio(world, &mut state, false, false, true),
+                _ => apply_input(&mut state, event),
+            }
+        }
         if state.ready && state.failure.is_some() { state.runtime.render_frames += 1; }
         if state.ready && state.failure.is_none() {
             slice_script(&mut state);
@@ -315,6 +317,7 @@ fn update(world: &mut World) {
         }
         audio_smoke(world, &mut state);
         consume_events(world, &mut state);
+        sync_music(world, &state);
         let mut scene = state.scene.take();
         if let Some(scene) = &mut scene { scene.update(world, &state.runtime.game); }
         state.scene = scene;
@@ -391,15 +394,6 @@ fn consume_events(world: &mut World, state: &mut AppState) {
         {
             world.spawn((AudioPlayer::new(source.clone()), PlaybackSettings::DESPAWN));
         }
-        if matches!(event, Event::Paused | Event::Resumed | Event::Restarted)
-            && let Some(sink) = state.music_entity.and_then(|e| world.get::<AudioSink>(e))
-        {
-            if state.runtime.paused {
-                sink.pause();
-            } else {
-                sink.play();
-            }
-        }
         let feedback = match event {
             Event::Planted { .. } => Some("种植成功"),
             Event::SunCollected { .. } => Some("已收集阳光"),
@@ -429,7 +423,27 @@ fn consume_events(world: &mut World, state: &mut AppState) {
                 Event::TickStarted { .. } | Event::TickCompleted { .. }
             )
         {
-            println!("切片冒烟事件 tick={} {event:?}", state.runtime.game.tick());
+            println!(
+                "切片冒烟事件 帧末tick={} {event:?}",
+                state.runtime.game.tick()
+            );
+        }
+    }
+}
+
+fn sync_music(world: &mut World, state: &AppState) {
+    let Some(entity) = state.music_entity else {
+        return;
+    };
+    // 模拟执行后的状态同时交给待创建和现成的 sink，迟到后端不依赖已消费的事件。
+    if let Some(mut settings) = world.get_mut::<PlaybackSettings>(entity) {
+        settings.paused = state.runtime.paused;
+    }
+    if let Some(sink) = world.get::<AudioSink>(entity) {
+        if state.runtime.paused {
+            sink.pause();
+        } else {
+            sink.play();
         }
     }
 }
@@ -476,6 +490,21 @@ fn slice_script(state: &mut AppState) {
 }
 
 fn smoke(world: &mut World, state: &mut AppState) {
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(wait) = &mut state.screenshot_wait {
+        if let Some(result) = wait.poll(world.resource::<Time<Real>>().elapsed()) {
+            if let Err(error) = &result {
+                eprintln!("{error}");
+            }
+            world.write_message(if result.is_ok() && state.failure.is_none() {
+                AppExit::Success
+            } else {
+                AppExit::error()
+            });
+        }
+        return;
+    }
+
     if !state
         .options
         .smoke
@@ -493,29 +522,23 @@ fn smoke(world: &mut World, state: &mut AppState) {
         } else {
             "artifacts/vertical-slice/registered.png"
         };
-        let failed = state.failure.is_some();
+        state.screenshot_wait = Some(screenshot_wait::ScreenshotWait::new(
+            world.resource::<Time<Real>>().elapsed(),
+        ));
         world.spawn(Screenshot::primary_window()).observe(
-            move |capture: On<ScreenshotCaptured>, mut exit: MessageWriter<AppExit>| {
-                let saved = std::fs::create_dir_all(
-                    std::path::Path::new(path).parent().expect("截图具有父目录"),
-                )
-                .is_ok()
-                    && capture
-                        .image
-                        .clone()
-                        .try_into_dynamic()
-                        .is_ok_and(|image| image.save(path).is_ok());
+            move |capture: On<ScreenshotCaptured>,
+                  time: Res<Time<Real>>,
+                  mut state: ResMut<AppState>| {
+                let saved = save_screenshot(&capture.image, std::path::Path::new(path));
                 println!(
                     "GPU 截图：{}×{} 保存={} 路径={path}",
                     capture.image.width(),
                     capture.image.height(),
-                    saved
+                    saved.is_ok()
                 );
-                exit.write(if saved && !failed {
-                    AppExit::Success
-                } else {
-                    AppExit::error()
-                });
+                if let Some(wait) = &mut state.screenshot_wait {
+                    wait.complete(time.elapsed(), saved);
+                }
             },
         );
         return;
@@ -534,4 +557,357 @@ fn smoke(world: &mut World, state: &mut AppState) {
     } else {
         AppExit::error()
     });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn save_screenshot(image: &Image, path: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(path.parent().expect("截图具有父目录"))
+        .map_err(|error| format!("GPU 截图保存失败：创建目录：{error}"))?;
+    let image = image
+        .clone()
+        .try_into_dynamic()
+        .map_err(|error| format!("GPU 截图保存失败：转换图像：{error}"))?;
+    image
+        .save(path)
+        .map_err(|error| format!("GPU 截图保存失败：写入图像：{error}"))
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use bevy::input::{
+        ButtonState,
+        keyboard::{Key, KeyboardInput, NativeKey},
+        touch::{TouchInput, TouchPhase},
+    };
+    use std::time::Duration;
+
+    fn harness() -> World {
+        let mut world = World::new();
+        world.insert_resource(Time::<Real>::default());
+        world.insert_resource(Messages::<AppExit>::default());
+        world.insert_resource(Messages::<WindowEvent>::default());
+        world.insert_resource(ButtonInput::<KeyCode>::default());
+        world.spawn((
+            PrimaryWindow,
+            Window {
+                resolution: (800, 600).into(),
+                ..default()
+            },
+        ));
+        let status = world.spawn(Text2d::default()).id();
+        let error_text = world.spawn(Text2d::default()).id();
+        let camera = world.spawn_empty().id();
+        world.insert_resource(AppState {
+            options: Options {
+                probe: false,
+                smoke: None,
+                screenshot: false,
+                audio_smoke: false,
+                slice_smoke: false,
+            },
+            runtime: Runtime::day(),
+            input: PlatformInput::default(),
+            pointer: None,
+            camera,
+            status,
+            error_text,
+            scene: None,
+            pending: None,
+            ready: true,
+            failure: None,
+            effect: None,
+            music: None,
+            music_entity: None,
+            last_view: (800, 600, 1.0),
+            screenshot_requested: false,
+            screenshot_wait: None,
+            loading_started: 0.0,
+            paused_audio_position: None,
+            effects: std::collections::BTreeMap::new(),
+            feedback: String::new(),
+        });
+        world
+    }
+
+    fn batch(world: &mut World, points: &[(f32, f32)], key_code: KeyCode) {
+        let window = world
+            .query_filtered::<Entity, With<PrimaryWindow>>()
+            .single(world)
+            .unwrap();
+        for (id, &(x, y)) in points.iter().enumerate() {
+            world.write_message(WindowEvent::TouchInput(TouchInput {
+                phase: TouchPhase::Started,
+                position: Vec2::new(x, y),
+                window,
+                force: None,
+                id: id as u64,
+            }));
+        }
+        world.write_message(WindowEvent::KeyboardInput(KeyboardInput {
+            key_code,
+            logical_key: Key::Unidentified(NativeKey::Unidentified),
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        }));
+        // 与引擎同帧更新按钮快照后进入 update 的入口一致。
+        world.resource_mut::<ButtonInput<KeyCode>>().press(key_code);
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs_f64(1.0 / 60.0));
+        update(world);
+    }
+
+    #[test]
+    fn 实际update入口先种植再重开得到空新局() {
+        let mut world = harness();
+        batch(&mut world, &[(180.0, 25.0), (120.0, 148.0)], KeyCode::KeyR);
+        let state = world.resource::<AppState>();
+        assert!(state.runtime.game.board().unwrap().plants().is_empty());
+        assert_eq!(state.runtime.game.sun(), 150);
+    }
+
+    #[test]
+    fn 实际update入口先种植再暂停仍完成种植() {
+        let mut world = harness();
+        world
+            .resource_mut::<AppState>()
+            .runtime
+            .command(pvz_core::Command::SelectCard {
+                kind: pvz_core::PlantKind::Sunflower,
+            });
+        batch(&mut world, &[(120.0, 148.0)], KeyCode::KeyP);
+        let state = world.resource::<AppState>();
+        assert!(state.runtime.paused);
+        assert_eq!(state.runtime.game.board().unwrap().plants().len(), 1);
+        assert_eq!(state.runtime.game.sun(), 100);
+    }
+
+    fn music_harness() -> World {
+        let mut world = harness();
+        world.resource_mut::<AppState>().music = Some(Handle::default());
+        world
+    }
+
+    fn audio_batch(world: &mut World, keys: &[KeyCode]) {
+        let window = world
+            .query_filtered::<Entity, With<PrimaryWindow>>()
+            .single(world)
+            .unwrap();
+        for &key_code in keys {
+            world.write_message(WindowEvent::KeyboardInput(KeyboardInput {
+                key_code,
+                logical_key: Key::Unidentified(NativeKey::Unidentified),
+                state: ButtonState::Pressed,
+                text: None,
+                repeat: false,
+                window,
+            }));
+        }
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs_f64(1.0 / 60.0));
+        update(world);
+    }
+
+    fn assert_music_request(world: &World, paused: bool) {
+        let state = world.resource::<AppState>();
+        let entity = state.music_entity.unwrap();
+        assert!(world.get::<AudioPlayer>(entity).is_some());
+        // 后端尚未创建 sink；真实播放请求必须保留正确的初始暂停状态。
+        assert!(world.get::<AudioSink>(entity).is_none());
+        assert_eq!(
+            world.get::<PlaybackSettings>(entity).unwrap().paused,
+            paused
+        );
+    }
+
+    #[test]
+    fn 实际update同批先暂停再音乐使用最终模拟状态() {
+        let mut world = music_harness();
+        audio_batch(&mut world, &[KeyCode::KeyP, KeyCode::KeyM]);
+        assert!(world.resource::<AppState>().runtime.paused);
+        assert_music_request(&world, true);
+    }
+
+    #[test]
+    fn 实际update同批先音乐再暂停使用最终模拟状态() {
+        let mut world = music_harness();
+        audio_batch(&mut world, &[KeyCode::KeyM, KeyCode::KeyP]);
+        assert!(world.resource::<AppState>().runtime.paused);
+        assert_music_request(&world, true);
+    }
+
+    #[test]
+    fn 实际update迟到sink前的音乐请求在暂停帧持续保持暂停() {
+        let mut world = music_harness();
+        audio_batch(&mut world, &[KeyCode::KeyM]);
+        assert_music_request(&world, false);
+        audio_batch(&mut world, &[KeyCode::KeyP]);
+        assert_music_request(&world, true);
+        for _ in 0..3 {
+            audio_batch(&mut world, &[]);
+            assert_music_request(&world, true);
+        }
+    }
+
+    #[test]
+    fn 实际update迟到sink前恢复和重开更新音乐请求() {
+        for key in [KeyCode::KeyP, KeyCode::KeyR] {
+            let mut world = music_harness();
+            audio_batch(&mut world, &[KeyCode::KeyP]);
+            audio_batch(&mut world, &[KeyCode::KeyM]);
+            assert_music_request(&world, true);
+            let entity = world.resource::<AppState>().music_entity.unwrap();
+            audio_batch(&mut world, &[key]);
+            assert!(!world.resource::<AppState>().runtime.paused);
+            assert_eq!(world.resource::<AppState>().music_entity, Some(entity));
+            assert_music_request(&world, false);
+            audio_batch(&mut world, &[]);
+            assert_music_request(&world, false);
+        }
+    }
+
+    #[test]
+    fn 实际update终局拒绝暂停后音乐仍遵循模拟状态() {
+        for keys in [
+            [KeyCode::KeyP, KeyCode::KeyM],
+            [KeyCode::KeyM, KeyCode::KeyP],
+        ] {
+            let mut world = music_harness();
+            let state = &mut *world.resource_mut::<AppState>();
+            for _ in 0..1000 {
+                if state.runtime.game.board().unwrap().status() != pvz_core::GameStatus::Running {
+                    break;
+                }
+                state.runtime.advance(0.25);
+            }
+            assert_ne!(
+                state.runtime.game.board().unwrap().status(),
+                pvz_core::GameStatus::Running
+            );
+            state.runtime.take_events();
+            audio_batch(&mut world, &keys);
+            let state = world.resource::<AppState>();
+            assert!(!state.runtime.paused);
+            assert_eq!(state.feedback, "本局结束，请重开");
+            assert_music_request(&world, false);
+        }
+    }
+
+    #[test]
+    fn 实际update纯probe暂停入口同步等待后端的音乐请求() {
+        let mut world = music_harness();
+        let state = &mut *world.resource_mut::<AppState>();
+        state.options.probe = true;
+        state.runtime = Runtime::default();
+        audio_batch(&mut world, &[KeyCode::KeyP, KeyCode::KeyM]);
+        assert!(world.resource::<AppState>().runtime.game.board().is_none());
+        assert_music_request(&world, true);
+        audio_batch(&mut world, &[KeyCode::KeyP]);
+        assert_music_request(&world, false);
+    }
+
+    #[test]
+    fn 实际截图消费者无回调时最终非零退出且只退出一次() {
+        let mut world = harness();
+        world.resource_scope(|world, mut state: Mut<AppState>| {
+            state.options.smoke = Some(2);
+            state.options.screenshot = true;
+            state.runtime.render_frames = 2;
+            smoke(world, &mut state);
+            assert!(world.resource::<Messages<AppExit>>().is_empty());
+            world
+                .resource_mut::<Time<Real>>()
+                .advance_by(Duration::from_secs(31));
+            smoke(world, &mut state);
+            smoke(world, &mut state);
+        });
+        let mut reader = world.resource::<Messages<AppExit>>().get_cursor();
+        let exits: Vec<_> = reader.read(world.resource::<Messages<AppExit>>()).collect();
+        assert_eq!(exits.len(), 1);
+        assert!(matches!(exits[0], AppExit::Error(_)));
+    }
+    fn screenshot_result(
+        completion: Option<Result<(), String>>,
+        failed: bool,
+        elapsed: Duration,
+    ) -> Vec<AppExit> {
+        let mut world = harness();
+        world.resource_scope(|world, mut state: Mut<AppState>| {
+            state.options.smoke = Some(2);
+            state.options.screenshot = true;
+            state.runtime.render_frames = 2;
+            state.failure = failed.then(|| "资源加载失败".to_owned());
+            smoke(world, &mut state);
+            world.resource_mut::<Time<Real>>().advance_by(elapsed);
+            if let Some(result) = completion {
+                state
+                    .screenshot_wait
+                    .as_mut()
+                    .unwrap()
+                    .complete(world.resource::<Time<Real>>().elapsed(), result);
+            }
+            smoke(world, &mut state);
+            smoke(world, &mut state);
+        });
+        let mut reader = world.resource::<Messages<AppExit>>().get_cursor();
+        reader
+            .read(world.resource::<Messages<AppExit>>())
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn 实际截图消费者成功保存正常退出() {
+        assert!(matches!(
+            screenshot_result(Some(Ok(())), false, Duration::from_secs(1)).as_slice(),
+            [AppExit::Success]
+        ));
+    }
+
+    #[test]
+    fn 实际截图消费者保存失败非零退出() {
+        assert!(matches!(
+            screenshot_result(
+                Some(Err("GPU 截图保存失败".to_owned())),
+                false,
+                Duration::from_secs(1)
+            )
+            .as_slice(),
+            [AppExit::Error(_)]
+        ));
+    }
+
+    #[test]
+    fn 实际截图消费者资源先失败后成功回调仍非零退出() {
+        assert!(matches!(
+            screenshot_result(Some(Ok(())), true, Duration::from_secs(1)).as_slice(),
+            [AppExit::Error(_)]
+        ));
+    }
+
+    #[test]
+    fn 实际截图消费者资源先失败且无回调到边界非零退出() {
+        assert!(screenshot_result(None, true, Duration::from_millis(29999)).is_empty());
+        assert!(matches!(
+            screenshot_result(None, true, Duration::from_secs(30)).as_slice(),
+            [AppExit::Error(_)]
+        ));
+    }
+
+    #[test]
+    fn 真实截图保存路径隔离并检查成功图像和不可写父目录() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("正常/截图.png");
+        save_screenshot(&Image::default(), &path).unwrap();
+        assert_eq!(image::open(path).unwrap().width(), 1);
+        let blocker = temp.path().join("文件不是目录");
+        std::fs::write(&blocker, b"fixture").unwrap();
+        let error = save_screenshot(&Image::default(), &blocker.join("截图.png")).unwrap_err();
+        assert!(error.contains("GPU 截图保存失败"));
+        assert!(!blocker.join("截图.png").exists());
+    }
 }

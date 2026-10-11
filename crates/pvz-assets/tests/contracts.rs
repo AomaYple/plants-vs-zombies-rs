@@ -1,7 +1,121 @@
-use pvz_assets::{AssetError, AssetKind, AssetRoot, Manifest, parse_particle, parse_reanim};
+use pvz_assets::{
+    AnimationFrame, AssetError, AssetKind, AssetRoot, Manifest, parse_particle, parse_reanim,
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::fs;
+
+#[test]
+fn 稀疏帧区分缺省与显式空字符串并保留零值() {
+    let clip = parse_reanim(
+        "<fps>12</fps><track><name>原创</name><t/><t><i/><font></font><text/><x>0</x><f>0</f><a>0</a></t></track>",
+    )
+    .unwrap();
+    assert_eq!(
+        clip.tracks()[0].frames(),
+        &[
+            AnimationFrame::default(),
+            AnimationFrame {
+                i: Some(String::new()),
+                font: Some(String::new()),
+                text: Some(String::new()),
+                x: Some(0.0),
+                f: Some(0.0),
+                a: Some(0.0),
+                ..AnimationFrame::default()
+            }
+        ]
+    );
+}
+
+#[test]
+fn cdata成功路径保留字面分隔符而普通文本解码实体() {
+    let clip = parse_reanim(
+        "<fps><![CDATA[12.5]]></fps><track><name><![CDATA[原创<&]]></name><t><text>前&amp;<![CDATA[<&]]>后</text><i><![CDATA[IMAGE_<A>&]]></i></t></track>",
+    )
+    .unwrap();
+    assert_eq!(clip.fps(), 12.5);
+    assert_eq!(clip.tracks()[0].name(), "原创<&");
+    assert_eq!(
+        clip.tracks()[0].frames()[0].text.as_deref(),
+        Some("前&<&后")
+    );
+    assert_eq!(
+        clip.tracks()[0].frames()[0].i.as_deref(),
+        Some("IMAGE_<A>&")
+    );
+    let particle = parse_particle(
+        "<Emitter><Name><![CDATA[原创<&]]></Name><SystemDuration><![CDATA[100]]></SystemDuration></Emitter>",
+    )
+    .unwrap();
+    assert_eq!(particle.name(), "原创<&");
+    assert_eq!(particle.system_duration(), Some(100.0));
+    assert_eq!(particle.emitters()[0].image(), None);
+    assert_eq!(particle.emitters()[0].emitter_type(), None);
+}
+
+#[test]
+fn 重复_field和_systemfield保持原文顺序及独立子树() {
+    let particle = parse_particle(
+        "<Emitter><Field><FieldType>Position</FieldType><X>1</X></Field><SystemField><Y>2</Y><FieldType>Acceleration</FieldType></SystemField><Field><FieldType>Friction</FieldType><Y>3</Y></Field><SystemField><FieldType>Velocity</FieldType><X>4</X></SystemField></Emitter>",
+    )
+    .unwrap();
+    let emitter = &particle.emitters()[0];
+    let properties = emitter
+        .properties()
+        .iter()
+        .map(|property| {
+            (
+                property.name(),
+                property
+                    .children()
+                    .iter()
+                    .map(|child| (child.name(), child.text()))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        properties,
+        [
+            ("Field", vec![("FieldType", "Position"), ("X", "1")]),
+            (
+                "SystemField",
+                vec![("Y", "2"), ("FieldType", "Acceleration")]
+            ),
+            ("Field", vec![("FieldType", "Friction"), ("Y", "3")]),
+            ("SystemField", vec![("FieldType", "Velocity"), ("X", "4")]),
+        ]
+    );
+    assert_eq!(particle.fields(), ["Position", "Friction"]);
+    assert_eq!(
+        emitter.property("Field").unwrap().children()[0].text(),
+        "Position"
+    );
+    assert_eq!(
+        emitter.property("SystemField").unwrap().children()[0].text(),
+        "2"
+    );
+    assert_eq!(emitter.name(), None);
+}
+
+#[test]
+fn 粒子允许显示属性缺省但拒绝显式空标量() {
+    let particle =
+        parse_particle("<Emitter><SystemDuration>100</SystemDuration></Emitter>").unwrap();
+    let emitter = &particle.emitters()[0];
+    assert_eq!(emitter.name(), None);
+    assert_eq!(emitter.image(), None);
+    assert_eq!(emitter.emitter_type(), None);
+    for empty in ["<Name/>", "<Image></Image>", "<EmitterType/>"] {
+        assert!(
+            parse_particle(&format!(
+                "<Emitter>{empty}<SystemDuration>100</SystemDuration></Emitter>"
+            ))
+            .is_err()
+        );
+    }
+}
 
 #[test]
 fn 截断和未知_xml不能伪装成成功() {

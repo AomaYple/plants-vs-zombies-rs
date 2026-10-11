@@ -28,6 +28,8 @@ cargo bench --workspace --locked
 
 2026-10-11 早期空棋盘与解析基线对应合同修复前的实现，已作废并保留为历史，不能用于优化比较。旧文档把 Criterion slope 估计称为中位数的口径已纠正；当前采用均值与 95% 置信区间。
 
-任务 5 已收集修复后 core/assets/app 九个场景，任务 6 已补切片 core 场景；前者原始汇总在忽略的 `artifacts/validation/task5/baseline-current.json`，后者读数、输入和内存统计范围见 [切片阶段性结果](../behavior/vertical-slice-results.md)。合同/摘要变化产生的比较输出保留，不能称为优化收益。
+任务 5/6 的计时、原始汇总与 OS 峰值继续保留为历史。本轮三包十个场景统一采用 `std::hint::black_box`，标签记录规模与开发合同；最终结果和测量边界集中在 [切片验收结果](../behavior/vertical-slice-results.md)，原始证据位于忽略的 `artifacts/validation/resume/`。合同/摘要或 harness 变化产生的 Criterion 比较输出不能称为优化收益。
 
-最终基准标签、实际推进 tick 数、受影响场景复测与内存口径由 [实施计划任务 8](../superpowers/plans/2026-10-07-foundation-and-asset-audit.md#任务-8复核覆盖率与性能基线)收口。阶段读数已取得，完整计划仍暂停；没有声称内存改善。
+切片基准的共享原创场景同时由真实 benchmark 和自动测试消费：预热后 tick 45、5 株向日葵与 40 株射手、余额 5750、初始无僵尸、未来波次总量 100；计时中的 1000 次调用实际推进 1000 tick，结束于 tick 1045 且仍 Running。终局后同一调用函数推进 0 tick、摘要不变，不能把冻结后的廉价调用混作完整更新。初始化与种植预热在计时外，实际 tick 差值核对属于测量合同。
+
+首轮恢复计时与本项目 Web 渲染重叠，已归为探索记录；正式十场景基线在停止本项目应用、浏览器、服务、测试与其他构建后重新取得。计时未同时启动覆盖率、窗口检查或源码验证，未控制维护者其他活动及 CPU 电源/温度，不声称全机器空闲。Gnuplot 缺省时使用 Criterion 已有的 plotters 后端，不为此安装额外工具。本轮没有改变生产热路径的内存布局/分配策略，也没有声称速度或内存改善；历史 OS 进程峰值含 harness 与 OS 页，不冒称核心堆分配。

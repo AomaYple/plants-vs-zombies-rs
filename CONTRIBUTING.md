@@ -30,7 +30,7 @@ rustup component add llvm-tools-preview
 
 Web 包生成额外使用 `wasm-bindgen-cli 0.2.129`，对应当前锁文件中的 wasm-bindgen；安装后读取 `wasm-bindgen --version` 核对。生成命令和后台开发入口见 [Web 说明](web/README.md)，工具本身的安装日志与项目依赖审计分开记录。
 
-覆盖率 CI 生成 LCOV 报告并保存为工作流产物；基准入口在 CI 编译验证，本机在没有并发测试竞争时执行实际计时。报告与构建产物位于忽略的 `target/`。
+覆盖率 CI 分别执行默认和 all-features 测试，生成独立 LCOV/JSON 报告并保存为工作流产物；这些是 Linux 纯测试统计，不包含本机追加的 Windows 窗口运行。基准入口在 CI 默认组合编译验证，本机在没有并发测试竞争时执行实际计时。报告与构建产物位于忽略的 `target/`。
 
 ## 编码、命名与 Rust 风格
 

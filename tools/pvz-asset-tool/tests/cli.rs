@@ -353,3 +353,31 @@ fn inspect拒绝合法指纹但无效的模型() {
     assert!(stderr(&output).contains("reanim_invalid"));
     assert!(!stderr(&output).contains("PRIVATE"));
 }
+
+#[cfg(windows)]
+fn closed_stderr(repository: &TempDir, arguments: &[&str]) -> std::process::ExitStatus {
+    // 启动前关闭所有读端，保证子进程首次诊断就遇到闭管道，避免启动竞态。
+    let (reader, writer) = std::io::pipe().unwrap();
+    drop(reader);
+    Command::new(env!("CARGO_BIN_EXE_pvz-asset-tool"))
+        .current_dir(repository.path())
+        .args(arguments)
+        .stderr(writer)
+        .stdout(std::process::Stdio::null())
+        .status()
+        .unwrap()
+}
+
+#[test]
+#[cfg(windows)]
+fn 参数错误遇到关闭的_stderr_管道仍返回二() {
+    let repository = tempfile::tempdir().unwrap();
+    assert_eq!(closed_stderr(&repository, &[]).code(), Some(2));
+}
+
+#[test]
+#[cfg(windows)]
+fn 资源错误遇到关闭的_stderr_管道仍返回一() {
+    let repository = tempfile::tempdir().unwrap();
+    assert_eq!(closed_stderr(&repository, &["audit"]).code(), Some(1));
+}

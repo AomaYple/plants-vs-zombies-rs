@@ -14,13 +14,13 @@ cargo run -p pvz-app --locked -- --smoke 160 --audio-smoke --screenshot
 cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot
 ```
 
-`--probe` 只显示原创背景、网格与仿射夹具，不读取原版素材或音频。`--smoke` 创建不可见且不请求焦点的窗口，持续更新，在指定真实绘制帧数后进入退出流程。`--slice-smoke` 用正常游戏命令驱动切片，每帧推进 15 个开发模拟 tick。`--screenshot` 等 GPU 回调完成后退出，probe 写入 `artifacts/viewport/probe.png`，登记切片写入 `artifacts/vertical-slice/registered.png`；两者均被忽略，保存或资源失败返回错误。资源加载等待上限为 30 秒，截图请求后的最终等待上限尚待任务 8 补齐。后台运行与截图验收统一协调。
+`--probe` 只显示原创背景、网格与仿射夹具，不读取原版素材或音频。`--smoke` 创建不可见且不请求焦点的窗口，持续更新，在指定真实绘制帧数后进入退出流程。`--slice-smoke` 用正常游戏命令驱动切片，每帧推进 15 个开发模拟 tick。`--screenshot` 等 GPU 回调完成后退出，probe 写入 `artifacts/viewport/probe.png`，登记切片写入 `artifacts/vertical-slice/registered.png`；两者均被忽略，保存或资源失败返回错误。资源加载等待上限为 30 秒，截图请求后的最终等待上限为 30 秒，使用 `Time<Real>` 的真实时钟截止时间；回调完成、保存失败和缺失回调分别产生一次成功或非零退出，不依赖模拟 tick、暂停状态或帧数。后台运行与截图验收统一协调。切片冒烟事件日志中的“帧末tick”是消费该帧全部事件后的模拟 tick，保留事件相对顺序，但不是逐事件发生时刻。
 
-鼠标与触摸通过 Bevy 有序 `WindowEvent` 适配，只消费主窗口并完整保留同批开始、移动、结束、取消及尺寸/DPI 变化的顺序。坐标先乘当时的窗口 DPI，再逆变换到逻辑点。视口外按下不产生游戏命令；捕获的指针越界、取消、失焦或视口变化会取消，多个指针状态相互独立。
+鼠标、触摸和 P/空格/R/E/M 控制按键通过同一 Bevy 有序 `WindowEvent` 适配，只消费主窗口并完整保留同批开始、移动、结束、取消及尺寸/DPI 变化的顺序。坐标先乘当时的窗口 DPI，再逆变换到逻辑点。视口外按下不产生游戏命令；捕获的指针越界、取消、失焦或视口变化会取消，多个指针状态相互独立。控制键只接收当前有焦点窗口的非 repeat 按下，释放不产生操作，同批多次按压及与指针的交错保留顺序；暂停切换考虑此前排队的暂停、恢复与重开意图。重开只清空其前面的铲除选择，其后的选择继续有效；重开后的草坪命令不会命中重开前的旧阳光实体。
 
 正常切片将 UI/草坪按下映射为选卡、种植、收集、铲除、暂停或重开；P/空格暂停与恢复，R 重开。伤害、阳光、冷却和胜负由 core 决定，表现只消费状态与事件。只有原创 probe 的空棋盘路径保留开发 `AddSun`；正常切片拒绝该命令。暂停冻结模拟与可冻结表现时钟，渲染帧计数继续推进，控制因果见 [开发切片合同](../../docs/behavior/development-slice.md)。
 
-M 启停已加载的开发循环音乐；E 音效键仅在 probe/音频冒烟路径启用，原创 probe 没有加载音频。暂停通过 Bevy `AudioSink::pause/play` 保留实际游标。`--audio-smoke` 要求登记资源模式且至少 120 帧：提交一次音效和循环音乐，比较暂停期间两次游标，再确认恢复推进并停止。这个探针不等于人工听辨或完整曲尾循环验收。浏览器须通过用户手势解锁音频，并用实际游标验证，不能由 Web 构建替代。
+M 启停已加载的开发循环音乐；E 音效键仅在 probe/音频冒烟路径启用，原创 probe 没有加载音频。每帧按模拟执行后的最终暂停状态更新音乐的 `PlaybackSettings.paused`，尚未建立的 sink 因而按正确状态开始；现成 sink 通过 Bevy `AudioSink::pause/play` 保留实际游标。暂停、恢复与重开传播不依赖 sink 创建时机或单次事件，同批 P→M、M→P 均服从 core 的执行结果，终局拒绝暂停不会提前改变音乐。`--audio-smoke` 要求登记资源模式且至少 120 帧：提交一次音效和循环音乐，比较暂停期间两次游标，再确认恢复推进并停止。这个探针不等于人工听辨或完整曲尾循环验收。浏览器须通过用户手势解锁音频，并用实际游标验证，不能由 Web 构建替代。
 
 Web 入口先编译 WebAssembly 模块，再等待用户点击“启动”按钮，在该手势内调用 wasm-bindgen 生成的异步 `init({ module_or_path: module })` 初始化应用和音频输出。自动启动曾实测 AudioContext 悬停，sink 存在而游标始终为零；当前入口的实际验证与限制见 [平台探针结果](../../docs/behavior/platform-probe-results.md)，构建命令见 [Web 说明](../../web/README.md)。
 
@@ -41,7 +41,7 @@ cargo clippy -p pvz-app --all-targets --all-features --locked -- -D warnings
 cargo bench -p pvz-app --bench presentation --locked
 ```
 
-纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；构造/解析位于计时区外，基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。当前切片的实际结果与待验范围见 [阶段性结果](../../docs/behavior/vertical-slice-results.md)。
+纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。binary 回归在无设备的 Bevy World 中驱动真实 `update` 与播放请求组件，覆盖同批暂停/音乐顺序、sink 多帧尚未建立时的暂停、恢复、重开及终局拒绝；请求状态验证不代表后端已创建 sink 或实测游标。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；构造/解析位于计时区外，基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。当前切片的实际结果与待验范围见 [阶段性结果](../../docs/behavior/vertical-slice-results.md)。
 
 ## 平台与依赖边界
 

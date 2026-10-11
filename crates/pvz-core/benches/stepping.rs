@@ -1,5 +1,9 @@
-use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
-use pvz_core::{Cell, Command, GameState, InitialState, PlantKind, SliceRules, Spawn};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
+
+#[path = "support/day_scenario.rs"]
+mod day_scenario;
+use pvz_core::{Command, GameState, InitialState};
 use pvz_data::{LevelId, RulesVersion};
 
 // 场景为原创开发输入，无原版资源；创建初始状态放在计时区间之外。
@@ -13,7 +17,7 @@ fn 模拟推进(c: &mut Criterion) {
         ("benchmark-commands", "阳光命令", &commands[..]),
     ] {
         let name = format!(
-            "开发规则{}-{label}-1000tick-每tick{}命令-seed7",
+            "开发规则{}-{label}-1000次step-实际推进1000tick-每tick{}命令-seed7",
             RulesVersion::new(1, 0).expect("空棋盘版本有效"),
             input.len()
         );
@@ -35,51 +39,16 @@ fn 模拟推进(c: &mut Criterion) {
             );
         });
     }
+    let mut checked = day_scenario::prepared_day();
+    let advanced = day_scenario::measured_steps(&mut checked);
+    assert_eq!(advanced, 1_000, "基准实际推进量必须与回归合同一致");
     c.bench_function(
-        "开发规则2.0-5排45植物100僵尸-1000tick-seed7",
+        &format!("开发规则2.0-5排-预热45植物(5日40豌)-波次总量100-1000次step-实际推进{advanced}tick-seed7"),
         |bencher| {
             bencher.iter_batched(
-                || {
-                    let mut rules = SliceRules::development();
-                    rules.card_cooldown = 1;
-                    rules.wave = (0..100)
-                        .map(|i| Spawn {
-                            at: 46 + i * 4,
-                            row: (i % 5) as u8,
-                            x: 79_000,
-                        })
-                        .collect();
-                    let mut state = GameState::day(
-                        7,
-                        InitialState::new(
-                            LevelId::new("benchmark-day").expect("原创基准关卡有效"),
-                            10_000,
-                        ),
-                        rules,
-                    )
-                    .expect("基准规则有效");
-                    for row in 0..5 {
-                        for column in 0..9 {
-                            state.step(&[
-                                Command::SelectCard {
-                                    kind: if column == 0 {
-                                        PlantKind::Sunflower
-                                    } else {
-                                        PlantKind::Peashooter
-                                    },
-                                },
-                                Command::Plant {
-                                    cell: Cell { row, column },
-                                },
-                            ]);
-                        }
-                    }
-                    state
-                },
+                day_scenario::prepared_day,
                 |mut state| {
-                    for _ in 0..1_000 {
-                        black_box(state.step(black_box(&[])));
-                    }
+                    black_box(day_scenario::measured_steps(&mut state));
                     black_box(state.state_digest());
                 },
                 BatchSize::SmallInput,

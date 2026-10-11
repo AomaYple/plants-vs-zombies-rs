@@ -1,6 +1,7 @@
 use bevy::{
     input::{
         ButtonState, InputPlugin,
+        keyboard::{Key, KeyboardInput},
         mouse::MouseButtonInput,
         touch::{TouchInput, TouchPhase},
     },
@@ -828,4 +829,182 @@ fn 无对应消息的尺寸或dpi字段独立同步窗口快照() {
         );
         assert!(harness.batch([]).is_empty());
     }
+}
+
+fn key(window: Entity, code: KeyCode, state: ButtonState, repeat: bool) -> WindowEvent {
+    WindowEvent::KeyboardInput(KeyboardInput {
+        key_code: code,
+        logical_key: Key::Unidentified(bevy::input::keyboard::NativeKey::Unidentified),
+        state,
+        text: None,
+        repeat,
+        window,
+    })
+}
+
+#[test]
+fn 同批键盘暂停草坪恢复按原始顺序拒绝暂停期间种植() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    let events = [
+        touch(window, 1, TouchPhase::Started, Vec2::new(180.0, 25.0)),
+        key(window, KeyCode::KeyP, ButtonState::Pressed, false),
+        touch(window, 2, TouchPhase::Started, Vec2::new(120.0, 148.0)),
+        key(window, KeyCode::KeyP, ButtonState::Released, false),
+        key(window, KeyCode::KeyP, ButtonState::Pressed, false),
+    ];
+    let mut runtime = pvz_app::runtime::Runtime::day();
+    for event in harness.batch(events) {
+        runtime.input(event);
+    }
+    runtime.advance(1.0 / 60.0);
+    assert!(!runtime.paused);
+    assert!(runtime.game.board().unwrap().plants().is_empty());
+    assert!(
+        runtime
+            .take_events()
+            .contains(&pvz_core::Event::CommandRejected {
+                reason: pvz_core::Rejection::Paused
+            })
+    );
+}
+
+#[test]
+fn 同批重开之前种植被清除之后种植保留() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    let events = [
+        touch(window, 1, TouchPhase::Started, Vec2::new(180.0, 25.0)),
+        touch(window, 2, TouchPhase::Started, Vec2::new(120.0, 148.0)),
+        key(window, KeyCode::KeyR, ButtonState::Pressed, false),
+        touch(window, 3, TouchPhase::Started, Vec2::new(330.0, 25.0)),
+        touch(window, 4, TouchPhase::Started, Vec2::new(200.0, 148.0)),
+    ];
+    let mut runtime = pvz_app::runtime::Runtime::day();
+    for event in harness.batch(events) {
+        runtime.input(event);
+    }
+    runtime.advance(1.0 / 60.0);
+    let board = runtime.game.board().unwrap();
+    assert_eq!(board.plants().len(), 1);
+    assert_eq!(board.plants()[0].kind, pvz_core::PlantKind::Peashooter);
+    assert_eq!(board.plants()[0].cell, pvz_core::Cell { row: 0, column: 1 });
+    assert_eq!(runtime.game.sun(), 50);
+}
+
+#[test]
+fn 音频键保留交错按压且过滤重复释放异窗和失焦() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    let other = harness.app.world_mut().spawn_empty().id();
+    let events = [
+        key(window, KeyCode::KeyE, ButtonState::Pressed, false),
+        key(window, KeyCode::KeyM, ButtonState::Pressed, false),
+        key(window, KeyCode::KeyE, ButtonState::Released, false),
+        key(window, KeyCode::KeyE, ButtonState::Pressed, false),
+        key(window, KeyCode::KeyM, ButtonState::Pressed, true),
+        key(other, KeyCode::KeyM, ButtonState::Pressed, false),
+        WindowEvent::WindowFocused(WindowFocused {
+            window,
+            focused: false,
+        }),
+        key(window, KeyCode::KeyE, ButtonState::Pressed, false),
+        key(window, KeyCode::KeyP, ButtonState::Pressed, false),
+        key(window, KeyCode::KeyR, ButtonState::Pressed, false),
+        WindowEvent::WindowFocused(WindowFocused {
+            window,
+            focused: true,
+        }),
+        key(window, KeyCode::KeyM, ButtonState::Pressed, false),
+    ];
+    assert_eq!(
+        harness.batch(events),
+        [
+            InputEvent::PlayEffect,
+            InputEvent::ToggleMusic,
+            InputEvent::PlayEffect,
+            InputEvent::ToggleMusic,
+        ]
+    );
+}
+
+#[test]
+fn 暂停与空格独立切换并过滤重复释放异窗和失焦控制键() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    let other = harness.app.world_mut().spawn_empty().id();
+    let mut events = vec![
+        key(window, KeyCode::KeyP, ButtonState::Pressed, false),
+        key(window, KeyCode::Space, ButtonState::Pressed, false),
+    ];
+    for code in [
+        KeyCode::KeyP,
+        KeyCode::Space,
+        KeyCode::KeyR,
+        KeyCode::KeyE,
+        KeyCode::KeyM,
+    ] {
+        events.push(key(window, code, ButtonState::Released, false));
+        events.push(key(window, code, ButtonState::Pressed, true));
+        events.push(key(other, code, ButtonState::Pressed, false));
+    }
+    events.push(WindowEvent::WindowFocused(WindowFocused {
+        window,
+        focused: false,
+    }));
+    for code in [
+        KeyCode::KeyP,
+        KeyCode::Space,
+        KeyCode::KeyR,
+        KeyCode::KeyE,
+        KeyCode::KeyM,
+    ] {
+        events.push(key(window, code, ButtonState::Pressed, false));
+    }
+    events.push(WindowEvent::WindowFocused(WindowFocused {
+        window,
+        focused: true,
+    }));
+    events.push(key(window, KeyCode::KeyR, ButtonState::Pressed, false));
+    assert_eq!(
+        harness.batch(events),
+        [
+            InputEvent::TogglePause,
+            InputEvent::TogglePause,
+            InputEvent::Restart
+        ]
+    );
+}
+
+#[test]
+fn 鼠标种植后暂停触摸恢复再重开按序保留事件() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    let events = [
+        touch(window, 1, TouchPhase::Started, Vec2::new(180.0, 25.0)),
+        cursor(window, Vec2::new(120.0, 148.0)),
+        harness.mouse(ButtonState::Pressed),
+        key(window, KeyCode::KeyP, ButtonState::Pressed, false),
+        touch(window, 2, TouchPhase::Started, Vec2::new(600.0, 25.0)),
+        key(window, KeyCode::KeyR, ButtonState::Pressed, false),
+    ];
+    let mut runtime = pvz_app::runtime::Runtime::day();
+    for event in harness.batch(events) {
+        runtime.input(event);
+    }
+    runtime.advance(1.0 / 60.0);
+    assert_eq!(runtime.game.sun(), 150);
+    assert!(runtime.game.board().unwrap().plants().is_empty());
+    let events = runtime.take_events();
+    assert!(matches!(
+        events.as_slice(),
+        [
+            pvz_core::Event::CardSelected { .. },
+            pvz_core::Event::SunSpent { .. },
+            pvz_core::Event::Planted { .. },
+            pvz_core::Event::Paused,
+            pvz_core::Event::Resumed,
+            pvz_core::Event::Restarted,
+        ]
+    ));
 }
