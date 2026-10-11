@@ -76,5 +76,21 @@ fn 标识符拒绝空值和不安全路径() {
     assert!(AssetId::new("").is_err());
     assert!(AssetId::new("../outside.png").is_err());
     assert!(AssetId::new("C:/outside.png").is_err());
+    assert!(AssetId::new("/absolute.png").is_err());
+    assert!(AssetId::new("images//empty.png").is_err());
+    assert!(AssetId::new("images\\wrong.png").is_err());
+    assert!(AssetId::new(" images/a.png").is_err());
     assert!(PlantId::new("pea shooter").is_err());
+    assert!(PlantId::new("太阳花").is_err());
+}
+
+#[test]
+fn 规则版本保持规范格式和访问器合同() {
+    let version = RulesVersion::current();
+    assert_eq!(version.to_string(), "1.0");
+    assert_eq!(version.major(), 1);
+    assert_eq!(version.minor(), 0);
+    assert!("1.65536".parse::<RulesVersion>().is_err());
+    assert!("01.0".parse::<RulesVersion>().is_err());
+    assert!("1.00".parse::<RulesVersion>().is_err());
 }

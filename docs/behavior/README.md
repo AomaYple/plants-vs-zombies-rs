@@ -1,6 +1,10 @@
 # 行为测量与还原
 
-参考文件身份见 [reference-baseline.md](reference-baseline.md)。行为测量尚未执行。
+参考文件身份见 [reference-baseline.md](reference-baseline.md)。原版行为测量尚未执行；`pvz-core` 目前只提供可替换时钟和确定性回放合同。
+
+## 当前模拟合同
+
+`pvz-core` 使用显式 `SimulationClock` 推进 tick，默认的 60 tick/秒只是未完成原版时基测量前的开发参数。它用于可重复测试和性能基线，不代表原版规格。状态摘要包含 tick、阳光和 RNG 状态，事件按 tick 开始、规范化命令、tick 完成的顺序输出。
 
 ## 每条规则的记录要求
 

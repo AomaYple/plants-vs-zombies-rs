@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 # 当前已注册首个数据 package；其余 package 按实施计划逐项注册。
-members = ["crates/pvz-data"]
+members = ["crates/pvz-data", "crates/pvz-core"]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,6 +12,7 @@ authors = ["plants-vs-zombies-rs 贡献者"]
 publish = false
 
 [workspace.dependencies]
+criterion = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
