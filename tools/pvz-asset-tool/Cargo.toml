@@ -1,0 +1,22 @@
+[package]
+name = "pvz-asset-tool"
+description = "植物大战僵尸仓库的只读资源审计工具。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+clap.workspace = true
+pvz-assets = { path = "../../crates/pvz-assets", version = "0.1.0" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

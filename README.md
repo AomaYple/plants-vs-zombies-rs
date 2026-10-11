@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-仓库已进入 **Rust 基础设施实现阶段**：设计、实施计划、Git 配置和版本化参考资源已经建立，`pvz-data`、`pvz-core` 和 `pvz-assets` 已注册。当前提供版本化领域标识符、确定性空棋盘模拟和资源清单/XML 子集审计，没有可运行游戏或已验收的跨平台窗口。
+仓库已进入 **Rust 基础设施实现阶段**：设计、实施计划、Git 配置和版本化参考资源已经建立，`pvz-data`、`pvz-core`、`pvz-assets` 和 `pvz-asset-tool` 已注册。当前提供版本化领域标识符、确定性空棋盘模拟、资源清单/XML 审计和宿主 CLI，没有可运行游戏或已验收的跨平台窗口。
 这三个基础 crate 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式仓库根目录审计时读取清单登记输入。
 
 ## 已确定的路线
@@ -35,7 +35,7 @@
 
 ```text
 crates/            pvz-core、pvz-data、pvz-assets、pvz-app
-tools/             pvz-asset-tool 的预留目录
+tools/             pvz-asset-tool 资源审计 CLI
 assets/            版本化的原版参考资源与清单
 tests/             自制测试夹具与回放的约定
 docs/              设计、计划、行为证据和技术决策
@@ -47,7 +47,7 @@ docs/              设计、计划、行为证据和技术决策
 使用 Rust 2024 Edition、Cargo resolver 3，工具链固定为 1.99.0，包含 rustfmt 与 Clippy。
 项目尚未宣布支持更早的最低 Rust 版本。
 
-当前可以验证 workspace 元数据和三个基础 crate：
+当前可以验证 workspace 元数据、三个基础 crate 和资源工具：
 
 ```sh
 cargo metadata --no-deps --format-version 1
@@ -55,6 +55,8 @@ cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo fmt --all -- --check
 git diff --check
+cargo run -p pvz-asset-tool --locked -- audit --format json
+cargo run -p pvz-asset-tool --locked -- inspect-reanim PeaShooter
 ```
 
 已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
