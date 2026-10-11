@@ -16,9 +16,21 @@ jobs:
       has_app: ${{ steps.metadata.outputs.has_app }}
     steps:
       - uses: actions/checkout@v4
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: actionlint@1.7.12
+      - name: 安装工作流检查工具
+        shell: bash
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          actionlint_dir="${RUNNER_TEMP}/actionlint"
+          actionlint_archive="${actionlint_dir}/actionlint.tar.gz"
+          mkdir -p "$actionlint_dir"
+          curl --fail --silent --show-error --location --retry 3 --output "$actionlint_archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" "$actionlint_archive" | sha256sum --check --strict
+          tar -xzf "$actionlint_archive" -C "$actionlint_dir" actionlint
+          "$actionlint_dir/actionlint" -version
+          printf '%s\n' "$actionlint_dir" >> "$GITHUB_PATH"
       - name: 检查工作流语法
         run: actionlint .github/workflows/ci.yml
       - uses: dtolnay/rust-toolchain@stable

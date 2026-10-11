@@ -20,7 +20,7 @@
 - 实现通用能力前查阅已有模块和成熟库。选择能满足合同的方案，记录用途、兼容性与许可；自行实现时说明现有方案的具体缺口，避免重复编写参数解析、通用格式解析等已有可靠方案的逻辑。
 - `cargo-deny`、`cargo-llvm-cov`、actionlint 等属于额外工具。需要时检查安装情况和版本；首次启用应记录兼容版本及 CI 安装方式，不把它们写成 Cargo 内建能力或已经安装的事实。
 
-当前实现验收使用 `cargo-deny 0.20.2`、`cargo-llvm-cov 0.9.1` 和工具链对应的 `llvm-tools-preview`；CI 通过 `taiki-e/install-action@v2` 显式固定两个 Cargo 工具版本。工作流语法使用 `actionlint 1.7.12` 检查。安装命令如下：
+当前实现验收使用 `cargo-deny 0.20.2`、`cargo-llvm-cov 0.9.1` 和工具链对应的 `llvm-tools-preview`；CI 通过 `taiki-e/install-action@v2` 显式固定两个 Cargo 工具版本。工作流语法使用 `actionlint 1.7.12` 检查；它从上游固定版本的发布包安装并核对 SHA-256，不通过 Cargo 安装。安装命令如下：
 
 ```sh
 cargo install cargo-deny --version 0.20.2 --locked
