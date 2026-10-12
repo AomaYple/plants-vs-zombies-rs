@@ -24,8 +24,10 @@
 ## 文档入口
 
 - [完整设计](docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md)
-- [近期实施计划](docs/superpowers/plans/2026-10-12-versioned-day-content.md)
-- [基础与切片历史计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md)
+- [原版行为基线测量设计](docs/superpowers/specs/2026-10-12-reference-behavior-measurement.md)
+- [当前实施计划：原版行为基线测量](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)
+- [已完成：版本化白天内容计划](docs/superpowers/plans/2026-10-12-versioned-day-content.md)
+- [已完成：基础与切片历史计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md)
 - [项目原则](docs/principles/README.md)
 - [工程原则](docs/principles/engineering.md)
 - [游戏开发原则](docs/principles/game-development.md)
@@ -68,7 +70,7 @@ cargo run -p pvz-app --locked -- --probe --smoke 120 --screenshot
 ```
 
 已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
-具体任务见实施计划，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，本批内容迁移与运行证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
+当前具体任务见[原版行为基线测量计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，本批内容迁移与运行证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
 
 ## 原版资源与许可
 

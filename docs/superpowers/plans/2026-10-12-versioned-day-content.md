@@ -1,5 +1,7 @@
 # 版本化白天内容实施计划
 
+> 状态：已完成，作为历史验收索引保留。当前活动计划见[原版行为基线测量](2026-10-12-reference-behavior-measurement.md)。
+
 > 执行代理：逐任务使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 实施，按复核与实测更新勾选。用户已授权自主执行与常规决策，无需在任务间请求继续。
 
 **目标：** 以严格版本化原创内容驱动现有白天切片，消除应用初始化和频率硬编码，同时保持默认规则 2.0 的逐 tick 行为。

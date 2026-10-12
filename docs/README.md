@@ -7,8 +7,10 @@
 | [游戏开发原则](principles/game-development.md) | 行为还原、开发效率、运行时、资源、渲染与平台规则 |
 | [完整设计](superpowers/specs/2026-10-07-repository-and-runtime-design.md) | 当前仓库与运行架构的设计基线 |
 | [版本化白天内容设计](superpowers/specs/2026-10-12-versioned-day-content.md) | 严格内容格式、纯装配与实际时钟消费边界 |
-| [近期实施计划](superpowers/plans/2026-10-12-versioned-day-content.md) | 版本化白天内容与应用装配验收 |
-| [基础与切片历史计划](superpowers/plans/2026-10-07-foundation-and-asset-audit.md) | 已完成任务及历史验收索引 |
+| [原版行为基线测量设计](superpowers/specs/2026-10-12-reference-behavior-measurement.md) | 可观察行为、证据分类与规则替换边界 |
+| [当前实施计划：原版行为基线测量](superpowers/plans/2026-10-12-reference-behavior-measurement.md) | 原版可观察行为证据、规则替换与回放验收 |
+| [已完成：版本化白天内容计划](superpowers/plans/2026-10-12-versioned-day-content.md) | 已完成的白天内容数据化与应用装配验收 |
+| [已完成：基础与切片历史计划](superpowers/plans/2026-10-07-foundation-and-asset-audit.md) | 已完成任务及历史验收索引 |
 | [路线图](roadmap.md) | 分阶段交付、依赖关系与完成标准 |
 | [架构](architecture/README.md) | crate、模块、数据流与依赖方向 |
 | [测试策略](testing/README.md) | 测试类型、状态隔离、覆盖率与平台验收 |
