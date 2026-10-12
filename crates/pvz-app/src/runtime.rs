@@ -1,9 +1,13 @@
-use crate::{input::InputEvent, viewport::LogicalPoint};
-use pvz_core::{
-    BoardGeometry, Command, DEVELOPMENT_TICKS_PER_SECOND, Event, GameState, GameStatus,
-    InitialState, PlantKind, Point, SliceRules, UNITS_PER_PIXEL,
+use crate::{
+    content::{DEFAULT_DAY_JSON, DayContentError, MAX_DAY_CONTENT_BYTES},
+    input::InputEvent,
+    viewport::LogicalPoint,
 };
-use pvz_data::LevelId;
+use pvz_core::{
+    BoardGeometry, Command, Event, GameState, GameStatus, InitialState, PlantKind, Point,
+    UNITS_PER_PIXEL,
+};
+use pvz_data::{DayLevelDefinition, LevelId};
 
 /// 事件到音效的表现映射，不包含伤害或余额规则。
 pub fn sound_cue(event: &Event) -> Option<crate::resources::SoundCue> {
@@ -24,6 +28,7 @@ pub struct Runtime {
     pub render_frames: u64,
     pub paused: bool,
     pub shovel: bool,
+    // 以 tick 为单位保留帧余量，避免半 tick 在秒单位除法边界丢失。
     accumulator: f64,
     pending: Vec<Command>,
     events: Vec<Event>,
@@ -50,18 +55,23 @@ impl Default for Runtime {
 }
 impl Runtime {
     pub fn day() -> Self {
-        Self {
-            game: GameState::day(
-                7,
-                InitialState::new(
-                    LevelId::new("development-day-slice").expect("开发关卡有效"),
-                    150,
-                ),
-                SliceRules::development(),
-            )
-            .expect("开发规则有效"),
-            ..Self::default()
+        Self::from_day_json(DEFAULT_DAY_JSON).expect("项目内嵌白天内容必须有效")
+    }
+    /// 解析版本化白天内容并调用纯核心装配；任何失败均不回退默认规则。
+    pub fn from_day_json(source: &str) -> Result<Self, DayContentError> {
+        if source.len() > MAX_DAY_CONTENT_BYTES {
+            return Err(DayContentError::TooLarge {
+                bytes: source.len(),
+            });
         }
+        let definition: DayLevelDefinition =
+            serde_json::from_str(source).map_err(DayContentError::Parse)?;
+        let game =
+            GameState::from_day_definition(&definition).map_err(DayContentError::InvalidLevel)?;
+        Ok(Self {
+            game,
+            ..Self::default()
+        })
     }
     pub fn command(&mut self, command: Command) {
         // 表现选择在重开提交位置清空，保留之后同批的新选择。
@@ -188,10 +198,9 @@ impl Runtime {
             return;
         }
         let elapsed = elapsed_seconds.min(0.25);
-        self.accumulator += elapsed;
-        let tick = 1.0 / f64::from(DEVELOPMENT_TICKS_PER_SECOND);
-        let steps = (self.accumulator / tick).floor() as u32;
-        self.accumulator -= f64::from(steps) * tick;
+        self.accumulator += elapsed * f64::from(self.game.clock().ticks_per_second());
+        let steps = self.accumulator.floor() as u32;
+        self.accumulator -= f64::from(steps);
         let mut restarted = false;
         for _ in 0..steps {
             restarted = self.step();

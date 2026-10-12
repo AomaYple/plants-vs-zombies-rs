@@ -18,6 +18,7 @@ lewton.workspace = true
 pvz-assets = { path = "../pvz-assets", version = "0.1.0" }
 pvz-core = { path = "../pvz-core", version = "0.1.0" }
 pvz-data = { path = "../pvz-data", version = "0.1.0" }
+serde_json.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-net.workspace = true

@@ -2,6 +2,10 @@
 
 Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片采用六类对象的登记静态构图，尚未接入完整动作混合与原版粒子。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
 
+正常入口 `Runtime::day()` 消费编译时嵌入的原创 [development-day.json](../../content/levels/development-day.json)，native/Web 使用相同字节，schema 1、规则 2.0、依据 `development`、seed 7、初始阳光 150 和有序波次均由内容定义。`Runtime::from_day_json(&str)` 在解析前按 UTF-8 字节数拒绝超过 1048576 字节的输入，再复用 serde_json 和 core 纯类型装配；损坏 JSON、未知/遗漏/重复字段、未知版本和非法参数明确返回中文包装错误，保留原始原因，不回退默认规则。项目自带内容无效时正常入口明确失败；独立 `Runtime::default()` 继续用于原创空棋盘 probe，没有运行时文件配置、热重载或选关 UI。
+
+帧推进读取 `game.clock().ticks_per_second()`，支持 schema 1 的 1..=1000 Hz，默认仍为 60 Hz。每帧最多消费 250ms，余量只来自运行中的有效帧；暂停和终局冻结模拟/动画且丢弃追赶时间，恢复不补停顿，重开保留内容时钟并清空动画及旧帧余量。频率只改变现实耗时对应的 tick 数，内容间隔与速度仍以 tick 为单位，不自动换算平衡参数。
+
 ## 运行与探针
 
 所有命令从仓库根执行。默认读取 `assets/manifest.json` 登记的背景、六类对象所需的 Reanim/图像集合（94 张图像）、四类事件音效，以及原有 `seedlift.ogg`/`ZombiesOnYourLawn.ogg` 音频探针素材；先检查大小/SHA-256/文本规范，再解码。native 使用 `AssetRoot` 只读输入，Web 使用 gloo-net 同源 `/assets/` 下载并复用同一清单校验。没有安装目录或资源根覆盖参数。缺失、损坏、未登记图像引用与下载失败会显示中文错误，不会静默变成占位资源。
@@ -41,7 +45,7 @@ cargo clippy -p pvz-app --all-targets --all-features --locked -- -D warnings
 cargo bench -p pvz-app --bench presentation --locked
 ```
 
-纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。binary 回归在无设备的 Bevy World 中驱动真实 `update` 与播放请求组件，覆盖同批暂停/音乐顺序、sink 多帧尚未建立时的暂停、恢复、重开及终局拒绝；请求状态验证不代表后端已创建 sink 或实测游标。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；构造/解析位于计时区外，基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。当前切片的实际结果与待验范围见 [阶段性结果](../../docs/behavior/vertical-slice-results.md)。
+纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。内容回归验证默认入口、实际参数消费、无回退错误边界、一 MiB 字节上限、30/120 Hz 推进、暂停/恢复、终局和重开。binary 回归在无设备的 Bevy World 中驱动真实 `update` 与播放请求组件，覆盖同批暂停/音乐顺序、sink 多帧尚未建立时的暂停、恢复、重开及终局拒绝；请求状态验证不代表后端已创建 sink 或实测游标。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；这些表现场景的构造/解析位于计时区外。新增 schema 1/规则 2.0 原创白天 JSON 场景明确标注字节数，计时包含解析、校验与 Runtime 装配，嵌入输入且不计文件 I/O。基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。当前切片的实际结果与待验范围见 [阶段性结果](../../docs/behavior/vertical-slice-results.md)。
 
 ## 平台与依赖边界
 
@@ -54,4 +58,4 @@ cargo bench -p pvz-app --bench presentation --locked
 | Android | 保持纯 lib 和资源字节接口，候选 winit/wgpu/cpal | Activity feature/入口、资源包、触摸、生命周期、构建与实机 |
 | iOS | 保持纯 lib 和资源字节接口，候选 winit/wgpu/cpal | Xcode/macOS、应用入口与打包、触摸/生命周期、构建与实机 |
 
-Bevy、image、lewton、gloo-net 与 clap 的直接许可均为 MIT/Apache-2.0 系列，传递许可及公告由锁文件对应的仓库 `cargo deny` 门槛评估；原版资源与 SIL OFL 1.1 中文字体保持独立来源/许可。Bevy 的完整音频路径需目标平台设备，OGG 在进入后端前用 lewton 全量预解码。MO3 明确返回未支持诊断：将来需要独立的 MO3 解包和 tracker 模块播放器、许可与六平台评估，当前不把 MO3 交给 OGG 后端。可编译和运行支持状态分别记录，未测的平台不声明支持。
+Bevy、image、lewton、gloo-net、clap 与 serde_json 的直接许可均为 MIT/Apache-2.0 系列，传递许可及公告由锁文件对应的仓库 `cargo deny` 门槛评估；serde_json 用于 native/Web 相同的纯内存内容解析，不引入文件或平台入口。原版资源与 SIL OFL 1.1 中文字体保持独立来源/许可。Bevy 的完整音频路径需目标平台设备，OGG 在进入后端前用 lewton 全量预解码。MO3 明确返回未支持诊断：将来需要独立的 MO3 解包和 tracker 模块播放器、许可与六平台评估，当前不把 MO3 交给 OGG 后端。可编译和运行支持状态分别记录，未测的平台不声明支持。

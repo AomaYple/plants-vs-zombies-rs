@@ -8,6 +8,20 @@ use pvz_assets::AnimationFrame;
 use std::hint::black_box;
 
 fn presentation(c: &mut Criterion) {
+    // 原创 schema 1 / 规则 2.0 内容；计时包含 JSON 解析、校验和装配，不含文件 I/O。
+    let day_json = include_str!("../../../content/levels/development-day.json");
+    c.bench_function(
+        &format!(
+            "内容/schema1规则2.0开发白天JSON_{}字节_解析校验与Runtime装配",
+            day_json.len()
+        ),
+        |b| {
+            b.iter(|| {
+                pvz_app::runtime::Runtime::from_day_json(black_box(day_json))
+                    .expect("原创基准内容有效")
+            })
+        },
+    );
     c.bench_function(
         "表现/800x600逻辑视口合同-3840x2160输入1点",
         |b| {

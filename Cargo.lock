@@ -4448,6 +4448,7 @@ dependencies = [
  "pvz-assets",
  "pvz-core",
  "pvz-data",
+ "serde_json",
  "tempfile",
 ]
 
