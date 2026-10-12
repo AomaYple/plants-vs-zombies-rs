@@ -30,10 +30,10 @@
 
 ## 覆盖率报告与当前状态
 
-方法文档维护统计合同，具体读数与历史快照留在 [平台探针结果](../behavior/platform-probe-results.md)和 [切片验收结果](../behavior/vertical-slice-results.md)，避免多份“当前覆盖率”漂移。报告至少写明代码状态、工具/版本、target、feature 组合、运行入口、命中行/总行与遗漏。
+方法文档维护统计合同，本批读数留在[版本化内容结果](../behavior/content-foundation-results.md)，历史快照留在 [平台探针结果](../behavior/platform-probe-results.md)和 [切片验收结果](../behavior/vertical-slice-results.md)，避免多份“当前覆盖率”漂移。报告至少写明代码状态、工具/版本、target、feature 组合、运行入口、命中行/总行与遗漏。
 
 纯测试覆盖率与追加 native 窗口运行的覆盖率分别记录；追加 profile 必须来自同一次 instrumented 构建，并核对日志与实际画面。Web 条件代码不在 native 分母内，默认与 all-features 也不能互相代替。stable 行覆盖率没有启用分支统计时，不把 branch count 0 当作 100%。
 
-当前已完成默认和 all-features 的纯测试报告及各自同次构建的 Windows 运行追加报告；实际数字、分母和遗漏集中在 [切片验收结果](../behavior/vertical-slice-results.md)。CLI stderr 闭管道、XML 显式空/缺省/CDATA/重复顺序、截图 30 秒最终退出和延迟音乐请求已有回归保护；截图 observer/设备丢失、Web 条件路径、真实 DPR 2/4、触摸和未运行平台仍需针对性验收。自动测试保持并行，因共享 GPU/音频设备的窗口检查局部顺序执行。
+版本化内容批次已取得默认和 all-features 的干净纯测试报告，没有追加窗口 profile；共享缓存混入旧 worktree 对象的探索报告保留，完整清理后重测，分母变化不作为覆盖率改善证据。此前切片的纯测试及同次 Windows 运行追加报告保留在[切片验收结果](../behavior/vertical-slice-results.md)。CLI stderr 闭管道、XML 显式空/缺省/CDATA/重复顺序、截图 30 秒最终退出和延迟音乐请求已有回归保护；新增内容严格失败、迁移回放和实际频率有独立回归。截图 observer/设备丢失、Web 条件路径、真实 DPR 2/4、触摸和未运行平台仍需针对性验收。自动测试保持并行，因共享 GPU/音频设备的窗口检查局部顺序执行。
 
 覆盖率 CI 将默认和 all-features 拆为独立 job，各自生成 JSON/LCOV；这些 Linux 纯测试产物不包含本机 Windows 运行。cargo-llvm-cov 0.9.1 的 `report` 子命令实测拒绝 `--all-features`，feature 参数只传给插桩测试/运行命令，导出消费对应隔离 profile。stable 插桩本轮未统计 doctest，doctest 由常规 workspace 测试单独验证。尚未建立任意百分比硬门槛；后续补测继续以实际关键缺口为依据，不能把已有行覆盖率当作原版一致性或分支覆盖率。

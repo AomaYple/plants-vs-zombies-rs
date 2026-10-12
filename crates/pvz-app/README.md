@@ -45,7 +45,7 @@ cargo clippy -p pvz-app --all-targets --all-features --locked -- -D warnings
 cargo bench -p pvz-app --bench presentation --locked
 ```
 
-纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。内容回归验证默认入口、实际参数消费、无回退错误边界、一 MiB 字节上限、30/120 Hz 推进、暂停/恢复、终局和重开。binary 回归在无设备的 Bevy World 中驱动真实 `update` 与播放请求组件，覆盖同批暂停/音乐顺序、sink 多帧尚未建立时的暂停、恢复、重开及终局拒绝；请求状态验证不代表后端已创建 sink 或实测游标。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；这些表现场景的构造/解析位于计时区外。新增 schema 1/规则 2.0 原创白天 JSON 场景明确标注字节数，计时包含解析、校验与 Runtime 装配，嵌入输入且不计文件 I/O。基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。当前切片的实际结果与待验范围见 [阶段性结果](../../docs/behavior/vertical-slice-results.md)。
+纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。内容回归验证默认入口、实际参数消费、无回退错误边界、一 MiB 字节上限、30/120 Hz 推进、暂停/恢复、终局和重开。binary 回归在无设备的 Bevy World 中驱动真实 `update` 与播放请求组件，覆盖同批暂停/音乐顺序、sink 多帧尚未建立时的暂停、恢复、重开及终局拒绝；请求状态验证不代表后端已创建 sink 或实测游标。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；这些表现场景的构造/解析位于计时区外。新增 schema 1/规则 2.0 原创白天 JSON 场景明确标注字节数，计时包含解析、校验与 Runtime 装配，嵌入输入且不计文件 I/O。基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。本批内容迁移的实际结果与待验范围见[版本化内容结果](../../docs/behavior/content-foundation-results.md)，历史平台/切片验收保留在[切片结果](../../docs/behavior/vertical-slice-results.md)。
 
 ## 平台与依赖边界
 
