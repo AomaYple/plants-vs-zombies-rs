@@ -2,7 +2,7 @@
 
 日期：2026-10-12（UTC；本机 America/New_York 为 2026-10-11）。范围为[版本化白天内容设计](../superpowers/specs/2026-10-12-versioned-day-content.md)与[本批实施计划](../superpowers/plans/2026-10-12-versioned-day-content.md)：将现有开发切片的参数、初始状态和有序波次迁移到原创 JSON，由纯核心装配并由实际应用消费。本页集中维护本批读数；[首个切片结果](vertical-slice-results.md)和[平台探针结果](platform-probe-results.md)保留各自历史用途。
 
-本批 Tasks 1–3 已通过各自独立规范与质量复核，默认/all-features 门槛、干净重测覆盖率、受影响基准以及 Windows/Web 指定流程已在本地通过。文档整合后的整体独立复核尚待完成；推送、PR、合入与主线 CI 状态以对应交付记录核验。本地验收不代表原版规则已还原或六平台已经发布。
+本批 Tasks 1–3 已通过各自独立规范与质量复核，默认/all-features 门槛、干净重测覆盖率、受影响基准以及 Windows/Web 指定流程已在本地通过。整体独立静态复核已完成，规格通过、无生产代码缺陷；唯一文档 Minor 已修复，限定修复复核已通过。root 的最终文本/链接/清单哈希/locked metadata 检查已通过，文档提交后 185 项测试再次通过；推送、PR、合入与主线 CI 状态仍以实际交付记录核验。本地验收不代表原版规则已还原或六平台已经发布。
 
 ## 内容与行为合同
 
@@ -116,7 +116,7 @@ Web 日志保留两个既有可选3D管线能力 WARN 与 CPU 预处理回退信
 | WASM构建与生成 | `wasm-commands.json`、`wasm-00.log` 至 `wasm-03.log` |
 | Web观察、页面与日志 | `web-observation.json`、`web-*.jpg`、`web-default-logs.json`、`web-probe-logs.json`、`web-server.json/log` |
 | 原版身份与窗口资格 | `reference-audit.md`、`reference-process.json`、`reference-capture-observation.json`、`reference-*.png` |
-| 内容/结构/元数据检查 | `content-audit.md`、`structure.json`、`metadata.json`；文档整合后的最终检查由收口补充 |
+| 内容/结构/元数据检查 | `content-audit.md`、`structure.json`、`metadata.json`；root 最终检查通过，3348 文件、3229 资源、228 本地链接、5 个成员；限定文档修复复核已通过 |
 | 各任务实施、独立复核与裁决 | 当前 `.superpowers/sdd/2026-10-12-versioned-day-content/` 账本，清理工作区前由主代理保存到本批 `reviews/` |
 
-文档中的“已通过”仅覆盖本页明确列出的本地证据。最终整体复核、结构/链接/清单/locked metadata收口以及远端交付分别按活动计划核验，不把排队动作当完成。
+文档中的“已通过”仅覆盖本页明确列出的本地证据。整体静态复核、root 最终结构检查和限定文档修复复核已完成；远端交付继续按活动计划收口，不把排队动作当完成。

@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-仓库已完成 **首个白天开发切片及现有白天内容数据化的本地实现验收**：`pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app` 已注册，提供确定性模拟、资源清单/XML 审计、宿主 CLI、Bevy 视口/音频探针，以及 5×9 棋盘、两种植物、普通僵尸、阳光、豌豆和割草机的可玩流程。默认切片现由严格版本化原创 JSON 驱动，core 纯装配保留默认逐 tick 摘要和事件，app 消费实际模拟频率。内容批次的任务独立复核、默认/all-features 门槛、覆盖率、七个受影响基准、Windows 隐藏胜利冒烟及 Web 指定交互已通过；文档整合后的整体复核仍待收口，Git 交付按对应 PR 和 CI 记录核验，证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
+仓库已完成 **首个白天开发切片及现有白天内容数据化的本地实现验收**：`pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app` 已注册，提供确定性模拟、资源清单/XML 审计、宿主 CLI、Bevy 视口/音频探针，以及 5×9 棋盘、两种植物、普通僵尸、阳光、豌豆和割草机的可玩流程。默认切片现由严格版本化原创 JSON 驱动，core 纯装配保留默认逐 tick 摘要和事件，app 消费实际模拟频率。内容批次的任务独立复核、默认/all-features 门槛、覆盖率、七个受影响基准、Windows 隐藏胜利冒烟及 Web 指定交互已通过；整体静态复核与最终结构检查已完成，未发现生产代码缺陷，文档修复限定复核已通过。Git 交付仍按实际 PR 和 CI 记录核验，证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
 
 此前切片输入、截图退出、音乐生命周期及整分支复核已通过，历史 Web 胜利与 DPR 1 下 2K/4K 输入映射、Windows 音频范围见 [切片验收结果](docs/behavior/vertical-slice-results.md)。本批没有重复全部历史平台检查。原版观察入口本批已确认有效，原版时基/规则仍待重复测量；完整动态表现、Web 实际失败流程和其余平台运行继续待验收。
 `pvz-data`、`pvz-core` 和 `pvz-assets` 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式资源根目录审计时读取清单登记输入。
