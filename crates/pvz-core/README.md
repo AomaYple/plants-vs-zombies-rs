@@ -12,4 +12,4 @@
 
 `DeterministicRng` 是锁定 `oorandom 11.1.5` 的 `Rand64` 最小领域包装，以显式 `u64` seed 转换为 `u128` 初始化，不读取系统熵，也不声称采用原版算法。早期自写 xorshift 的输出已被替换，旧开发状态不兼容；后续已验收合同或持久回放行为变更须声明版本与兼容策略，当前没有迁移器消费者。
 
-`tests/determinism.rs` 和 `tests/vertical_slice.rs` 使用原创输入覆盖顺序、边界、错误、完整摘要、暂停/重开和胜负回放。`tests/day_content.rs` 验证内容版本、频率、字段装配、实际规则作用和非法边界，并将默认 JSON 与保留的独立 `SliceRules::development()` 工厂比较 6000 次调用的逐步摘要与事件，核对正常输入、暂停恢复、重开及实际推进次数。`benches/stepping.rs` 提供空棋盘、命令与切片场景，初始化/种植预热在计时外；切片调用次数与实际推进 tick 数须分别核对。当前测量和限制见 [阶段性结果](../../docs/behavior/vertical-slice-results.md)，只编译基准不算性能测量。
+`tests/determinism.rs` 和 `tests/vertical_slice.rs` 使用原创输入覆盖顺序、边界、错误、完整摘要、暂停/重开和胜负回放。`tests/day_content.rs` 验证内容版本、频率、字段装配、实际规则作用和非法边界，并将默认 JSON 与保留的独立 `SliceRules::development()` 工厂比较 6000 次调用的逐步摘要与事件，核对正常输入、暂停恢复、重开及实际推进次数。`benches/stepping.rs` 提供空棋盘、命令与切片场景，初始化/种植预热在计时外；切片调用次数与实际推进 tick 数须分别核对。本批测量和限制见[版本化内容结果](../../docs/behavior/content-foundation-results.md)，旧读数保留在[切片历史结果](../../docs/behavior/vertical-slice-results.md)，只编译基准不算性能测量。

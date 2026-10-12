@@ -5,7 +5,9 @@
 
 ## 当前状态
 
-仓库已完成 **首个白天开发切片的本地工程验收**：`pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app` 已注册。当前提供确定性模拟、资源清单/XML 审计、宿主 CLI、Bevy 视口/音频探针，以及 5×9 棋盘、两种植物、普通僵尸、阳光、豌豆和割草机的可玩流程。切片输入、截图退出、音乐生命周期和质量补强均已通过局部独立复核；Windows 隐藏窗口已完成胜利与音频冒烟，Web 已验证两卡种植、阳光收集、铲除、暂停、恢复、重开、胜利及 DPR 1 下的 2K/4K 输入映射。本轮整分支独立规范与质量复核已通过，Git 交付按对应 PR 和 CI 记录核验；原版规则测量、完整动态表现、Web 实际失败流程和其余平台运行仍待验收，具体证据见 [切片验收结果](docs/behavior/vertical-slice-results.md)。
+仓库已完成 **首个白天开发切片及现有白天内容数据化的本地实现验收**：`pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app` 已注册，提供确定性模拟、资源清单/XML 审计、宿主 CLI、Bevy 视口/音频探针，以及 5×9 棋盘、两种植物、普通僵尸、阳光、豌豆和割草机的可玩流程。默认切片现由严格版本化原创 JSON 驱动，core 纯装配保留默认逐 tick 摘要和事件，app 消费实际模拟频率。内容批次的任务独立复核、默认/all-features 门槛、覆盖率、七个受影响基准、Windows 隐藏胜利冒烟及 Web 指定交互已通过；文档整合后的整体复核仍待收口，Git 交付按对应 PR 和 CI 记录核验，证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
+
+此前切片输入、截图退出、音乐生命周期及整分支复核已通过，历史 Web 胜利与 DPR 1 下 2K/4K 输入映射、Windows 音频范围见 [切片验收结果](docs/behavior/vertical-slice-results.md)。本批没有重复全部历史平台检查。原版观察入口本批已确认有效，原版时基/规则仍待重复测量；完整动态表现、Web 实际失败流程和其余平台运行继续待验收。
 `pvz-data`、`pvz-core` 和 `pvz-assets` 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式资源根目录审计时读取清单登记输入。
 
 ## 已确定的路线
@@ -30,6 +32,7 @@
 - [全项目路线图](docs/roadmap.md)
 - [模块与依赖边界](docs/architecture/README.md)
 - [参考版本核对记录](docs/behavior/reference-baseline.md)
+- [版本化白天内容结果](docs/behavior/content-foundation-results.md)
 - [切片验收结果](docs/behavior/vertical-slice-results.md)
 - [资源说明与清单](assets/README.md)
 - [贡献与验证](CONTRIBUTING.md)
@@ -40,6 +43,7 @@
 crates/            pvz-core、pvz-data、pvz-assets、pvz-app
 tools/             pvz-asset-tool 资源审计 CLI
 assets/            版本化的原版参考资源与清单
+content/           本项目原创的版本化关卡与开发参数
 tests/             自制测试夹具与回放的约定
 docs/              设计、计划、行为证据和技术决策
 .github/           结构、实现与平台构建检查 CI，Issue/PR 模板
@@ -64,7 +68,7 @@ cargo run -p pvz-app --locked -- --probe --smoke 120 --screenshot
 ```
 
 已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
-具体任务见实施计划，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，当前切片进度见 [验收结果](docs/behavior/vertical-slice-results.md)。
+具体任务见实施计划，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，本批内容迁移与运行证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
 
 ## 原版资源与许可
 
