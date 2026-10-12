@@ -5,6 +5,7 @@
 mod board;
 mod clock;
 mod commands;
+mod content;
 mod events;
 mod plants;
 mod projectiles;
@@ -18,6 +19,7 @@ pub use board::{
 };
 pub use clock::{DEVELOPMENT_TICKS_PER_SECOND, InvalidTickRate, SimulationClock, Tick};
 pub use commands::Command;
+pub use content::InvalidDayLevel;
 pub use events::{Event, Rejection, StepEvents};
 pub use plants::{Plant, PlantKind};
 pub use projectiles::{Pea, Sun};
