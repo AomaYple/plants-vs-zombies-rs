@@ -41,7 +41,7 @@ tempfile = "3.23"
 name = "plants-vs-zombies-rs"
 stage = "development-slice-validated"
 design = "docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md"
-plan = "docs/superpowers/plans/2026-10-12-versioned-day-content.md"
+plan = "docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
