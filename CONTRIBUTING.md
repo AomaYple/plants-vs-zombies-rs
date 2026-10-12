@@ -56,6 +56,19 @@ Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principl
 
 以下命令均在仓库根目录运行。命令成功只证明对应检查通过；`cargo check` 不等于完整构建或实际运行，文档生成不等于 doctest 或平台验证。
 
+### 反馈层级
+
+开发中选择能够覆盖当前风险的最低层级，提交前完成所有适用层级。这样可以缩短局部反馈，同时保留正确性门槛：
+
+| 层级 | 适用范围 | 主要检查 |
+| --- | --- | --- |
+| L0 | 文档、计划、结构和入口变更 | `git diff --check`、暂存差异、编码/资源清单、文档链接、`cargo metadata --no-deps --locked --format-version 1` |
+| L1 | 局部 Rust、资源解析或配置变更 | `cargo fmt --all -- --check`、受影响 package 的 `cargo test -p ... --locked`、`cargo clippy -p ... --all-targets --locked -- -D warnings` |
+| L2 | 规则、回放、解析合同或热路径变更 | 受影响覆盖率、回放回归和 Criterion 基准；基准期间隔离其他构建、测试和窗口进程 |
+| L3 | 一个完整目的提交前 | workspace、适用的 `--all-features`、文档、依赖审计、平台/窗口验收、Git 差异和远端 CI |
+
+不同 package 的纯测试和静态检查默认并行；原版窗口启动、输入、捕获和共享用户状态保持局部串行；已产生的证据文件可以并行整理。较低层级不能替代更高层级的必要验收，具体命令和未执行项必须在提交或结果文档中说明。
+
 ### 文档与结构变更
 
 ```sh

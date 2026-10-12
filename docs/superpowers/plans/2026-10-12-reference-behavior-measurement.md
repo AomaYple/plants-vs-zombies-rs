@@ -2,65 +2,104 @@
 
 > 当前活动计划。旧的基础工程与版本化内容计划已完成并保留为历史验收索引；本计划只处理原版可观察行为证据和开发规则替换入口。
 
-**目标：** 在继续扩展完整内容前，对已确认身份的原版白天教程/切片建立可重复的行为测量证据，把有足够置信度的参数接入版本化规则和核心回放，同时保留开发参数与原版事实的边界。
+## Goal
 
-**设计：** [原版行为基线测量设计](../specs/2026-10-12-reference-behavior-measurement.md)。**前置：** [参考版本基线](../../behavior/reference-baseline.md)、[开发切片合同](../../behavior/development-slice.md)、[项目原则](../../principles/README.md)。
+在不把未测行为写成规格的前提下，先用一个可重复的端到端案例验证测量入口，再按小批次取得规则证据并替换开发参数。每个批次都能独立验收、独立回退和独立更新路线图，缩短错误发现和返工周期。
 
-## 共同约束
+交付结果必须能回答四个问题：参考程序和资源是否仍是同一组文件；观察是否由固定输入和连续画面支持；结论属于观察、推断还是开发参数；被采纳的规则是否有核心回放、回归测试和必要的性能证据。
 
-- 正确性第一、速度第二、内存第三；先建立可观察事实和回放保护，再做任何优化或参数替换。
-- 原版程序只作参考输入，不能成为生产运行依赖；原始截图、录像、存档和临时脚本只写入被忽略的 `artifacts/` 或仓库外。
-- 自动化测量、测试和运行尽可能后台执行；真实窗口交互只使用最小范围，并记录无法后台完成的原因。
-- 所有公开文本 UTF-8、LF、无 BOM、末尾换行；新增工具、数据格式和目录必须有实际消费者，禁止预建空实现。
-- 公开仓库不提交凭据、个人绝对路径、原版可执行文件或未登记临时载荷；MIT 只覆盖本项目原创内容。
+## Architecture
 
-## Task 1：建立测量记录和验收入口
+测量链路保持单向：
 
-**文件：** `docs/behavior/measurement-protocol.md`、`docs/behavior/measurement-schema.md`、`docs/behavior/README.md`、`docs/behavior/reference-baseline.md`、`docs/roadmap.md`。
+```text
+参考文件身份 → 窗口与输入证据 → 公开文本结果 → 版本化规则/内容 → pvz-core 回放 → Bevy 表现层验收
+```
 
-- [ ] 将参考身份、窗口资格验证和未验证事实整理为统一的案例字段，引用新的测量设计。
-- [ ] 定义 JSON/表格记录的最小字段、误差写法、重复次数、排除规则和 `observed`/`inferred`/`development_parameter` 分类。
-- [ ] 为 tick、间隔、碰撞、事件顺序、失败/胜利、暂停/重开建立可逐项勾选的验收矩阵；每项写清从证据到规则的接受条件。
-- [ ] 检查所有入口链接、编码、BOM、换行和文档表述，不把资格验证或单次教程观察写成行为结论。
+原版 EXE 只提供资源输入和可观察行为参考，不进入生产运行依赖。`pvz-core` 继续保持纯 Rust，不依赖 Bevy、资源解析、操作系统 I/O、设备输入、音频、资产路径或墙钟时间；规则替换先更新数据和核心合同，再由 `pvz-app` 消费状态与事件。
 
-**验证：** `git diff --check`；文档链接检查；UTF-8/LF/无 BOM 检查；`cargo metadata --no-deps --locked --format-version 1`。
+## Tech Stack
 
-## Task 2：取得可重复的原版窗口证据
+- Rust stable 1.99.0、Cargo workspace、现有 `pvz-data`、`pvz-core`、`pvz-assets`、`pvz-app` 与 `pvz-asset-tool`。
+- Bevy 负责应用表现和平台接线；规则、回放和资源模型保持引擎无关。
+- Windows 原版窗口用于参考观察；本机原始帧、录像、存档、窗口元数据和临时脚本写入被忽略的 `artifacts/` 或仓库外。
+- 现有 Cargo 测试、覆盖率和 Criterion 基准作为验证入口。只有出现稳定消费者且能减少重复工作时，才引入新的测量辅助工具、数据格式或 package。
 
-**文件：** 仅在确认有稳定消费者后新增 `tools/` 测量辅助；原始记录写入被忽略的 `artifacts/validation/reference-behavior-*`，不提交截图、录像或存档。
+## Spec
 
-- [ ] 重新核对目标 EXE、`main.pak` 和解包资源指纹，记录运行环境、窗口尺寸、DPI、输入设备和目标进程绑定。
-- [ ] 先验证连续画面和输入回放能稳定到达同一教程/切片状态，再执行固定输入序列；后台启动优先，前台交互仅用于目标窗口接口确实需要的步骤。
-- [ ] 对每个案例至少完成三次有效重复，分别记录阳光产出、豌豆发射/命中、僵尸移动/啃食、割草机、波次、胜负、暂停/恢复和重开；失败案例单独记录，不以退出码代替画面证据。
-- [ ] 保存原始帧号/时间、输入序列、失败重试、捕获误差和环境元数据；清理无用临时进程和未被索引的产物。
+每个案例使用唯一 `case_id`，至少包含 `reference_id`、场景和初始状态、输入序列、观察窗口、有效/失败重复次数、可见事件、误差、分类和接受条件。分类固定为 `observed`、`inferred`、`development_parameter`；帧率不能直接当作模拟 tick 频率，区间和离散顺序必须保留。
 
-**验证：** 每个案例都有完整字段、有效重复次数和原始证据索引；无法测量的项目写明阻塞原因和影响范围。
+首个端到端案例固定使用已证实可进入的冒险 1-1 教程种植动作：核对目标 EXE 与 `main.pak`，绑定目标进程，确认连续画面，执行相同输入，至少取得三次有效重复，建立本机原始证据索引，并把结果以中文文本追加到现有行为基线。这个案例首先验证测量链路的可靠性，不提前声明时基、碰撞或其他规则。
 
-## Task 3：把证据映射到规则与内容
+## Global Constraints
 
-**文件：** `content/levels/development-day.json`、`crates/pvz-data/src/day.rs`、`crates/pvz-core/src/content.rs`、`docs/behavior/development-slice.md`、`docs/behavior/reference-baseline.md`、必要时新增版本化内容 JSON。
+- 正确性第一、速度第二、内存第三；速度包括运行速度和开发迭代速度。任何提速都必须保留行为、事件顺序、回放和平台合同。
+- 原版程序不作为运行依赖；原版截图、录像、存档和临时脚本不进入 Git、CI 或发行包。版本化参考资源仍由清单和指纹管理。
+- 所有公开文本使用 UTF-8、LF、无 BOM、末尾换行；新增文件、目录、工具和字段必须有实际消费者。
+- 测量和窗口交互尽可能后台运行。窗口捕获与输入保持局部串行，已生成的帧、日志和元数据整理可以并行；不同 package 的纯测试可以并行；性能基准独占构建和运行资源。
+- 未达到接受条件的结果继续标为未知、推断或开发参数，不批量改写规则来源，不以最终胜负相同替代逐 tick 状态与事件比较。
 
-- [ ] 只对满足设计接受条件的参数建立已测量来源；其余参数继续保持 `basis: development`，不得批量标记为原版。
-- [ ] 若 tick、间隔、碰撞或阶段顺序改变，先更新规则版本/内容来源字段，再补齐装配边界和无效输入测试；保持 core 不依赖 JSON、I/O、引擎或墙钟。
-- [ ] 用固定输入逐 tick 比较状态摘要和事件序列，覆盖正常命令、暂停/恢复、重开、胜利和失败；新旧开发回放的兼容/拒绝策略必须明确。
-- [ ] 为每个替换参数新增回归测试，并运行受影响 Criterion 基准；性能报告必须与行为结果分开，不能用优化结论掩盖规则变化。
+## 开发反馈分层
 
-**验证：** `cargo test -p pvz-data --locked`、`cargo test -p pvz-core --locked`、相关 `cargo llvm-cov` 和 `cargo bench`；提交前执行完整 workspace 门槛。
+根据变更风险选择最低足够层级，并在提交前升级到所有适用门槛：
 
-## Task 4：核心与窗口行为验收
+- **L0 文档与结构反馈**：差异、编码/资源边界、文档链接和 `cargo metadata --no-deps --locked --format-version 1`。
+- **L1 受影响 package 反馈**：格式、受影响 package 的测试和 Clippy；只验证当前改动能影响的 target，保持短反馈。
+- **L2 行为与性能反馈**：规则、解析、回放或热路径变更时，运行受影响覆盖率、回放回归和基准；基准期间不并行启动其他构建、测试或窗口进程。
+- **L3 提交与远端验收**：按贡献指南执行 workspace、all-features（可共存时）、文档和依赖审计，再核对提交、推送和远端 CI。
 
-**文件：** `crates/pvz-core/tests/`、`docs/behavior/reference-behavior-results.md`、`docs/behavior/README.md`、`docs/roadmap.md`、`README.md`。
+## Task 1：收敛记录合同并锁定首个案例
 
-- [ ] 公开结果页逐项区分原版观察、候选推断、开发参数、核心回放和平台实跑；附案例 ID、重复次数、误差和未验证项。
-- [ ] 复核失败边界、暂停/失焦、重开和终局冻结；浏览器失败流程、真实 DPR/触摸、Linux/macOS 和移动平台继续按路线图独立验收。
-- [ ] 完成静态引用、资源边界、死代码/无用文件、锁定元数据和 Git 差异检查；删除仅为探索而创建且无消费者的文件或目录。
+**文件：** `docs/superpowers/specs/2026-10-12-reference-behavior-measurement.md`、`docs/behavior/README.md`、`docs/behavior/reference-baseline.md`、本计划。
 
-**验证：** `cargo fmt --all -- --check`、`cargo check --workspace --all-targets --locked`、`cargo test --workspace --locked`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo doc --workspace --no-deps --locked`、`cargo deny check`、`git diff --check`。
+- [ ] 把案例字段、误差写法、重复和排除规则、三种分类及接受条件收敛到现有行为测量设计；不新增暂时没有消费者的 `measurement-protocol.md` 或 `measurement-schema.md`。
+- [ ] 以已通过窗口资格验证的冒险 1-1 教程种植动作登记首个 `tutorial-plant-01` 案例，写明目标、固定输入、观察终点和证据索引位置。
+- [ ] 为后续时基、间隔、碰撞、事件顺序、终局、暂停和重开保留验收矩阵入口，但不把矩阵条目写成已测事实。
 
-## Task 5：下一阶段计划收口
+**验证：** `git diff --check`；`cargo metadata --no-deps --locked --format-version 1`；按贡献指南执行文本编码、资源清单和文档链接检查。
 
-- [ ] 将本计划标记为已完成或保留明确未完成项，更新路线图 P3/P4 的勾选和依赖顺序。
-- [ ] 若行为测量达到接受条件，创建独立的“内容与表现扩展”设计/计划，拆分 Reanim 动画、粒子、音频和更多实体；不把六平台发布合并进单一大任务。
-- [ ] 保留本计划、测量结果和原始证据索引的历史职责；不删除仍有引用或审计职责的旧计划。
+## Task 2：完成首个端到端案例
 
-**交付门槛：** 一个完整目的一个提交，使用 `docs(behavior): 中文说明` 或 `docs: 中文说明`；按贡献指南完成适用验证、评审、CI 和主线同步。外部推送、合入和分支清理按当次授权执行，并分别报告本地验证与远端状态。
+**文件：** `docs/behavior/reference-baseline.md`、`docs/behavior/README.md`；原始记录写入被忽略的 `artifacts/validation/reference-behavior-*`。
+
+- [ ] 每次运行前核对 EXE、`main.pak` 和解包资源指纹、窗口尺寸、DPI、输入设备、用户状态和目标进程绑定。
+- [ ] 先确认连续画面和固定输入能够到达同一教程状态，再执行 `tutorial-plant-01`；后台启动优先，前台操作只用于窗口接口无法后台完成的步骤，并记录原因。
+- [ ] 至少取得三次有效重复，分别保存输入序列、原始帧号/时间、失败重试、捕获误差和环境元数据；失败案例单独记录，不用退出码代替画面证据。
+- [ ] 只有字段完整且证据可索引时才把结果追加到公开基线；入口不稳定时记录阻塞和影响范围，修复入口后再扩展测量面。
+
+**验证：** 主代理核对每次运行的指纹、重复次数、证据索引和结论分类；清理无索引临时产物与本次启动的进程。
+
+## Task 3：按小批次测量动态规则
+
+**文件：** `docs/behavior/reference-baseline.md`、`docs/behavior/README.md`，必要时更新现有设计中的案例矩阵。
+
+- [ ] 首批只测量逻辑时基、阳光产出、攻击发射和啃食间隔；每个案例沿用同一记录合同，控制初始状态和输入，至少三次有效重复。
+- [ ] 首批全部达到接受条件后，再测量投射物命中、碰撞边界和事件顺序；碰撞与顺序的推断保留原始证据和误差，不用单帧位置代替连续观察。
+- [ ] 最后测量波次、胜利/失败、暂停/恢复和重开；终局画面、状态冻结和重新开始分别记录，浏览器失败流程仍单独验收。
+- [ ] 公开结果逐项列出已测量、候选推断、开发参数、未知项、重复次数、误差和下一步，不创建通用 CLI 或持久回放格式来替代真实消费者。
+
+**验证：** 每个批次完成后执行 L0；涉及核心规则前先核对目标版本、控制变量、证据索引、重复次数和接受条件，未满足时不得进入 Task 4。
+
+## Task 4：一次只替换一个规则批次
+
+**文件：** `content/levels/development-day.json`、`crates/pvz-data/src/day.rs`、`crates/pvz-core/src/content.rs`、`docs/behavior/development-slice.md`、`docs/behavior/reference-baseline.md`，必要时新增版本化内容 JSON。
+
+- [ ] 只把已满足接受条件的一个参数批次从 `basis: development` 升级为测量来源；其余参数保持原分类。
+- [ ] 若 tick、间隔、碰撞或阶段顺序改变，先更新规则/内容版本和来源，再更新装配边界、无效输入处理和回放兼容/拒绝策略。
+- [ ] 为每个替换参数补充正常、边界和错误回归；用固定输入比较逐 tick 状态摘要与事件序列，不能只比较最终胜负。
+- [ ] 先运行受影响 package 的 L1 检查，再运行相关覆盖率和 Criterion 基准；性能结果与行为结果分开记录，优化不能掩盖规则变化。
+
+**验证：** `cargo test -p pvz-data --locked`、`cargo test -p pvz-core --locked`、适用的 `cargo llvm-cov` 和 `cargo bench`；参数批次稳定后执行 L3。
+
+## Task 5：阶段复核与下一阶段收口
+
+**文件：** `docs/behavior/reference-baseline.md`、`docs/behavior/README.md`、`docs/roadmap.md`、`README.md`，以及受影响的结果文档。
+
+- [ ] 公开结果区分原版观察、候选推断、开发参数、核心无资源回放和平台实跑；附案例 ID、重复次数、误差、证据索引和未验证项。
+- [ ] 完成静态引用、编码、资源边界、死代码/无用文件、锁定元数据和 Git 差异检查；删除仅为探索创建且无消费者的文件或目录。
+- [ ] 只有当本计划的测量批次和相应回放/平台验收完成时才标记完成；否则保留明确未完成项和阻塞影响。
+- [ ] 若已有足够行为证据，再创建独立的内容与表现扩展计划，分别处理 Reanim、粒子、音频和更多实体；不把六平台发布合并成一个大任务。
+
+**验证：** `cargo fmt --all -- --check`、`cargo check --workspace --all-targets --locked`、`cargo test --workspace --locked`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo doc --workspace --no-deps --locked`、`cargo deny check`、`git diff --check`；平台和窗口检查按实际变更追加。
+
+**交付门槛：** 一个完整目的一个提交，使用 `docs(behavior): 中文说明` 或 `docs: 中文说明`；按贡献指南完成适用验证、推送和远端 CI，并分别报告本地验证、推送结果和 CI 状态。`main` 的直接提交和推送遵循用户已授予的持续授权。
