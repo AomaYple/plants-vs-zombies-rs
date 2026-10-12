@@ -4483,6 +4483,7 @@ dependencies = [
  "criterion",
  "oorandom",
  "pvz-data",
+ "serde_json",
 ]
 
 [[package]]

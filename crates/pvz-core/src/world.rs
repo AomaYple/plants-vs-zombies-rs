@@ -313,8 +313,17 @@ impl GameState {
         initial: InitialState,
         rules: SliceRules,
     ) -> Result<Self, InvalidSliceRules> {
+        Self::day_with_clock(seed, initial, rules, SimulationClock::development())
+    }
+
+    pub(crate) fn day_with_clock(
+        seed: u64,
+        initial: InitialState,
+        rules: SliceRules,
+        clock: SimulationClock,
+    ) -> Result<Self, InvalidSliceRules> {
         rules.validate()?;
-        let mut game = Self::new(seed, initial);
+        let mut game = Self::with_clock(seed, initial, clock);
         game.board = Some(Board::new(rules));
         Ok(game)
     }
