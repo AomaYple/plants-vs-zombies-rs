@@ -63,7 +63,7 @@
 - [x] 汇总实际命令/版本/测试数/覆盖率分母与遗漏/基准均值及95%CI/Windows与Web运行结果；保留原始证据在本批忽略目录，不覆盖旧resume记录。
 - [x] 整体独立复核，修复有效问题，核对无死代码/未使用依赖/无消费者文件以及文本、链接、清单哈希、locked metadata；唯一文档 Minor 已修复并通过限定复核。
 - [x] P4只勾选现有白天参数和波次的数据化；更多植物/僵尸/地形、完整动画/MO3、模式、存档与平台发布继续列待办，原版测量仍列优先门槛。
-本批实现、任务复核与本地实测见[版本化内容结果](../../behavior/content-foundation-results.md)。整体独立静态复核、限定修复复核和 root 的最终文本/链接/清单哈希/locked metadata 检查均已通过，未发现生产代码缺陷。远端交付仍待实际 PR/CI 结果。
+本批实现、任务复核与本地实测见[版本化内容结果](../../behavior/content-foundation-results.md)。整体独立静态复核、限定修复复核和 root 的最终文本/链接/清单哈希/locked metadata 检查均已通过，未发现生产代码缺陷。PR #3 已以 rebase 合入 `main`，合入提交为 `36f6e10280415fd6005bbd142ff80b8d42ba9f3c`，PR 与主线 push CI 各 8 个 job 均已成功；本地分支和实施 worktree 已清理。
 
 ### Git 交付门槛
 
