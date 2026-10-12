@@ -52,9 +52,9 @@
 
 **文件：** `docs/superpowers/specs/2026-10-12-reference-behavior-measurement.md`、`docs/behavior/README.md`、`docs/behavior/reference-baseline.md`、本计划。
 
-- [ ] 把案例字段、误差写法、重复和排除规则、三种分类及接受条件收敛到现有行为测量设计；不新增暂时没有消费者的 `measurement-protocol.md` 或 `measurement-schema.md`。
-- [ ] 以已通过窗口资格验证的冒险 1-1 教程种植动作登记首个 `tutorial-plant-01` 案例，写明目标、固定输入、观察终点和证据索引位置。
-- [ ] 为后续时基、间隔、碰撞、事件顺序、终局、暂停和重开保留验收矩阵入口，但不把矩阵条目写成已测事实。
+- [x] 把案例字段、误差写法、重复和排除规则、三种分类及接受条件收敛到现有行为测量设计；不新增暂时没有消费者的 `measurement-protocol.md` 或 `measurement-schema.md`。
+- [x] 以已通过窗口资格验证的冒险 1-1 教程种植动作登记首个 `tutorial-plant-01` 案例，写明目标、固定输入、观察终点和证据索引位置。
+- [x] 为后续时基、间隔、碰撞、事件顺序、终局、暂停和重开保留验收矩阵入口，但不把矩阵条目写成已测事实。
 
 **验证：** `git diff --check`；`cargo metadata --no-deps --locked --format-version 1`；按贡献指南执行文本编码、资源清单和文档链接检查。
 
