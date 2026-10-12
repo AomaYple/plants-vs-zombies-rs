@@ -1,6 +1,6 @@
 # 模块与依赖
 
-本目录维护实际模块合同及依赖方向；五个 package 均已注册，成员和第三方依赖以根 [Cargo.toml](../../Cargo.toml) 为准。当前实施暂停，切片独立复核待完成，进度见 [实施计划](../superpowers/plans/2026-10-07-foundation-and-asset-audit.md)。长期边界见 [游戏开发原则](../principles/game-development.md)。
+本目录维护实际模块合同及依赖方向；五个 package 均已注册，成员和第三方依赖以根 [Cargo.toml](../../Cargo.toml) 为准。首个开发切片已完成工程验收，当前推进内容数据化，进度见 [实施计划](../superpowers/plans/2026-10-12-versioned-day-content.md)。长期边界见 [游戏开发原则](../principles/game-development.md)。
 
 ## 依赖方向
 

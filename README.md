@@ -22,7 +22,8 @@
 ## 文档入口
 
 - [完整设计](docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md)
-- [近期实施计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md)
+- [近期实施计划](docs/superpowers/plans/2026-10-12-versioned-day-content.md)
+- [基础与切片历史计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md)
 - [项目原则](docs/principles/README.md)
 - [工程原则](docs/principles/engineering.md)
 - [游戏开发原则](docs/principles/game-development.md)

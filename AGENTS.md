@@ -13,7 +13,7 @@
 | [行为基线](docs/behavior/reference-baseline.md) | 已核对事实与尚待测量的行为 |
 | [测试策略](docs/testing/README.md)、[性能策略](docs/performance/README.md) | 测试边界、覆盖率与可重复基准 |
 | [资源说明](assets/README.md) | 版本化原版资源、清单、缓存与证据产物约定 |
-| [设计](docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md)、[实施计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md) | 进入实现阶段后的任务与验收条件 |
+| [设计](docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md)、[实施计划](docs/superpowers/plans/2026-10-12-versioned-day-content.md) | 当前内容数据化任务与验收条件 |
 
 - 阶段状态以 README、路线图及实际 workspace 成员为依据。按当次授权范围工作；文档与结构任务不得自行扩展为游戏源码或可执行工具，暂停期间不得自行恢复实施。
 - 工具链和 lint 读取 `rust-toolchain.toml`、`Cargo.toml`，CI 实际检查读取 `.github/workflows/ci.yml`；发现它们与原则不符时修正并验证，不擅自升级或降低门槛。

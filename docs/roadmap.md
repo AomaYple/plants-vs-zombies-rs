@@ -1,6 +1,6 @@
 # 项目路线图
 
-路线按可独立验证的交付阶段排列，具体任务顺序见 [实施计划](superpowers/plans/2026-10-07-foundation-and-asset-audit.md)。长期约束见 [项目原则](principles/README.md)，提交验收见 [贡献指南](../CONTRIBUTING.md)。
+路线按可独立验证的交付阶段排列，当前任务见 [版本化白天内容计划](superpowers/plans/2026-10-12-versioned-day-content.md)，[基础与切片计划](superpowers/plans/2026-10-07-foundation-and-asset-audit.md)保留为历史验收索引。长期约束见 [项目原则](principles/README.md)，提交验收见 [贡献指南](../CONTRIBUTING.md)。
 
 跨平台支持目标包含 Windows、macOS、Linux、Web、Android 和 iOS。桌面与 Web 先行，移动端随后接入；所有平台均须分别完成构建与最小运行验收。
 
@@ -53,7 +53,8 @@ Windows/Web 实测范围、音频手势、DPR 及其他平台限制见 [平台�
 
 ## P4：规则与内容
 
-- [ ] 把植物、僵尸、投射物、地形和波次迁移到版本化数据。
+- [ ] 将现有白天参数、初始状态与有序波次迁移到严格版本化原创数据，保护默认逐 tick 回放。
+- [ ] 扩展完整植物、僵尸、投射物、地形与关卡数据模型；不把首批参数数据化等同完整内容系统。
 - [ ] 按行为证据逐类加入护甲、减速、特殊攻击、泳池、夜间、雾和屋顶。
 - [ ] 完成 Reanim 常用轨道与 idle/射击/啃食/死亡动画混合、原版粒子子集、音频事件和资源缓存。
 - [ ] 评估并接入 MO3 解包与 tracker 播放路线，核对成熟库、许可和六平台兼容性，完成实际音乐验收。
