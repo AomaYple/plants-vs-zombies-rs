@@ -1,10 +1,10 @@
 # 行为测量与还原
 
-参考文件身份见 [reference-baseline.md](reference-baseline.md)。原版行为测量尚未完成；当前活动入口是[原版行为测量与并行开发计划](../superpowers/plans/2026-10-12-reference-behavior-measurement.md)及其[测量设计](../superpowers/specs/2026-10-12-reference-behavior-measurement.md)。`pvz-core` 已提供空棋盘规则1.0与白天可玩切片开发规则2.0。切片数值、阶段顺序、输入、静态资源构图及待验证项见 [开发切片合同](development-slice.md)，本地工程验收、原版缺口与后续入口见 [切片验收结果](vertical-slice-results.md)。
+参考文件身份见 [reference-baseline.md](reference-baseline.md)。原版行为测量尚未完成；阶段性可玩开发入口是[最小可玩垂直切片总计划](../superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)，原版证据入口是[原版行为测量专题计划](../superpowers/plans/2026-10-12-reference-behavior-measurement.md)及其[测量设计](../superpowers/specs/2026-10-12-reference-behavior-measurement.md)。`pvz-core` 已提供空棋盘规则1.0与白天可玩切片开发规则2.0。切片数值、阶段顺序、输入、静态资源构图及待验证项见 [开发切片合同](development-slice.md)，本地工程验收、原版缺口与后续入口见 [切片验收结果](vertical-slice-results.md)。
 
 现有白天参数、初始状态和有序波次现由严格版本化原创 JSON 驱动，本批迁移回放、覆盖率、计时及 Windows/Web 实测集中在[版本化内容结果](content-foundation-results.md)。原版窗口观察入口已取得连续有效画面并通过资格验证，教程单次观察范围见[参考基线](reference-baseline.md#2026-10-12-窗口观察入口复核)；时基、间隔、碰撞和事件顺序仍待重复测量。
 
-证据轨先完成 `tutorial-plant-01` 的同一身份、固定输入、连续画面、三次独立有效重复与证据索引；实际次数和入口状态见[参考基线中的案例记录](reference-baseline.md#2026-10-13-首个端到端案例登记)。教程验收通过后，按案例依赖推进时基、间隔、碰撞、事件顺序和终局控制；原版窗口阻塞只暂停直接依赖它的工作，开发轨可继续推进有明确合同的测试、表现和平台增量。开发反馈层级和调度规则见[实施计划](../superpowers/plans/2026-10-12-reference-behavior-measurement.md)及[贡献指南](../../CONTRIBUTING.md#反馈层级)。
+证据轨先完成 `tutorial-plant-01` 的同一身份、固定输入、连续画面、三次独立有效重复与证据索引；实际次数和入口状态见[参考基线中的案例记录](reference-baseline.md#2026-10-13-首个端到端案例登记)。教程验收通过后，按案例依赖推进时基、间隔、碰撞、事件顺序和终局控制；原版窗口阻塞只暂停直接依赖它的工作，开发轨可继续推进有明确合同的可玩阶段、测试、表现和平台增量。开发阶段顺序见[总计划](../superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)，证据调度规则见[专题计划](../superpowers/plans/2026-10-12-reference-behavior-measurement.md)及[贡献指南](../../CONTRIBUTING.md#反馈层级)。
 
 案例入口和前置条件见[测量设计中的案例依赖矩阵](../superpowers/specs/2026-10-12-reference-behavior-measurement.md#案例依赖矩阵)。矩阵中的案例 ID 只是稳定索引；进度、重复次数和证据只在参考基线维护。未满足三次独立有效重复和误差条件的条目继续保持未知或开发参数状态。
 

@@ -2,7 +2,7 @@
 
 ## 状态与目标
 
-状态：基础设施和白天开发切片的本地工程验收已完成，输入/重开、截图退出、音乐生命周期及质量补强已通过局部独立复核。本轮最终整分支独立复核已通过，Git 交付以对应 PR 和 CI 记录为准；原版规则测量、完整动态表现与其他平台运行继续单独待验。本文区分当前架构与后续方向；历史完成状态见 [基础与切片计划](../plans/2026-10-07-foundation-and-asset-audit.md)，当前任务见[原版行为测量与并行开发计划](../plans/2026-10-12-reference-behavior-measurement.md)，实测证据见 [切片验收结果](../../behavior/vertical-slice-results.md)，长期约束见 [项目原则](../../principles/README.md)。
+状态：基础设施和白天开发切片的本地工程验收已完成，输入/重开、截图退出、音乐生命周期及质量补强已通过局部独立复核。本轮最终整分支独立复核已通过，Git 交付以对应 PR 和 CI 记录为准；原版规则测量、完整动态表现与其他平台运行继续单独待验。本文区分当前架构与后续方向；历史完成状态见 [基础与切片计划](../plans/2026-10-07-foundation-and-asset-audit.md)，阶段任务见[最小可玩垂直切片总计划](../plans/2026-10-13-minimum-playable-vertical-slices.md)，原版证据见[行为测量专题计划](../plans/2026-10-12-reference-behavior-measurement.md)，实测证据见 [切片验收结果](../../behavior/vertical-slice-results.md)，长期约束见 [项目原则](../../principles/README.md)。
 
 目标是建设包含版本化参考资源的 Cargo workspace，使用 Rust 全量重写游戏逻辑和运行系统，采用 Bevy 作为运行/绘制后端，优先覆盖 Windows、Linux、macOS 和 Web，并在后续接入 Android 与 iOS。
 

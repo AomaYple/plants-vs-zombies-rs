@@ -39,9 +39,9 @@ tempfile = "3.23"
 
 [workspace.metadata.project]
 name = "plants-vs-zombies-rs"
-stage = "development-slice-validated"
+stage = "playable-slice-s1-in-progress"
 design = "docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md"
-plan = "docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md"
+plan = "docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

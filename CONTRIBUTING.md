@@ -6,6 +6,8 @@
 
 先阅读 [README](README.md) 的当前状态、[项目原则](docs/principles/README.md)和 [路线图](docs/roadmap.md)，再按任务查阅架构、行为基线和实施计划。本指南维护操作步骤与验收命令，长期规则和文档职责在原则文档中维护。
 
+游戏实现按[阶段性最小可玩总计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)选择当前可独立交付的闭环，原版参数采纳按[行为测量专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)执行；阶段的测试、基准和平台证据随实现交付，具体步骤使用本指南的验证流程。
+
 按当次任务确定工作范围；文档与结构任务不自行扩展为游戏源码，暂停期间不自行恢复实施。发现计划与实际接口、配置或阶段不符时说明差异，按实际任务更新相关文档。
 
 项目为非官方 Rust 全量重写，版本化原版参考资源位于 `assets/original/`；缓存与转换产物使用被忽略的 `target/`，本机测量证据使用被忽略的 `artifacts/`。重写与资源边界见 [游戏开发原则](docs/principles/game-development.md)。

@@ -1,6 +1,6 @@
 # 版本化白天内容实施计划
 
-> 状态：已完成，作为历史验收索引保留。当前活动计划见[原版行为基线测量](2026-10-12-reference-behavior-measurement.md)。
+> 状态：已完成，作为历史验收索引保留。阶段性开发计划见[最小可玩垂直切片总计划](2026-10-13-minimum-playable-vertical-slices.md)，原版证据计划见[行为测量专题计划](2026-10-12-reference-behavior-measurement.md)。
 
 > 执行代理：逐任务使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 实施，按复核与实测更新勾选。用户已授权自主执行与常规决策，无需在任务间请求继续。
 

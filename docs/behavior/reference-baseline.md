@@ -1,6 +1,6 @@
 # 参考版本基线
 
-后续受控测量按[原版行为基线测量设计](../superpowers/specs/2026-10-12-reference-behavior-measurement.md)和[当前实施计划](../superpowers/plans/2026-10-12-reference-behavior-measurement.md)执行。本页只记录参考文件身份、资源核对和已取得的窗口资格证据。
+后续受控测量按[原版行为基线测量设计](../superpowers/specs/2026-10-12-reference-behavior-measurement.md)和[行为测量专题计划](../superpowers/plans/2026-10-12-reference-behavior-measurement.md)执行。本页只记录参考文件身份、资源核对和已取得的窗口资格证据；阶段性可玩开发按[最小可玩垂直切片总计划](../superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)推进。
 
 初始记录日期：2026-10-07。该次证据来自本机只读文件检查，没有执行原版程序，也没有写出解包文件；后续导入与运行观察按日期追加，不能把初始记录范围当作当前从未尝试运行。
 

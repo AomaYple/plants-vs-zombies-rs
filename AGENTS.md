@@ -14,9 +14,10 @@
 | [测试策略](docs/testing/README.md)、[性能策略](docs/performance/README.md) | 测试边界、覆盖率与可重复基准 |
 | [资源说明](assets/README.md) | 版本化原版资源、清单、缓存与证据产物约定 |
 | [总体设计](docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md)、[行为测量设计](docs/superpowers/specs/2026-10-12-reference-behavior-measurement.md) | 当前架构与原版行为证据边界 |
-| [当前实施计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)、[已完成内容计划](docs/superpowers/plans/2026-10-12-versioned-day-content.md) | 证据/开发双轨任务、规则采纳与历史内容数据化验收 |
+| [当前总计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)、[原版行为测量专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)、[已完成内容计划](docs/superpowers/plans/2026-10-12-versioned-day-content.md) | 阶段性最小可玩闭环、横向证据轨、规则采纳与历史内容数据化验收 |
 
 - 阶段状态以 README、路线图及实际 workspace 成员为依据。按当次授权范围工作；文档与结构任务不得自行扩展为游戏源码或可执行工具，暂停期间不得自行恢复实施。
+- 按阶段性最小可玩闭环交付并保留已有流程；系统完成或工程检查不能单独标记阶段完成，完整定义见[游戏开发效率](docs/principles/game-development.md#游戏开发效率)与当前总计划。
 - 工具链和 lint 读取 `rust-toolchain.toml`、`Cargo.toml`，CI 实际检查读取 `.github/workflows/ci.yml`；发现它们与原则不符时修正并验证，不擅自升级或降低门槛。
 
 ## 游戏开发边界

@@ -1,6 +1,6 @@
 # 模块与依赖
 
-本目录维护实际模块合同及依赖方向；五个 package 均已注册，成员和第三方依赖以根 [Cargo.toml](../../Cargo.toml) 为准。首个开发切片与现有白天内容数据化已通过本地实现验收，证据见 [版本化内容结果](../behavior/content-foundation-results.md)，历史计划见 [版本化白天内容计划](../superpowers/plans/2026-10-12-versioned-day-content.md)。当前活动计划是[原版行为基线测量](../superpowers/plans/2026-10-12-reference-behavior-measurement.md)。长期边界见 [游戏开发原则](../principles/game-development.md)。
+本目录维护实际模块合同及依赖方向；五个 package 均已注册，成员和第三方依赖以根 [Cargo.toml](../../Cargo.toml) 为准。首个开发切片与现有白天内容数据化已通过本地实现验收，证据见 [版本化内容结果](../behavior/content-foundation-results.md)，历史计划见 [版本化白天内容计划](../superpowers/plans/2026-10-12-versioned-day-content.md)。当前总计划是[最小可玩垂直切片](../superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)，原版证据计划是[行为基线测量](../superpowers/plans/2026-10-12-reference-behavior-measurement.md)。长期边界见 [游戏开发原则](../principles/game-development.md)。
 
 ## 依赖方向
 

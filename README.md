@@ -9,7 +9,7 @@
 
 此前切片输入、截图退出、音乐生命周期及整分支复核已通过，历史 Web 胜利与 DPR 1 下 2K/4K 输入映射、Windows 音频范围见 [切片验收结果](docs/behavior/vertical-slice-results.md)。版本化内容批次没有重复全部历史平台检查。原版窗口曾通过资格观察，当前三次教程重复及窗口控制恢复见[参考基线](docs/behavior/reference-baseline.md#2026-10-13-首个端到端案例登记)；原版时基/规则、完整动态表现、Web 实际失败流程和其余平台运行继续待验收。
 
-当前[实施计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)按证据轨与开发轨推进：原版测量按案例接受并逐参数采纳，有明确开发合同的表现、测试与平台增量可独立进行。窗口阻塞只影响直接依赖它的任务；开发参数和工程验证继续与原版一致性证据分开记录。
+当前[总计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)按阶段性最小可玩垂直切片推进：已有切片是 S0 历史起点，当前 S1 收口正常白天单关的胜利、失败、终局冻结和重开；随后逐对象接入动态表现、增加策略与两关进度，再逐关完善地形、冒险和模式。每个阶段保留一个完整可玩版本，六平台适配随阶段推进。[原版行为测量专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)作为横向证据轨逐参数采纳；窗口阻塞只影响直接依赖它的任务，开发参数和工程验证继续与原版一致性证据分开记录。
 `pvz-data`、`pvz-core` 和 `pvz-assets` 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式资源根目录审计时读取清单登记输入。
 
 ## 已确定的路线
@@ -27,7 +27,8 @@
 
 - [完整设计](docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md)
 - [原版行为基线测量设计](docs/superpowers/specs/2026-10-12-reference-behavior-measurement.md)
-- [当前实施计划：原版行为测量与并行开发](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)
+- [当前总计划：阶段性最小可玩垂直切片](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)
+- [横向专题计划：原版行为测量与并行开发](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)
 - [已完成：版本化白天内容计划](docs/superpowers/plans/2026-10-12-versioned-day-content.md)
 - [已完成：基础与切片历史计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md)
 - [项目原则](docs/principles/README.md)
@@ -74,7 +75,7 @@ cargo run -p pvz-app --locked -- --probe --smoke 120 --screenshot
 已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
 
 Windows CI 还复用实现检查的编译产物执行隐藏窗口截图冒烟，探针拒绝缺少原创红蓝夹具的画面；最近的修复、覆盖率及诊断范围见[仓库质量复核补充](docs/behavior/content-foundation-results.md#2026-10-13-仓库质量复核补充)。
-当前具体任务见[原版行为测量与并行开发计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，本批内容迁移与运行证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
+当前具体任务见[阶段性最小可玩垂直切片计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)，原版测量任务见[横向专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，本批内容迁移与运行证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
 
 ## 原版资源与许可
 
