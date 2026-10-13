@@ -1,12 +1,12 @@
 # 项目路线图
 
-路线按可独立验证的交付阶段排列，当前任务见 [原版行为基线测量计划](superpowers/plans/2026-10-12-reference-behavior-measurement.md)。[版本化白天内容计划](superpowers/plans/2026-10-12-versioned-day-content.md)和[基础与切片计划](superpowers/plans/2026-10-07-foundation-and-asset-audit.md)已完成，保留为历史验收索引。长期约束见 [项目原则](principles/README.md)，提交验收见 [贡献指南](../CONTRIBUTING.md)。
+路线按可独立验证的交付阶段排列，当前任务见 [原版行为测量与并行开发计划](superpowers/plans/2026-10-12-reference-behavior-measurement.md)。[版本化白天内容计划](superpowers/plans/2026-10-12-versioned-day-content.md)和[基础与切片计划](superpowers/plans/2026-10-07-foundation-and-asset-audit.md)已完成，保留为历史验收索引。长期约束见 [项目原则](principles/README.md)，提交验收见 [贡献指南](../CONTRIBUTING.md)。
 
 跨平台支持目标包含 Windows、macOS、Linux、Web、Android 和 iOS。桌面与 Web 先行，移动端随后接入；所有平台均须分别完成构建与最小运行验收。
 
 当前已完成 P3 白天开发切片的本地工程验收，切片及质量补强的局部独立复核通过；证据整合与最终整体复核已通过，Git 交付按对应 PR 和 CI 记录核验。原版时基、间隔、碰撞与事件顺序尚未测量，完整原版行为、动态表现和其他目标环境仍未验收，详见 [切片验收结果](behavior/vertical-slice-results.md)。P0 的仓库与参考文件核对已完成；3,228 个解包资源和 `main.pak` 已纳入版本化资源清单。资源使用前校验清单和指纹，原版行为测量另确认本机 EXE 身份和可用性。
 
-P4 首批现有白天参数、初始状态与有序波次已数据化，保持默认逐 tick 摘要/事件合同；本批各任务复核、质量门槛、指定 Windows/Web 流程、整体复核和 Git 交付均已完成，详见 [版本化内容结果](behavior/content-foundation-results.md)。当前活动计划先完成[原版行为基线测量](superpowers/plans/2026-10-12-reference-behavior-measurement.md)：先闭合 `tutorial-plant-01` 的三次重复端到端案例，再按小批次扩展规则测量；窗口入口已通过资格验证，但教程单次观察不能替代重复规则测量。
+P4 首批现有白天参数、初始状态与有序波次已数据化，保持默认逐 tick 摘要/事件合同；本批各任务复核、质量门槛、指定 Windows/Web 流程、整体复核和 Git 交付均已完成，详见 [版本化内容结果](behavior/content-foundation-results.md)。当前活动计划是[原版行为测量与并行开发](superpowers/plans/2026-10-12-reference-behavior-measurement.md)：证据轨继续闭合 `tutorial-plant-01` 并按案例依赖测量，开发轨同时推进不依赖未知原版参数的表现、测试和平台增量；窗口入口已通过资格验证，但教程单次观察不能替代重复规则测量。
 
 ## P0：参考基线与仓库基线
 
@@ -44,8 +44,8 @@ Windows/Web 实测范围、音频手势、DPR 及其他平台限制见 [平台�
 ## P3：核心垂直切片
 
 - [x] 扩展 P1 的模拟基础，核对开发规则的固定 tick、命令、事件、RNG 与内部回放合同。
-- [ ] 按[原版行为基线测量计划](superpowers/plans/2026-10-12-reference-behavior-measurement.md)完成 `tutorial-plant-01` 的身份、连续画面、固定输入、三次有效重复和证据索引闭环。
-- [ ] 在首个闭环稳定后，按时基/间隔、碰撞/事件顺序、终局/暂停/重开的小批次完成测量；只有达到接受条件的参数才能替换开发参数。
+- [ ] 按[原版行为测量与并行开发计划](superpowers/plans/2026-10-12-reference-behavior-measurement.md)完成 `tutorial-plant-01` 的身份、连续画面、固定输入、三次有效重复和证据索引闭环。
+- [ ] 按案例依赖完成时基/间隔、碰撞/事件顺序、终局/暂停/重开测量；每个案例独立达到接受条件后才能替换对应开发参数，不等待无关案例。
 - [x] 实现 5×9 白天草坪、阳光、向日葵、豌豆射手、普通僵尸、豌豆、割草机。
 - [x] 固定输入回放验证种植、产阳光、投射物命中、啃食、胜负、暂停和重开。
 - [x] 使用清单登记的原版素材接入静态构图和事件音效，不允许表现层反向改变规则；Windows 实际画面已经检查。
@@ -53,6 +53,7 @@ Windows/Web 实测范围、音频手势、DPR 及其他平台限制见 [平台�
 - [x] Web 实际验证阳光收集、铲除、暂停、恢复、重开、两卡胜利与 DPR 1 下 2K/4K 的指定逻辑格子输入。
 - [ ] 补齐 Web 实际失败流程；core 失败回放通过不能代替浏览器失败验收。
 - [x] 完成近期开发工程范围的证据整合与独立整体复核；Git 按贡献流程交付，静态构图不代表完整原版动画验收。
+- [ ] 在原版测量阻塞期间完成至少一个不依赖未知原版参数的开发轨增量，并单独记录其工程与平台验收，不将其写成原版行为证据。
 
 ## P4：规则与内容
 
