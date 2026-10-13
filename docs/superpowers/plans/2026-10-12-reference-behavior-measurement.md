@@ -148,6 +148,8 @@
 
 ## Task 5：阶段复核与下一阶段收口
 
+2026-10-13 工程复核增量已补上 Windows CI 后台截图冒烟、同步管线编译及原创夹具缺失拒绝，复用现有检查 job 的编译产物；该增量的运行、回归与限制见[质量复核补充](../../behavior/content-foundation-results.md#2026-10-13-仓库质量复核补充)。工程检查不能替代本计划的原版重复测量或开发轨完整流程。间歇性 shader 诊断与旧 Criterion 比较仍需归因，不宣称已解决或取得优化收益。
+
 **文件：** `docs/behavior/reference-baseline.md`、`docs/behavior/README.md`、`docs/roadmap.md`、`README.md`，以及受影响的结果文档。
 
 - [ ] 公开结果区分原版观察、候选推断、开发参数、核心无资源回放和平台实跑；附案例 ID、重复次数、误差、证据索引和未验证项。

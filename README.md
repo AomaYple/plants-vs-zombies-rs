@@ -72,6 +72,8 @@ cargo run -p pvz-app --locked -- --probe --smoke 120 --screenshot
 ```
 
 已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
+
+Windows CI 还复用实现检查的编译产物执行隐藏窗口截图冒烟，探针拒绝缺少原创红蓝夹具的画面；最近的修复、覆盖率及诊断范围见[仓库质量复核补充](docs/behavior/content-foundation-results.md#2026-10-13-仓库质量复核补充)。
 当前具体任务见[原版行为测量与并行开发计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，本批内容迁移与运行证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
 
 ## 原版资源与许可

@@ -30,6 +30,8 @@
 
 ## 覆盖率报告与当前状态
 
+Windows CI 在现有实现检查 job 中顺序运行隐藏窗口的无资源/登记资源截图冒烟，复用已编译产物并设置每步 10 分钟上限。冒烟使用 Bevy 同步管线编译；原创探针截图检查右下角红蓝区域，夹具缺失或保存失败通过现有截图消费者返回非零退出。检查容许 GPU 色值差异，不执行整帧完全相等比对；它只验证最小实际绘制，不替代音频、设备输入、原版表现还原或其他平台验收。
+
 方法文档维护统计合同，本批读数留在[版本化内容结果](../behavior/content-foundation-results.md)，历史快照留在 [平台探针结果](../behavior/platform-probe-results.md)和 [切片验收结果](../behavior/vertical-slice-results.md)，避免多份“当前覆盖率”漂移。报告至少写明代码状态、工具/版本、target、feature 组合、运行入口、命中行/总行与遗漏。
 
 纯测试覆盖率与追加 native 窗口运行的覆盖率分别记录；追加 profile 必须来自同一次 instrumented 构建，并核对日志与实际画面。Web 条件代码不在 native 分母内，默认与 all-features 也不能互相代替。stable 行覆盖率没有启用分支统计时，不把 branch count 0 当作 100%。

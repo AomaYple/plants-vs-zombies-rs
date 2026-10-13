@@ -47,7 +47,7 @@ jobs:
           import subprocess
 
           metadata = json.loads(subprocess.check_output(
-              ["cargo", "metadata", "--no-deps", "--format-version", "1"], text=True
+              ["cargo", "metadata", "--no-deps", "--locked", "--format-version", "1"], text=True
           ))
           has_packages = str(bool(metadata["workspace_members"])).lower()
           has_app = str(any(package["name"] == "pvz-app" for package in metadata["packages"])).lower()
@@ -217,6 +217,14 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: 构建文档
         run: cargo doc --workspace --no-deps --locked
+      - name: 运行 Windows 后台无资源绘制冒烟
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        run: cargo run -p pvz-app --locked -- --probe --smoke 30 --screenshot
+      - name: 运行 Windows 后台登记资源切片冒烟
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        run: cargo run -p pvz-app --locked -- --smoke 30 --slice-smoke --screenshot
       - name: 检查探针 feature
         run: cargo clippy -p pvz-app --all-targets --features probe --locked -- -D warnings
       - name: 验证全部兼容 feature

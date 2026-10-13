@@ -93,18 +93,26 @@ fn main() {
     }
     let smoke = options.smoke.is_some();
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "植物大战僵尸 · 白天开发切片".to_owned(),
-            resolution: (1000, 750).into(),
-            visible: !smoke,
-            focused: !smoke,
-            canvas: Some("#pvz-canvas".to_owned()),
-            fit_canvas_to_parent: true,
-            ..default()
-        }),
-        ..default()
-    }))
+    // 冒烟不能在异步管线仍编译时把不完整截图当作绘制成功；正常游戏保留异步编译。
+    app.add_plugins(
+        DefaultPlugins
+            .set(bevy::render::RenderPlugin {
+                synchronous_pipeline_compilation: smoke,
+                ..default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "植物大战僵尸 · 白天开发切片".to_owned(),
+                    resolution: (1000, 750).into(),
+                    visible: !smoke,
+                    focused: !smoke,
+                    canvas: Some("#pvz-canvas".to_owned()),
+                    fit_canvas_to_parent: true,
+                    ..default()
+                }),
+                ..default()
+            }),
+    )
     .insert_resource(ClearColor(Color::srgb(0.04, 0.06, 0.1)))
     .insert_resource(WinitSettings::continuous());
     app.add_systems(Startup, move |world: &mut World| {
@@ -529,7 +537,11 @@ fn smoke(world: &mut World, state: &mut AppState) {
             move |capture: On<ScreenshotCaptured>,
                   time: Res<Time<Real>>,
                   mut state: ResMut<AppState>| {
-                let saved = save_screenshot(&capture.image, std::path::Path::new(path));
+                let saved = save_screenshot(
+                    &capture.image,
+                    std::path::Path::new(path),
+                    state.options.probe,
+                );
                 println!(
                     "GPU 截图：{}×{} 保存={} 路径={path}",
                     capture.image.width(),
@@ -560,13 +572,35 @@ fn smoke(world: &mut World, state: &mut AppState) {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn save_screenshot(image: &Image, path: &std::path::Path) -> Result<(), String> {
-    std::fs::create_dir_all(path.parent().expect("截图具有父目录"))
-        .map_err(|error| format!("GPU 截图保存失败：创建目录：{error}"))?;
+fn save_screenshot(image: &Image, path: &std::path::Path, probe: bool) -> Result<(), String> {
     let image = image
         .clone()
         .try_into_dynamic()
         .map_err(|error| format!("GPU 截图保存失败：转换图像：{error}"))?;
+    if probe {
+        // 只检查右下角原创红蓝夹具实际出现，不对 GPU/驱动的整帧像素强制完全相等。
+        let (width, height) = (u64::from(image.width()), u64::from(image.height()));
+        let (mut red, mut blue) = (0, 0);
+        for (x, y, pixel) in image::GenericImageView::pixels(&image) {
+            if u64::from(x) * 5 < width * 4
+                || u64::from(y) * 3 < height * 2
+                || u64::from(y) * 15 >= height * 14
+            {
+                continue;
+            }
+            let [r, g, b, a] = pixel.0;
+            red += usize::from(a > 200 && r > 180 && g < 100 && b < 100);
+            blue += usize::from(a > 200 && r < 100 && g > 100 && b > 180);
+            if red >= 8 && blue >= 8 {
+                break;
+            }
+        }
+        if red < 8 || blue < 8 {
+            return Err("GPU 探针绘制未完成：截图缺少右下角原创红蓝夹具".to_owned());
+        }
+    }
+    std::fs::create_dir_all(path.parent().expect("截图具有父目录"))
+        .map_err(|error| format!("GPU 截图保存失败：创建目录：{error}"))?;
     image
         .save(path)
         .map_err(|error| format!("GPU 截图保存失败：写入图像：{error}"))
@@ -902,12 +936,50 @@ mod tests {
     fn 真实截图保存路径隔离并检查成功图像和不可写父目录() {
         let temp = tempfile::tempdir().unwrap();
         let path = temp.path().join("正常/截图.png");
-        save_screenshot(&Image::default(), &path).unwrap();
+        save_screenshot(&Image::default(), &path, false).unwrap();
         assert_eq!(image::open(path).unwrap().width(), 1);
         let blocker = temp.path().join("文件不是目录");
         std::fs::write(&blocker, b"fixture").unwrap();
-        let error = save_screenshot(&Image::default(), &blocker.join("截图.png")).unwrap_err();
+        let error =
+            save_screenshot(&Image::default(), &blocker.join("截图.png"), false).unwrap_err();
         assert!(error.contains("GPU 截图保存失败"));
         assert!(!blocker.join("截图.png").exists());
+    }
+
+    #[test]
+    fn 探针截图缺少任一红蓝夹具必须拒绝保存() {
+        for colors in [vec![], vec![[230, 25, 25, 255]], vec![[25, 153, 255, 255]]] {
+            let temp = tempfile::tempdir().unwrap();
+            let path = temp.path().join("探针.png");
+            let image = probe_image(&colors);
+            assert!(save_screenshot(&image, &path, true).is_err());
+            assert!(!path.exists(), "不完整画面不能作为通过截图保存");
+        }
+    }
+
+    #[test]
+    fn 探针截图真实红蓝区域存在才成功且普通截图不受限制() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("探针.png");
+        let image = probe_image(&[[230, 25, 25, 255], [25, 153, 255, 255]]);
+        save_screenshot(&image, &path, true).unwrap();
+        assert_eq!(image::open(&path).unwrap().width(), 100);
+        save_screenshot(&Image::default(), &temp.path().join("普通.png"), false).unwrap();
+    }
+
+    fn probe_image(colors: &[[u8; 4]]) -> Image {
+        let mut rgba = image::RgbaImage::from_pixel(100, 100, image::Rgba([8, 15, 26, 255]));
+        for (index, color) in colors.iter().enumerate() {
+            for x in 80 + index as u32 * 10..90 + index as u32 * 10 {
+                for y in 70..80 {
+                    rgba.put_pixel(x, y, image::Rgba(*color));
+                }
+            }
+        }
+        Image::from_dynamic(
+            image::DynamicImage::ImageRgba8(rgba),
+            true,
+            bevy::asset::RenderAssetUsages::default(),
+        )
     }
 }
