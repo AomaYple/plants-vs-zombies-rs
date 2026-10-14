@@ -2,7 +2,7 @@
 
 ## 状态与目标
 
-状态：基础设施和白天开发切片的本地工程验收已完成，输入/重开、截图退出、音乐生命周期及质量补强已通过局部独立复核。本轮最终整分支独立复核已通过，Git 交付以对应 PR 和 CI 记录为准；原版规则测量、完整动态表现与其他平台运行继续单独待验。本文区分当前架构与后续方向；历史完成状态见 [基础与切片计划](../plans/2026-10-07-foundation-and-asset-audit.md)，阶段任务见[最小可玩垂直切片总计划](../plans/2026-10-13-minimum-playable-vertical-slices.md)，原版证据见[行为测量专题计划](../plans/2026-10-12-reference-behavior-measurement.md)，实测证据见 [切片验收结果](../../behavior/vertical-slice-results.md)，长期约束见 [项目原则](../../principles/README.md)。
+本文维护当前架构与后续方向。基础设施、白天内容数据化与静态切片的工程验收和独立复核属于已记录的历史批次；S1 与 S2-A 已交付，本地 B1 已接入普通僵尸 walk，完整平台验收与 Git/CI 尚未闭合。B1 冻结源码的旧检查保留范围，仓库维护后的新验证和匹配平台包仍须核验；原版规则、完整动态表现与其他平台运行继续待验。历史入口见[基础与切片计划](../plans/2026-10-07-foundation-and-asset-audit.md)，当前任务见[总计划](../plans/2026-10-13-minimum-playable-vertical-slices.md)，原版证据见[专题计划](../plans/2026-10-12-reference-behavior-measurement.md)，各批实测见[增量结果](../../behavior/content-foundation-results.md)与[静态切片历史](../../behavior/vertical-slice-results.md)，长期约束见[项目原则](../../principles/README.md)。
 
 目标是建设包含版本化参考资源的 Cargo workspace，使用 Rust 全量重写游戏逻辑和运行系统，采用 Bevy 作为运行/绘制后端，优先覆盖 Windows、Linux、macOS 和 Web，并在后续接入 Android 与 iOS。
 
@@ -20,6 +20,7 @@
 crates/               pvz-data、pvz-core、pvz-assets、pvz-app
 tools/pvz-asset-tool/ 本地资源审计与动画概要 CLI
 assets/               版本化参考资源与清单
+content/              版本化原创关卡与开发参数
 tests/                共享原创夹具与回放约定；实际回放测试在 package 中
 docs/                 设计、计划、行为证据、ADR
 .github/              CI、Issue 模板、PR 模板
@@ -31,7 +32,7 @@ docs/                 设计、计划、行为证据、ADR
 
 ### `pvz-data`
 
-当前提供强类型 ID、schema 与规则版本、参考基线 ID 和序列化合同；不读文件、访问资源、创建窗口或决定操作系统路径。完整植物/僵尸/投射物/地形/波次/关卡 schema 属于后续内容数据化方向，当前切片规则与实体模型位于 core，不预建无消费者模型。
+当前提供强类型 ID、schema 与规则版本、参考基线 ID、严格白天关卡 DTO 和序列化合同；`DayLevelDefinition`、`DayRulesDefinition`、`DaySpawnDefinition` 与 `ContentBasis` 表达已消费的原创内容格式，拒绝未知、遗漏与重复字段。它不读文件、访问资源、创建窗口或决定操作系统路径；规则有效性与支持版本由 core 判断。完整植物/僵尸/投射物/地形/关卡 schema 按实际内容消费者扩展，当前实体模型位于 core，不预建无消费者模型。
 
 ### `pvz-core`
 
@@ -47,7 +48,7 @@ docs/                 设计、计划、行为证据、ADR
 
 ### `pvz-app`
 
-当前 Bevy 入口负责窗口、视口/输入映射、native/Web 资源装配、静态实体构图、中文切片 UI、事件音效及音频探针；纯模块提供动画采样与仿射/裁剪合同。完整动画混合、原版粒子、存档和移动生命周期尚未接入。它通过 core 的命令和事件接线，不能复制一套隐藏规则。
+当前 Bevy 入口负责窗口、视口/输入映射、native/Web 资源装配、向日葵动态 idle、本地普通僵尸开发 walk、其余静态构图、中文切片 UI、事件音效及音频探针；纯模块提供动画采样与仿射/裁剪合同。正常内容由编译时嵌入的严格原创 JSON 解析后交给 core 纯装配，Runtime 消费实际模拟频率。共享缓存、全局表现相位和离散循环是开发合同，原版动作选择、插值、混合与切换时机仍未知。可靠啃食/死亡反馈、完整动画混合、原版粒子、存档和移动生命周期尚未接入；表现通过 core 的命令和事件接线，不能复制隐藏规则。
 
 逻辑视口暂按 800×600 设计，需先核实参考版本。实际窗口保持纵横比，通常使用 `scale = min(window_width / logical_width, window_height / logical_height)`，并保存 offset 做输入反变换。1400×600 场景背景不能盲目压进 800×600；背景裁剪和滚动必须以参考行为为准。
 

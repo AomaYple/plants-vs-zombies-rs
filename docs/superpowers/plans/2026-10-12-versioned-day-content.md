@@ -2,7 +2,7 @@
 
 > 状态：已完成，作为历史验收索引保留。阶段性开发计划见[最小可玩垂直切片总计划](2026-10-13-minimum-playable-vertical-slices.md)，原版证据计划见[行为测量专题计划](2026-10-12-reference-behavior-measurement.md)。
 
-> 执行代理：逐任务使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 实施，按复核与实测更新勾选。用户已授权自主执行与常规决策，无需在任务间请求继续。
+> 本文保留当批实现与复核顺序，所有勾选仅对应已记录的内容迁移验收；后续实施范围与授权以当次任务及现行计划为准。
 
 **目标：** 以严格版本化原创内容驱动现有白天切片，消除应用初始化和频率硬编码，同时保持默认规则 2.0 的逐 tick 行为。
 **架构：** data 提供 serde DTO，core 只消费纯类型并校验装配，app 解析编译嵌入的 JSON；原版资源装配与探针继续沿用现有入口。
@@ -24,7 +24,7 @@
 
 优先复核原版 EXE/main.pak 身份与旧测量失败原因，原始路径不进入生产依赖。历史窗口捕获取得了无关前台画面，不能据此猜测原版时基/碰撞。本轮工具发现后经 Computer Use 取得有效标题、菜单和 1-1 教程画面，正常选卡种植观察到余额 150→50；窗口观察入口已资格验证，规则时序和碰撞仍待重复测量。本批内容装配不依赖这些未知数值，继续保持 development 标记。
 
-### Task 1: 严格内容 schema 与原创默认关卡
+### 任务 1：严格内容 schema 与原创默认关卡
 
 **文件：** 新增 `crates/pvz-data/src/day.rs`、`crates/pvz-data/tests/day_content.rs`、`content/levels/development-day.json`、`content/README.md`；修改 `crates/pvz-data/src/lib.rs`、对应 README。
 **接口：** 导出设计中的四个 DTO，所有字段公开，derive Debug/Clone/Eq/PartialEq/Serialize/Deserialize；basis 使用 snake_case 枚举，只接受 development。rules 类型与当前 SliceRules 完全一致，不引入规则执行或重复验证算法。
@@ -34,10 +34,10 @@
 - [x] 测试示例必须断言实际内容：`assert_eq!(definition.level.as_str(), "development-day-slice"); assert_eq!(definition.rules.wave[0].at, 600); assert_eq!(definition.rules.wave[1].row, 0);`，并使用序列化后再次解码核对全量相等。格式版本语法验证不代替 core 支持版本判定。
 - [x] 运行 `cargo test -p pvz-data --locked`、相关 Clippy/格式；主代理完成 workspace 适用验收与独立复核后按完整目的提交 `feat(data): 定义版本化白天内容与默认关卡`。
 
-### Task 2: 纯模拟装配与逐 tick 迁移回归
+### 任务 2：纯模拟装配与逐 tick 迁移回归
 
 **文件：** 新增 `crates/pvz-core/src/content.rs`、`crates/pvz-core/tests/day_content.rs`；修改 `lib.rs`、`world.rs`、Cargo.toml（仅 serde_json dev-dependency）及 core README。
-**消费：** Task 1 DTO。**产出：** `GameState::from_day_definition(&DayLevelDefinition) -> Result<Self, InvalidDayLevel>`，中文错误实现 std::error::Error；严格规则2.0、频率1..=1000、既有 SliceRules::validate。
+**消费：** 任务 1 DTO。**产出：** `GameState::from_day_definition(&DayLevelDefinition) -> Result<Self, InvalidDayLevel>`，中文错误实现 std::error::Error；严格规则2.0、频率1..=1000、既有 SliceRules::validate。
 
 - [x] 先建立构造/支持版本/频率/无效规则回归，运行 `cargo test -p pvz-core --test day_content --locked` 确认新增接口缺失导致失败。
 - [x] 用显式字段转换保持 23 标量和 wave 顺序；仅既有 validate 执行规则有效性判断。以给定时钟构造当前和初始状态，不引入 JSON 生产依赖或文件读取。
@@ -45,10 +45,10 @@
 - [x] 测试每类参数/初始值/seed/频率在摘要与实际规则中的生效、重开恢复、同 tick 波次顺序、不支持规则版本和频率0/1001、既有数值/波次非法边界；保留旧确定性与基准场景测试。
 - [x] 运行 core 测试/Clippy、受影响覆盖率及原有切片 Criterion 场景；主代理统一完整验收与独立复核，按完整目的提交 `feat(core): 装配版本化关卡并保护切片回放`。
 
-### Task 3: 应用内容入口与实际时钟消费
+### 任务 3：应用内容入口与实际时钟消费
 
 **文件：** 新增 `crates/pvz-app/src/content.rs`、`crates/pvz-app/tests/day_content.rs`；修改 `lib.rs`、`runtime.rs`、Cargo.toml（serde_json 生产依赖）、`benches/presentation.rs`及 app README/开发合同。
-**消费：** Task 2 构造。**产出：** `Runtime::from_day_json(&str) -> Result<Self, DayContentError>`、`Runtime::day()`嵌入默认JSON，advance读取实际clock。
+**消费：** 任务 2 构造。**产出：** `Runtime::from_day_json(&str) -> Result<Self, DayContentError>`、`Runtime::day()`嵌入默认JSON，advance读取实际clock。
 
 - [x] 先建立默认入口、损坏/未知/超大输入无回退、30/120Hz推进与重开回归，运行 app 聚焦测试确认缺失接口失败。
 - [x] 复用 serde_json 并在解析前拒绝超过1048576字节；包装中文错误，normal/probe 入口保持明确，不新增热重载、文件配置器或选关UI。
@@ -57,7 +57,7 @@
 - [x] Windows隐藏窗口和Web默认入口实跑，核对seed/初始阳光/波次及玩法仍正确；默认/probe WASM构建与最小探针分别记录。不能仅凭构建声称运行。
 - [x] 独立复核、完整验收及文档同步后按目的提交 `feat(app): 使用版本化内容驱动白天切片`。
 
-### Task 4: 证据收口与后续路线整合
+### 任务 4：证据收口与后续路线整合
 
 **文件：** 新增 `docs/behavior/content-foundation-results.md`，更新 README、docs/README、架构、路线图、当前计划和必要专题链接。
 **消费：** Tasks 1–3实现、复核和真实日志。**产出：** 可核查验收、活动计划状态与下一批依赖。
@@ -71,9 +71,6 @@
 
 依据授权提交/推送、创建 PR、等待必要 CI，保留完整目的提交合入 main；核对主线 CI、同步本地 main，保存本机账本并清理完成分支与工作区。每次交付均须执行这些门槛，状态以对应 PR、CI 和实际清理记录核验，不以一次性勾选表示流程永久完成，也不得把已排队操作当作完成。
 
-## 后续依赖顺序
+## 后续入口
 
-1. 原版可观察行为测量贯穿后续开发：先取得可靠目标画面/输入记录，再重复测间隔与碰撞；数据化只提供替换入口。
-2. 动态表现按已解析的Reanim子集逐对象接入并以原版对照确认语义，先idle/walk，再射击/啃食/死亡混合、粒子与MO3。
-3. 内容扩展按证据逐类加入护甲/减速/地形，随后主菜单/选卡/冒险进度及跨平台存档。
-4. 补齐Web失败/实际DPR/触摸/其他浏览器、Linux/macOS实际运行，最后移动生命周期/打包与六平台发布验收。平台构建、实际运行与原版还原分开记录。
+内容数据化只提供参数替换和内容扩展入口，不能替代原版证据。后续可玩增量与平台任务统一由[总计划](2026-10-13-minimum-playable-vertical-slices.md)维护；原版受控测量和逐参数采纳由[专题计划](2026-10-12-reference-behavior-measurement.md)维护。Web 双终局、向日葵 idle 和本地普通僵尸 walk 的后续范围见[增量结果](../../behavior/content-foundation-results.md)，不改写为本批重测，也不再保留第二份活动待办。

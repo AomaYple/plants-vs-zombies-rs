@@ -9,13 +9,13 @@ use bevy::{
 use pvz_app::{
     animation::Affine,
     geometry::{ClipRect, SpriteVertex, clipped_quad},
-    resources::{CpuImage, LoadedResources, SunflowerIdle, VisualKind},
+    resources::{CpuImage, LoadedResources, SunflowerIdle, VisualKind, ZombieWalk},
     viewport::Viewport as LogicalViewport,
 };
 use std::collections::BTreeMap;
 
 pub const LOGICAL_SIZE: (f32, f32) = (800.0, 600.0);
-pub fn world_point(point: [f32; 2], depth: f32) -> Vec3 {
+fn world_point(point: [f32; 2], depth: f32) -> Vec3 {
     Vec3::new(point[0] - 400.0, 300.0 - point[1], depth)
 }
 pub fn create_camera(world: &mut World) -> Entity {
@@ -126,7 +126,7 @@ fn polygon(
         .id();
     (entity, mesh, material)
 }
-pub fn label(
+fn label(
     world: &mut World,
     font: &Handle<Font>,
     text: &str,
@@ -319,6 +319,7 @@ pub struct Scene {
     poses: BTreeMap<VisualKind, Vec<pvz_assets::AnimationFrame>>,
     images: BTreeMap<String, (Handle<Image>, [f32; 2])>,
     sunflower_idle: SunflowerIdle,
+    zombie_walk: ZombieWalk,
     tracks: Vec<TrackMesh>,
 }
 impl Scene {
@@ -346,6 +347,7 @@ impl Scene {
             poses: resources.poses,
             images,
             sunflower_idle: resources.sunflower_idle,
+            zombie_walk: resources.zombie_walk,
             tracks: Vec::new(),
         }
     }
@@ -427,12 +429,16 @@ impl Scene {
                     depth + layer as f32 * 0.01,
                 );
             };
-            if kind == VisualKind::Sunflower {
-                self.sunflower_idle
+            match kind {
+                VisualKind::Sunflower => self
+                    .sunflower_idle
                     .sample(animation_seconds)
-                    .for_each(&mut draw);
-            } else {
-                self.poses[&kind].iter().enumerate().for_each(&mut draw);
+                    .for_each(&mut draw),
+                VisualKind::Zombie => self
+                    .zombie_walk
+                    .sample(animation_seconds)
+                    .for_each(&mut draw),
+                _ => self.poses[&kind].iter().enumerate().for_each(&mut draw),
             }
         }
         for output in &tracks[used..] {
@@ -497,10 +503,24 @@ pub(crate) fn sunflower_scene_fixture(world: &mut World) -> Scene {
         i: Some("原创底图".to_owned()),
         ..Default::default()
     };
+    let source = format!(
+        "<fps>12</fps><track><name>anim_walk</name><t><f>0</f></t></track>{}",
+        pvz_app::resources::ZOMBIE_TRACKS
+            .iter()
+            .enumerate()
+            .map(|(n, name)| format!(
+                "<track><name>{name}</name><t><x>1000</x><f>{}</f><i>原创底图</i></t></track>",
+                if n == 0 { 0 } else { -1 }
+            ))
+            .collect::<String>()
+    );
+    let zombie_walk = ZombieWalk::new(PreparedAnimation::new(
+        &pvz_assets::parse_reanim(&source).unwrap(),
+    ))
+    .unwrap();
     Scene {
         poses: [
             VisualKind::Peashooter,
-            VisualKind::Zombie,
             VisualKind::LawnMower,
             VisualKind::Pea,
             VisualKind::Sun,
@@ -510,8 +530,72 @@ pub(crate) fn sunflower_scene_fixture(world: &mut World) -> Scene {
         .collect(),
         images,
         sunflower_idle: idle,
+        zombie_walk,
         tracks: Vec::new(),
     }
+}
+
+#[cfg(test)]
+pub(crate) fn zombie_scene_fixture(world: &mut World) -> Scene {
+    use pvz_app::animation::PreparedAnimation;
+    let mut scene = sunflower_scene_fixture(world);
+    // 独立 World 中复用 CPU 注册前置与三张原创 2×2 纹理。
+    let mut xml = String::from(
+        "<fps>12</fps><track><name>anim_walk</name><t><f>-1</f></t><t><f>0</f></t><t/><t/><t><f>-1</f></t></track><track><name>原创附件</name><t><f>0</f><i>原创底图</i></t><t/><t/><t/></track>",
+    );
+    for (n, name) in pvz_app::resources::ZOMBIE_TRACKS.iter().enumerate() {
+        if n == 1 {
+            xml.push_str(
+                "<track><name>原创非身体</name><t><f>0</f><i>原创底图</i></t><t/><t/><t/></track>",
+            );
+        }
+        xml.push_str(&format!("<track><name>{name}</name>"));
+        xml.push_str(match n {
+            0 => "<t><x>7</x><a>0.5</a><i>原创底图</i><f>0</f></t><t/><t><x>9</x><a>2</a><i>原创上图</i></t><t><i/></t>",
+            1 => "<t><f>-1</f><a>-1</a><i>原创短图</i></t><t/><t><f>0</f></t><t><f>-1</f></t>",
+            18 => "<t><x>20</x><y>4</y><sx>2</sx><sy>3</sy><i>原创短图</i><f>0</f></t><t/>",
+            _ => "<t><f>-1</f><i>原创短图</i></t><t/><t/><t/>",
+        });
+        xml.push_str("</track>");
+    }
+    scene.zombie_walk = ZombieWalk::new(PreparedAnimation::new(
+        &pvz_assets::parse_reanim(&xml).unwrap(),
+    ))
+    .unwrap();
+    scene.sunflower_idle = SunflowerIdle::new(PreparedAnimation::new(&pvz_assets::parse_reanim("<fps>12</fps><track><name>anim_idle</name><t><f>0</f></t></track><track><name>裁剪外</name><t><x>1000</x><i>原创底图</i></t></track>").unwrap())).unwrap();
+    scene
+}
+
+#[cfg(test)]
+pub(crate) fn zombie_test_game() -> pvz_core::GameState {
+    let mut definition: pvz_data::DayLevelDefinition = serde_json::from_str(include_str!(
+        "../../../content/levels/development-failure.json"
+    ))
+    .unwrap();
+    definition.initial_sun = 150;
+    definition.rules.zombie_speed = 1;
+    definition.rules.mower_trigger_x = 4000;
+    definition.rules.defeat_x = -20000;
+    definition.rules.zombie_health = 20;
+    definition.rules.pea_damage = 20;
+    definition.rules.pea_speed = 100000;
+    definition.rules.shoot_interval = 1;
+    definition.rules.wave = vec![
+        pvz_data::DaySpawnDefinition {
+            at: 1,
+            row: 0,
+            x: 30000,
+        },
+        pvz_data::DaySpawnDefinition {
+            at: 1,
+            row: 2,
+            x: 50000,
+        },
+    ];
+    let mut game = pvz_core::GameState::from_day_definition(&definition).unwrap();
+    game.step(&[]);
+    assert_eq!(game.board().unwrap().zombies().len(), 2);
+    game
 }
 
 #[cfg(test)]
@@ -637,17 +721,34 @@ mod tests {
         runtime
     }
 
+    fn combined_walk_scene(world: &mut World) -> Scene {
+        // 两类缓存引用相同的三张原创纹理；临时 World 仅构造纯缓存，不参与正式池统计。
+        let mut fixture_world = World::new();
+        let zombie = zombie_scene_fixture(&mut fixture_world);
+        let mut scene = sunflower_scene_fixture(world);
+        scene.zombie_walk = zombie.zombie_walk;
+        scene
+    }
+
     fn replay_snapshots(
         with_peashooter: bool,
         consume_scene: bool,
     ) -> Vec<(pvz_core::StateDigest, Vec<pvz_core::Event>, f64)> {
         let mut world = World::new();
-        let mut scene = consume_scene.then(|| sunflower_scene_fixture(&mut world));
+        let mut scene = consume_scene.then(|| combined_walk_scene(&mut world));
         let mut runtime = terminal_runtime(with_peashooter);
         let update_scene =
             |runtime: &pvz_app::runtime::Runtime, scene: &mut Option<Scene>, world: &mut World| {
                 if let Some(scene) = scene {
-                    scene.update(world, &runtime.game, runtime.animation_seconds);
+                    let digest = runtime.game.state_digest();
+                    let zombies = runtime.game.board().unwrap().zombies().to_vec();
+                    let plants = runtime.game.board().unwrap().plants().to_vec();
+                    for extra in [0.12, 1.25, 0.0] {
+                        scene.update(world, &runtime.game, runtime.animation_seconds + extra);
+                    }
+                    assert_eq!(runtime.game.state_digest(), digest);
+                    assert_eq!(runtime.game.board().unwrap().zombies(), zombies);
+                    assert_eq!(runtime.game.board().unwrap().plants(), plants);
                 }
             };
         update_scene(&runtime, &mut scene, &mut world);
@@ -774,6 +875,34 @@ mod tests {
             runtime.take_events(),
             runtime.animation_seconds,
         ));
+        runtime.command(Command::Shovel {
+            cell: pvz_core::Cell { row: 1, column: 0 },
+        });
+        runtime.advance(1.0 / 60.0);
+        update_scene(&runtime, &mut scene, &mut world);
+        snapshots.push((
+            runtime.game.state_digest(),
+            runtime.take_events(),
+            runtime.animation_seconds,
+        ));
+        for _ in 0..7 {
+            runtime.advance(0.25);
+            update_scene(&runtime, &mut scene, &mut world);
+            snapshots.push((
+                runtime.game.state_digest(),
+                runtime.take_events(),
+                runtime.animation_seconds,
+            ));
+        }
+        assert!(
+            runtime
+                .game
+                .board()
+                .unwrap()
+                .zombies()
+                .iter()
+                .any(|z| z.row == 0)
+        );
         snapshots
     }
 
@@ -1302,6 +1431,520 @@ mod tests {
             let core_only = replay_snapshots(with_peashooter, false);
             let with_scene = replay_snapshots(with_peashooter, true);
             assert_eq!(with_scene, core_only);
+        }
+    }
+
+    fn pool_handles(scene: &Scene) -> Vec<(Entity, Handle<Mesh>, Handle<ColorMaterial>)> {
+        scene
+            .tracks
+            .iter()
+            .map(|track| (track.entity, track.mesh.clone(), track.material.clone()))
+            .collect()
+    }
+
+    fn assert_zombie_phase(world: &World, scene: &Scene, game: &pvz_core::GameState, phase: usize) {
+        use pvz_core::{BoardGeometry, UNITS_PER_PIXEL};
+        let zombies = game.board().unwrap().zombies();
+        assert!(matches!(phase, 0 | 1));
+        for (actor, zombie) in zombies.iter().enumerate() {
+            let origin = [
+                zombie.x as f32 / UNITS_PER_PIXEL as f32 - 40.0,
+                BoardGeometry::row_y(zombie.row) as f32 / UNITS_PER_PIXEL as f32 - 90.0,
+            ];
+            let bottom_x = if phase == 0 { 7.0 } else { 9.0 };
+            for layer in 0..2 {
+                let slot = actor * 2 + layer;
+                let (local, size, source_index, expected_alpha, image) = match (phase, layer) {
+                    (0, 0) => ([bottom_x, 0.0], [2.0, 2.0], 2usize, 0.5, "原创底图"),
+                    (0, 1) => ([20.0, 4.0], [4.0, 6.0], 21usize, 1.0, "原创短图"),
+                    (1, 0) => ([bottom_x, 0.0], [2.0, 2.0], 2usize, 1.0, "原创上图"),
+                    (1, 1) => ([0.0, 0.0], [2.0, 2.0], 4usize, 0.0, "原创短图"),
+                    _ => unreachable!(),
+                };
+                let x = origin[0] + local[0] - 400.0;
+                let y = 300.0 - origin[1] - local[1];
+                let expected = [
+                    [x, y, 0.0],
+                    [x + size[0], y, 0.0],
+                    [x + size[0], y - size[1], 0.0],
+                    [x, y - size[1], 0.0],
+                ];
+                for (actual, expected) in positions(world, scene, slot).iter().zip(expected) {
+                    assert!(
+                        actual
+                            .iter()
+                            .zip(expected)
+                            .all(|(a, b)| (a - b).abs() < 0.001),
+                        "row {} 源层 {source_index} 坐标：{actual:?}/{expected:?}",
+                        zombie.row
+                    );
+                }
+                assert_eq!(positions(world, scene, slot).len(), 4);
+                assert_eq!(
+                    uvs(world, scene, slot),
+                    [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+                );
+                let expected_depth =
+                    2.0 + f32::from(zombie.row) * 10.0 + source_index as f32 * 0.01;
+                assert!(
+                    (world
+                        .get::<Transform>(scene.tracks[slot].entity)
+                        .unwrap()
+                        .translation
+                        .z
+                        - expected_depth)
+                        .abs()
+                        < 0.001
+                );
+                assert_eq!(alpha(world, scene, slot), expected_alpha);
+                let material = world
+                    .resource::<Assets<ColorMaterial>>()
+                    .get(&scene.tracks[slot].material)
+                    .unwrap();
+                assert_eq!(material.texture.as_ref(), Some(&scene.images[image].0));
+                assert_ne!(
+                    world.get::<Visibility>(scene.tracks[slot].entity),
+                    Some(&Visibility::Hidden)
+                );
+            }
+        }
+        assert!(
+            scene.tracks[zombies.len() * 2..]
+                .iter()
+                .all(|track| world.get::<Visibility>(track.entity) == Some(&Visibility::Hidden))
+        );
+    }
+
+    #[test]
+    fn 真实_scene普通僵尸walk源深度纹理坐标alpha与多对象池复用() {
+        let mut world = World::new();
+        let mut scene = zombie_scene_fixture(&mut world);
+        let game = zombie_test_game();
+        assert_eq!(
+            game.board()
+                .unwrap()
+                .zombies()
+                .iter()
+                .map(|z| z.x)
+                .collect::<Vec<_>>(),
+            [29999, 49999]
+        );
+        scene.update(&mut world, &game, 0.0);
+        assert_eq!(scene.tracks.len(), 4);
+        assert_zombie_phase(&world, &scene, &game, 0);
+        let pool = pool_handles(&scene);
+        let counts = asset_counts(&world);
+        assert_eq!(counts, [3, 4, 4]);
+        let first = scene_snapshot(&world, &scene);
+        scene.update(&mut world, &game, 1.0 / 12.0);
+        assert_zombie_phase(&world, &scene, &game, 1);
+        assert_eq!(pool_handles(&scene), pool);
+        assert_eq!(asset_counts(&world), counts);
+        assert!(
+            scene
+                .tracks
+                .iter()
+                .all(|t| world.get::<Visibility>(t.entity) == Some(&Visibility::Visible))
+        );
+        scene.update(&mut world, &game, 2.0 / 12.0);
+        assert!(
+            scene
+                .tracks
+                .iter()
+                .all(|t| world.get::<Visibility>(t.entity) == Some(&Visibility::Hidden))
+        );
+        assert_eq!(pool_handles(&scene), pool);
+        assert_eq!(asset_counts(&world), counts);
+        scene.update(&mut world, &game, 3.0 / 12.0);
+        assert_zombie_phase(&world, &scene, &game, 0);
+        assert_eq!(scene_snapshot(&world, &scene), first);
+        assert_eq!(pool_handles(&scene), pool);
+        assert_eq!(asset_counts(&world), counts);
+    }
+
+    #[test]
+    fn 真实_scene普通僵尸walk实际击杀后只绘幸存者并隐藏尾槽() {
+        let mut world = World::new();
+        let mut scene = zombie_scene_fixture(&mut world);
+        let mut game = zombie_test_game();
+        scene.update(&mut world, &game, 0.0);
+        let pool = pool_handles(&scene);
+        let counts = asset_counts(&world);
+        let dead = game
+            .board()
+            .unwrap()
+            .zombies()
+            .iter()
+            .find(|z| z.row == 0)
+            .unwrap()
+            .id;
+        let survivor = game
+            .board()
+            .unwrap()
+            .zombies()
+            .iter()
+            .find(|z| z.row == 2)
+            .unwrap()
+            .id;
+        let mut events = game
+            .step(&[
+                Command::SelectCard {
+                    kind: PlantKind::Peashooter,
+                },
+                Command::Plant {
+                    cell: pvz_core::Cell { row: 0, column: 0 },
+                },
+            ])
+            .as_slice()
+            .to_vec();
+        for _ in 0..4 {
+            if !game.board().unwrap().zombies().iter().any(|z| z.id == dead) {
+                break;
+            }
+            events.extend_from_slice(game.step(&[]).as_slice());
+        }
+        assert!(events.contains(&pvz_core::Event::ZombieDied { id: dead }));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e,pvz_core::Event::ProjectileHit { zombie,.. } if *zombie==dead))
+        );
+        assert!(
+            events.iter().any(
+                |e| matches!(e,pvz_core::Event::Damaged { target,remaining:0 } if *target==dead)
+            )
+        );
+        assert_eq!(game.board().unwrap().zombies().len(), 1);
+        assert_eq!(game.board().unwrap().zombies()[0].id, survivor);
+        assert_eq!(
+            game.board().unwrap().status(),
+            pvz_core::GameStatus::Running
+        );
+        for (seconds, phase) in [(0.0, 0), (1.0 / 12.0, 1), (3.0 / 12.0, 0)] {
+            scene.update(&mut world, &game, seconds);
+            assert_zombie_phase(&world, &scene, &game, phase);
+            assert_eq!(pool_handles(&scene), pool);
+            assert_eq!(asset_counts(&world), counts);
+        }
+    }
+
+    fn clipping_walk(first_x: f32) -> ZombieWalk {
+        let mut xml = String::from(
+            "<fps>12</fps><track><name>anim_walk</name><t><f>0</f></t><t/><t><f>-1</f></t></track>",
+        );
+        for (index, name) in pvz_app::resources::ZOMBIE_TRACKS.iter().enumerate() {
+            xml.push_str(&format!("<track><name>{name}</name><t><f>{}</f><x>{first_x}</x><i>原创底图</i></t><t><x>1000</x></t></track>",if index==0 {0}else {-1}));
+        }
+        ZombieWalk::new(PreparedAnimation::new(
+            &pvz_assets::parse_reanim(&xml).unwrap(),
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn 真实_scene普通僵尸walk部分裁剪uv完全越界及恢复复用池() {
+        let mut world = World::new();
+        let mut scene = zombie_scene_fixture(&mut world);
+        let game = zombie_test_game();
+        scene.update(&mut world, &game, 0.0);
+        let pool = pool_handles(&scene);
+        let counts = asset_counts(&world);
+        let original = std::mem::replace(
+            &mut scene.zombie_walk,
+            clipping_walk(-(29999.0 / 100.0 - 40.0) - 1.0),
+        );
+        scene.update(&mut world, &game, 0.0);
+        let vertices = positions(&world, &scene, 0);
+        assert_eq!(vertices.len(), 4);
+        assert!((vertices[0][0] + 400.0).abs() < 0.001);
+        assert!((vertices[1][0] + 399.0).abs() < 0.001);
+        for vertex in vertices {
+            assert!((-400.0..=400.0).contains(&vertex[0]) && (-300.0..=300.0).contains(&vertex[1]));
+        }
+        assert_eq!(
+            uvs(&world, &scene, 0),
+            [[0.5, 0.0], [1.0, 0.0], [1.0, 1.0], [0.5, 1.0]]
+        );
+        assert!(
+            scene.tracks[2..]
+                .iter()
+                .all(|t| world.get::<Visibility>(t.entity) == Some(&Visibility::Hidden))
+        );
+        scene.update(&mut world, &game, 1.0 / 12.0);
+        assert!(
+            scene
+                .tracks
+                .iter()
+                .all(|t| world.get::<Visibility>(t.entity) == Some(&Visibility::Hidden))
+        );
+        scene.zombie_walk = original;
+        scene.update(&mut world, &game, 0.0);
+        assert_zombie_phase(&world, &scene, &game, 0);
+        assert_eq!(pool_handles(&scene), pool);
+        assert_eq!(asset_counts(&world), counts);
+    }
+
+    #[test]
+    fn 真实_scene普通僵尸walk额外采样不改变核心状态与实体字段() {
+        let mut world = World::new();
+        let mut scene = zombie_scene_fixture(&mut world);
+        let game = zombie_test_game();
+        let before = game.state_digest();
+        let zombies = game.board().unwrap().zombies().to_vec();
+        let plants = game.board().unwrap().plants().to_vec();
+        for seconds in [0.0, 0.12, 1.25, f64::MAX, f64::NAN] {
+            scene.update(&mut world, &game, seconds);
+            assert_eq!(game.state_digest(), before);
+            assert_eq!(game.board().unwrap().zombies(), zombies);
+            assert_eq!(game.board().unwrap().plants(), plants);
+        }
+    }
+    fn drawn_zombie_bottom(
+        world: &World,
+        scene: &Scene,
+        game: &pvz_core::GameState,
+        seconds: f64,
+    ) -> bool {
+        let Some(zombie) = game.board().unwrap().zombies().first() else {
+            return false;
+        };
+        let phase = (seconds * 12.0).floor() as usize % 3;
+        let depth = 2.0 + f32::from(zombie.row) * 10.0 + 0.02;
+        let Some((slot, _)) = scene.tracks.iter().enumerate().find(|(_, track)| {
+            world.get::<Visibility>(track.entity) != Some(&Visibility::Hidden)
+                && (world.get::<Transform>(track.entity).unwrap().translation.z - depth).abs()
+                    < 0.001
+        }) else {
+            assert_eq!(phase, 2, "可绘相位必须存在实际僵尸图层");
+            return false;
+        };
+        assert_ne!(phase, 2);
+        let local = if phase == 0 { 7.0 } else { 9.0 };
+        let expected_x = zombie.x as f32 / pvz_core::UNITS_PER_PIXEL as f32 - 40.0 + local - 400.0;
+        assert!((positions(world, scene, slot)[0][0] - expected_x).abs() < 0.001);
+        let material = world
+            .resource::<Assets<ColorMaterial>>()
+            .get(&scene.tracks[slot].material)
+            .unwrap();
+        let image = if phase == 0 {
+            "原创底图"
+        } else {
+            "原创上图"
+        };
+        assert_eq!(material.texture.as_ref(), Some(&scene.images[image].0));
+        assert_eq!(material.color.alpha(), if phase == 0 { 0.5 } else { 1.0 });
+        true
+    }
+
+    #[test]
+    fn 真实_scene普通僵尸walk暂停双终局冻结重开和新波次复用池() {
+        for defended in [false, true] {
+            let mut world = World::new();
+            let mut scene = combined_walk_scene(&mut world);
+            let mut runtime = terminal_runtime(defended);
+            let mut events = runtime.take_events();
+            let mut observed = false;
+            for _ in 0..1000 {
+                runtime.advance(0.25);
+                events.extend(runtime.take_events());
+                scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+                if !runtime.game.board().unwrap().zombies().is_empty()
+                    && drawn_zombie_bottom(&world, &scene, &runtime.game, runtime.animation_seconds)
+                {
+                    observed = true;
+                    break;
+                }
+            }
+            assert!(observed, "必须实际绘制存活僵尸动态层");
+            runtime.command(Command::Pause);
+            runtime.advance(1.0 / 60.0);
+            events.extend(runtime.take_events());
+            scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            let paused = (
+                runtime.game.state_digest(),
+                runtime.animation_seconds,
+                scene_snapshot(&world, &scene),
+            );
+            runtime.advance(100.0);
+            scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            assert_eq!(
+                (
+                    runtime.game.state_digest(),
+                    runtime.animation_seconds,
+                    scene_snapshot(&world, &scene)
+                ),
+                paused
+            );
+            assert!(runtime.take_events().is_empty());
+            runtime.command(Command::Resume);
+            runtime.advance(1.0 / 60.0);
+            events.extend(runtime.take_events());
+            assert_eq!(runtime.animation_seconds, paused.1);
+            runtime.advance(1.0 / 12.0);
+            events.extend(runtime.take_events());
+            scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            assert_ne!(scene_snapshot(&world, &scene), paused.2);
+            assert!(drawn_zombie_bottom(
+                &world,
+                &scene,
+                &runtime.game,
+                runtime.animation_seconds
+            ));
+            for _ in 0..1000 {
+                if runtime.game.board().unwrap().status() != pvz_core::GameStatus::Running {
+                    break;
+                }
+                runtime.advance(0.25);
+                events.extend(runtime.take_events());
+                scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            }
+            assert_eq!(
+                runtime.game.board().unwrap().status(),
+                if defended {
+                    pvz_core::GameStatus::Won
+                } else {
+                    pvz_core::GameStatus::Lost
+                }
+            );
+            assert!(
+                runtime
+                    .game
+                    .board()
+                    .unwrap()
+                    .plants()
+                    .iter()
+                    .any(|p| p.kind == PlantKind::Sunflower && p.cell.row == 1)
+            );
+            assert_eq!(
+                events
+                    .iter()
+                    .filter(|e| matches!(
+                        (defended, *e),
+                        (true, pvz_core::Event::Victory) | (false, pvz_core::Event::Defeat)
+                    ))
+                    .count(),
+                1
+            );
+            assert_eq!(runtime.game.board().unwrap().zombies().is_empty(), defended);
+            let terminal = (
+                runtime.game.state_digest(),
+                runtime.animation_seconds,
+                scene_snapshot(&world, &scene),
+            );
+            let counts = asset_counts(&world);
+            let pool = pool_handles(&scene);
+            runtime.advance(100.0);
+            scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            assert_eq!(
+                (
+                    runtime.game.state_digest(),
+                    runtime.animation_seconds,
+                    scene_snapshot(&world, &scene)
+                ),
+                terminal
+            );
+            assert!(runtime.take_events().is_empty());
+            runtime.command(Command::Restart);
+            runtime.advance(1.0 / 60.0);
+            scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            assert_eq!(runtime.game.tick(), 0);
+            assert_eq!(runtime.animation_seconds, 0.0);
+            assert!(
+                scene
+                    .tracks
+                    .iter()
+                    .all(|t| world.get::<Visibility>(t.entity) == Some(&Visibility::Hidden))
+            );
+            runtime.command(Command::SelectCard {
+                kind: PlantKind::Sunflower,
+            });
+            runtime.command(Command::Plant {
+                cell: pvz_core::Cell { row: 1, column: 0 },
+            });
+            runtime.advance(1.0 / 60.0);
+            scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            assert_eq!(runtime.game.board().unwrap().plants().len(), 1);
+            let replanted = scene_snapshot(&world, &scene);
+            runtime.advance(1.0 / 12.0);
+            scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            assert_ne!(
+                scene_snapshot(&world, &scene),
+                replanted,
+                "再植向日葵继续动态idle"
+            );
+            for _ in 0..120 {
+                if runtime.game.tick() >= 100 {
+                    break;
+                }
+                runtime.advance(1.0 / 60.0);
+                scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            }
+            assert!(
+                !runtime.game.board().unwrap().zombies().is_empty(),
+                "重开后新波次实际出现"
+            );
+            for _ in 0..6 {
+                if drawn_zombie_bottom(&world, &scene, &runtime.game, runtime.animation_seconds) {
+                    break;
+                }
+                runtime.advance(1.0 / 60.0);
+                scene.update(&mut world, &runtime.game, runtime.animation_seconds);
+            }
+            assert!(drawn_zombie_bottom(
+                &world,
+                &scene,
+                &runtime.game,
+                runtime.animation_seconds
+            ));
+            assert_eq!(pool_handles(&scene), pool);
+            assert_eq!(asset_counts(&world), counts);
+        }
+    }
+
+    #[test]
+    fn 普通僵尸walk同版本逐批回放包含伤害死亡暂停终局重开和移除() {
+        for defended in [false, true] {
+            let core_only = replay_snapshots(defended, false);
+            let with_scene = replay_snapshots(defended, true);
+            assert_eq!(with_scene, core_only);
+            let events: Vec<_> = with_scene.iter().flat_map(|batch| batch.1.iter()).collect();
+            assert!(events.iter().any(|e| matches!(e, pvz_core::Event::Paused)));
+            assert!(events.iter().any(|e| matches!(e, pvz_core::Event::Resumed)));
+            assert!(
+                events
+                    .iter()
+                    .any(|e| matches!(e, pvz_core::Event::Restarted))
+            );
+            assert!(
+                events
+                    .iter()
+                    .any(|e| matches!(e, pvz_core::Event::ZombieDied { .. }))
+            );
+            assert!(
+                events
+                    .iter()
+                    .any(|e| matches!(e, pvz_core::Event::PlantRemoved { .. }))
+            );
+            assert!(
+                events
+                    .iter()
+                    .any(|e| matches!(e, pvz_core::Event::ZombieSpawned { .. }))
+            );
+            if defended {
+                assert!(
+                    events
+                        .iter()
+                        .any(|e| matches!(e, pvz_core::Event::ProjectileHit { .. }))
+                );
+                assert!(
+                    events
+                        .iter()
+                        .any(|e| matches!(e, pvz_core::Event::Damaged { .. }))
+                );
+                assert!(events.iter().any(|e| matches!(e, pvz_core::Event::Victory)));
+            } else {
+                assert!(events.iter().any(|e| matches!(e, pvz_core::Event::Defeat)));
+            }
         }
     }
 }

@@ -18,8 +18,9 @@
   <script type="module">
     const probe = new URLSearchParams(location.search).get("probe") === "1";
     const directory = probe ? "../target/web-probe" : "../target/web";
+    let started = false;
     document.getElementById("pvz-canvas").addEventListener("pointerdown", () => {
-      document.getElementById("status").hidden = true;
+      if (started) document.getElementById("status").hidden = true;
     });
     try {
       const { default: init } = await import(`${directory}/pvz_app.js`);
@@ -33,14 +34,17 @@
         document.getElementById("status").textContent = "正在启动开发应用。";
         try {
           await init({ module_or_path: module });
+          started = true;
           document.getElementById("start").hidden = true;
           document.getElementById("status").textContent = "开发应用已启动；点击画布开始操作。";
         } catch (error) {
+          document.getElementById("status").hidden = false;
           document.getElementById("status").textContent = "应用启动失败，请检查构建产物和浏览器日志。";
           console.error("Bevy 应用启动失败", error);
         }
       }, { once: true });
     } catch (error) {
+      document.getElementById("status").hidden = false;
       document.getElementById("status").textContent = "应用启动失败，请检查 WASM 构建产物和浏览器日志。";
       console.error("Bevy 应用启动失败", error);
     }

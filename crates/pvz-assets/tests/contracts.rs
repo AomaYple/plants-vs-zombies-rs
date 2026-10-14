@@ -48,10 +48,11 @@ fn cdata成功路径保留字面分隔符而普通文本解码实体() {
         "<Emitter><Name><![CDATA[原创<&]]></Name><SystemDuration><![CDATA[100]]></SystemDuration></Emitter>",
     )
     .unwrap();
-    assert_eq!(particle.name(), "原创<&");
-    assert_eq!(particle.system_duration(), Some(100.0));
-    assert_eq!(particle.emitters()[0].image(), None);
-    assert_eq!(particle.emitters()[0].emitter_type(), None);
+    let emitter = &particle.emitters()[0];
+    assert_eq!(emitter.name(), Some("原创<&"));
+    assert_eq!(emitter.property("SystemDuration").unwrap().text(), "100");
+    assert_eq!(emitter.image(), None);
+    assert_eq!(emitter.emitter_type(), None);
 }
 
 #[test]
@@ -87,7 +88,19 @@ fn 重复_field和_systemfield保持原文顺序及独立子树() {
             ("SystemField", vec![("FieldType", "Velocity"), ("X", "4")]),
         ]
     );
-    assert_eq!(particle.fields(), ["Position", "Friction"]);
+    let field_types = emitter
+        .properties()
+        .iter()
+        .filter(|property| property.name() == "Field")
+        .filter_map(|property| {
+            property
+                .children()
+                .iter()
+                .find(|child| child.name() == "FieldType")
+                .map(|child| child.text())
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(field_types, ["Position", "Friction"]);
     assert_eq!(
         emitter.property("Field").unwrap().children()[0].text(),
         "Position"

@@ -3,7 +3,7 @@ use pvz_app::viewport::{LogicalPoint, Viewport};
 use pvz_app::{
     animation::{Affine, PreparedAnimation},
     geometry::{ClipRect, clipped_quad},
-    resources::SunflowerIdle,
+    resources::{SunflowerIdle, ZOMBIE_TRACKS, ZombieWalk},
 };
 use pvz_assets::AnimationFrame;
 use std::hint::black_box;
@@ -245,6 +245,112 @@ fn presentation(c: &mut Criterion) {
         );
     }
     group.finish();
+
+    let mut source = String::from("<fps>12</fps><track><name>anim_walk</name>");
+    for frame in 0..504 {
+        source.push_str(if frame == 0 || frame == 91 {
+            "<t><f>-1</f></t>"
+        } else if frame == 44 {
+            "<t><f>0</f></t>"
+        } else {
+            "<t/>"
+        });
+    }
+    source.push_str("</track>");
+    for (layer, name) in ZOMBIE_TRACKS.iter().enumerate() {
+        source.push_str(&format!("<track><name>{name}</name>"));
+        for frame in 0..504 {
+            source.push_str(&format!(
+                "<t><x>{}</x><y>{}</y><i>原创walk图</i><f>0</f></t>",
+                frame % 7,
+                layer % 5
+            ));
+        }
+        source.push_str("</track>");
+    }
+    for n in 0..22 {
+        source.push_str(&format!("<track><name>原创非白名单{n}</name>"));
+        for frame in 0..504 {
+            source.push_str(&format!(
+                "<t><x>{}</x><y>{}</y><i>原创walk图</i><f>0</f></t>",
+                frame % 7,
+                (19 + n) % 5
+            ));
+        }
+        source.push_str("</track>");
+    }
+    let prepared =
+        PreparedAnimation::new(&pvz_assets::parse_reanim(&source).expect("原创僵尸基准夹具有效"));
+    assert_eq!(prepared.tracks.len(), 42);
+    assert!(prepared.tracks.iter().all(|track| track.len() == 504));
+    assert_eq!(prepared.marker_segment("anim_walk"), Some(44..91));
+    assert_eq!(
+        prepared.drawable_tracks(&(44..91)),
+        (1..42).collect::<Vec<_>>()
+    );
+    assert_eq!(prepared.tracks.iter().map(Vec::len).sum::<usize>(), 21168);
+    let walk = ZombieWalk::new(prepared).expect("原创僵尸 walk 有效");
+    for (seconds, expected) in [(0.0, 2.0), (46.0 / 12.0, 6.0), (47.0 / 12.0, 2.0)] {
+        let frames: Vec<_> = walk.sample(seconds).collect();
+        assert_eq!(frames.len(), 19);
+        assert!(frames.iter().all(|(_, frame)| frame.x == Some(expected)));
+    }
+    c.bench_function(
+        "表现/原创42轨道504帧_19身体47帧_12fps普通僵尸walk采样",
+        |b| {
+            b.iter(|| {
+                let mut count = 0;
+                for item in walk.sample(black_box(1.25)) {
+                    black_box(item);
+                    count += 1;
+                }
+                black_box(count);
+            });
+        },
+    );
+    let clip_rect = ClipRect {
+        min: [0.0, 0.0],
+        max: [800.0, 600.0],
+    };
+    let sampled: Vec<_> = walk.sample(1.25).collect();
+    assert_eq!(sampled.len(), 19);
+    assert!(
+        sampled.iter().all(|(_, frame)| frame.x == Some(3.0)),
+        "1.25秒对应源帧59"
+    );
+    for objects in [1usize, 10] {
+        let origins: Vec<_> = (0..objects)
+            .map(|i| [80.0 + (i % 2) as f32 * 300.0, 100.0 + (i / 2) as f32 * 80.0])
+            .collect();
+        let expected = objects * 19 * 4;
+        let mut output = 0;
+        for origin in &origins {
+            for (_, frame) in walk.sample(1.25) {
+                let mut affine = Affine::from_frame(frame);
+                affine.tx += origin[0];
+                affine.ty += origin[1];
+                output += clipped_quad(affine, [40.0, 50.0], clip_rect).len();
+            }
+        }
+        assert_eq!(output, expected);
+        c.bench_function(
+            &format!("表现/原创普通僵尸walk采样与多对象仿射裁剪/{objects}"),
+            |b| {
+                b.iter(|| {
+                    let mut count = 0;
+                    for origin in &origins {
+                        for (_, frame) in walk.sample(black_box(1.25)) {
+                            let mut affine = Affine::from_frame(frame);
+                            affine.tx += origin[0];
+                            affine.ty += origin[1];
+                            count += black_box(clipped_quad(affine, [40.0, 50.0], clip_rect)).len();
+                        }
+                    }
+                    black_box(count);
+                });
+            },
+        );
+    }
 }
 criterion_group!(benches, presentation);
 criterion_main!(benches);

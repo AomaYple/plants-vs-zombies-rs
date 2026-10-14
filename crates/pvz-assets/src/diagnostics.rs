@@ -1,10 +1,3 @@
-/// 审计诊断的严重性。
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum EventKind {
-    /// 输入与清单不一致，必须修复。
-    Error,
-}
-
 /// 资源清单审计发现的问题。
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Diagnostic {
@@ -31,11 +24,6 @@ pub enum Diagnostic {
 }
 
 impl Diagnostic {
-    /// 返回诊断严重性。
-    pub const fn kind(&self) -> EventKind {
-        EventKind::Error
-    }
-
     /// 返回用于确定性排序和脱敏输出的相对 POSIX 路径。
     pub fn path(&self) -> &str {
         match self {

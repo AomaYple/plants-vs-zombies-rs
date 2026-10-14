@@ -9,7 +9,7 @@
 | [版本化白天内容设计](superpowers/specs/2026-10-12-versioned-day-content.md) | 严格内容格式、纯装配与实际时钟消费边界 |
 | [原版行为基线测量设计](superpowers/specs/2026-10-12-reference-behavior-measurement.md) | 可观察行为、证据分类与规则替换边界 |
 | [当前总计划：阶段性最小可玩垂直切片](superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md) | S1 已完成开发闭环、S2-A 已交付、当前 S2-B1、后续阶段与证据边界 |
-| [当前细化计划：普通僵尸 walk（S2-B1）](superpowers/plans/2026-10-14-zombie-walk.md) | 缓存与源身体轨道、真实 Scene、原创回归、基准及完整平台交付 |
+| [当前细化计划：普通僵尸 walk（S2-B1）](superpowers/plans/2026-10-14-zombie-walk.md) | 冻结源码已有缓存/真实 Scene/工程证据；仓库维护后的新验证进行中，Windows 缺项、Web 诊断、最终复核与 Git/CI 待完成 |
 | [已完成：向日葵 idle（S2-A）](superpowers/plans/2026-10-14-sunflower-idle.md) | 可玩增量、实跑与提交 `3e6634e` 对应八项 CI 通过；流程偏差与限制保留 |
 | [横向专题计划：原版行为测量与并行开发](superpowers/plans/2026-10-12-reference-behavior-measurement.md) | 案例依赖、窗口阻塞处理、独立开发与逐参数采纳 |
 | [已完成：版本化白天内容计划](superpowers/plans/2026-10-12-versioned-day-content.md) | 已完成的白天内容数据化与应用装配验收 |
@@ -23,9 +23,9 @@
 | [参考资源](../assets/README.md) | 版本化资源、导入格式与清单校验 |
 | [行为测量](behavior/README.md) | 如何记录观察、控制变量、形成规则测试 |
 | [开发切片合同](behavior/development-slice.md) | 原创开发参数、确定性与表现边界，不代表原版规格 |
-| [版本化内容结果](behavior/content-foundation-results.md) | 本批测试、干净覆盖率、受影响基准与 Windows/Web 实测范围 |
+| [版本化内容结果](behavior/content-foundation-results.md) | 内容、S1/S2-A 历史交付与 S2-B1 冻结源码的测试/覆盖率/基准、Windows/Web 实测及待验范围 |
 | [切片阶段性结果](behavior/vertical-slice-results.md) | 首个开发切片的测试、运行、覆盖率与基准历史证据 |
 | [平台探针结果](behavior/platform-probe-results.md) | 任务 5 的窗口、输入、图形与音频历史验证 |
 | [技术决策](adr/README.md) | 已采纳决策与重新评估条件 |
 
-文档职责与更新约定见 [原则索引](principles/README.md#文档职责与维护)。现有白天内容数据化已有历史交付，S1 的本地验收、独立复核及提交 `f1850b1` 对应 CI 已完成，实际范围见[双终局结果](behavior/content-foundation-results.md#2026-10-14-白天单关双终局闭环)。S2-A 已完成源码、本地可玩验收、独立复核和对应 Git/CI 交付；当前推进 S2-B1，整个 S2 仍待僵尸动作增量。文档中“计划”“待接入”“待测量”表示工作尚未完成；开发切片可以使用明确标记的开发参数，参数作为原版规格使用或验收前须完成相应测量。
+文档职责与更新约定见 [原则索引](principles/README.md#文档职责与维护)。当前阶段与后续顺序只在总计划和路线图维护；结果页保存各批源码、命令、环境及实际验收范围。S1 与 S2-A 已完成交付；S2-B1 冻结源码的工程证据保留，仓库维护后的新验证仍在进行，Windows 正常窗口缺项、Web 诊断、最终复核和 Git/CI 尚未闭合，整个 S2 保持未完成。文档中“计划”“待接入”“待测量”表示工作尚未完成；开发参数作为原版规格使用或验收前须完成相应测量。

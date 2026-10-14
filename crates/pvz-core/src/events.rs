@@ -15,7 +15,7 @@ pub enum Rejection {
     BalanceOverflow,
 }
 
-/// 空棋盘模拟阶段对表现层可见的事件。
+/// 确定性模拟向表现层公开的状态变化事件。
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Event {
     /// 一个 tick 开始。

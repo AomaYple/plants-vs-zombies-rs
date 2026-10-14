@@ -1,5 +1,7 @@
 # 普通僵尸 walk（S2-B1）实施计划
 
+**当前状态：** 2026-10-14 冻结的 B1 源码已完成任务 1 和步骤 1/3/5 的工程范围；Windows 正常窗口缺项、Web 诊断子项、最终复核及 Git/CI 仍待验。本页旧读数只适用于冻结源码；仓库维护后如继续验证，必须重新绑定新源码、锁文件和平台包，不能把旧结果直接当作当前结果。
+
 > **面向执行代理：** 使用 `superpowers:subagent-driven-development` 按任务实施与独立复核，主线程统一构建、Git、服务与平台验收。步骤使用复选框追踪；S2-A 完整交付和本计划提交后才开始源码。
 
 **目标：** 在 S1 已完成的白天成功/失败关卡中，让普通僵尸消费登记的 `anim_walk` 动态资源，保留种植、战斗、暂停、双终局、重开和 S2-A 向日葵动态 idle。
@@ -30,7 +32,7 @@
 
 `assets/original/reanim/Zombie.reanim` 顶层 fps=12，共 42 条唯一名称轨道，每条 504 帧；一次完整 prepare 展开 21,168 个 `AnimationFrame`。`anim_walk` 的首个连续非负 marker 为 `44..91`，47 帧；索引从 0 开始、区段右端不含 91。
 
-当前 `ZOMBIE_TRACKS` 的 19 条名称全部存在，且顺序与源轨道升序一致。以下每条在全部 47 个帧都 `f >= 0`、图像非空、继承后的 alpha=1，无隐藏帧、无显式清空、无短轨道；每条仅引用表内一个图像。所有 47 个源帧都同时可绘 19 层。
+当前 `ZOMBIE_TRACKS` 的 19 条名称全部存在，且顺序与源轨道升序一致。以下每条在全部 47 个帧都 `f >= 0`、图像非空、有效 alpha=1，无隐藏帧、无显式清空、无短轨道；每条仅引用表内一个图像。这里的有效 alpha 按既有绘制合同 `frame.a.unwrap_or(1.0)` 解释，未显式提供的字段在 `PreparedAnimation` 中仍为 `None`，不要求内部值为 `Some(1.0)`。所有 47 个源帧都同时可绘 19 层。
 
 | 源索引 | 白名单名称 | 图像 ID 的 `IMAGE_REANIM_ZOMBIE_` 后缀 |
 | --- | --- | --- |
@@ -138,7 +140,7 @@ impl ZombieWalk {
 
 **文件：** resources.rs、render.rs、main.rs 的测试区、tests/presentation.rs、benches/presentation.rs。消费上述现有接口，产出 `LoadedResources.zombie_walk: ZombieWalk`、`Scene.zombie_walk: ZombieWalk`；不改 `Scene::update` 签名。本任务完成相关代码、测试及基准目标，进入任务 2 的完整验收前不提交未闭环源码到 main。
 
-- [ ] **步骤 1：在 presentation.rs 写原创最小 walk 夹具与先失败测试。** 名称采用当前 19 条白名单（名称是接口选择，不复制资源变换）；marker 为源帧 `1..4`。源序是 marker=0、可绘附件=1、`anim_innerarm3`=2、可绘非白名单=3、剩余 18 条白名单=4..21。全隐藏的白名单轨道仍存在，证明“存在核对”与“可绘选择”分别执行。
+- [x] **步骤 1：在 presentation.rs 写原创最小 walk 夹具与先失败测试。** 名称采用当前 19 条白名单（名称是接口选择，不复制资源变换）；marker 为源帧 `1..4`。源序是 marker=0、可绘附件=1、`anim_innerarm3`=2、可绘非白名单=3、剩余 18 条白名单=4..21。全隐藏的白名单轨道仍存在，证明“存在核对”与“可绘选择”分别执行。
 
 ```rust
 fn original_walk() -> PreparedAnimation {
@@ -179,9 +181,9 @@ fn 普通僵尸walk借用源帧过滤附件保留源索引() {
 
 另写逐帧位置夹具（白名单全部存在、仅一条有图），断言 `1/12 ± 1e-9`、`3/12 ± 1e-9`、多循环、负值、NaN、±Infinity 和 f64::MAX；非有限/负时间首帧，有限极大时间只落在区段内且不 panic。缺 marker、marker 全负、直接构造空 marker、缺一个白名单轨道、白名单全隐藏/全空图分别拒绝，`error.path == "reanim/Zombie.reanim"`，reason 对应上面三条中文诊断。缺轨道病例从 `original_walk()` 的 `names/tracks` 同步移除一个索引；全隐藏病例把白名单帧 `f=Some(-1.0)`；全空图病例把 `i=Some(String::new())`，不依赖源资源或 GPU。
 
-- [ ] **步骤 2：主线程运行 `cargo test -p pvz-app --test presentation --locked 普通僵尸walk`，确认新测试因缺 ZombieWalk 而失败，再实现上方缓存。** 测试保留默认线程；不与其他 Cargo 共享 target 锁并发。
+- [x] **步骤 2：主线程运行 `cargo test -p pvz-app --test presentation --locked 普通僵尸walk`，确认新测试因缺 ZombieWalk 而失败，再实现上方缓存。** 测试保留默认线程；不与其他 Cargo 共享 target 锁并发。
 
-- [ ] **步骤 3：在 from_provider 显式读取一次 Zombie，完成完整映射/去重解码并保存缓存，删除旧静态来源条目。** 每个阶段错误保留 Zombie 路径；`resolve_images`、provider.read 的图像错误、decode 错误分别用 `.map_err(|failure| error(ZOMBIE_ANIMATION, failure.reason))`。其余静态来源、图像集合、音频和向日葵路径保留。实际插入位置为 sunflower_idle 装配后、剩余 POSE_SOURCES 循环前。
+- [x] **步骤 3：在 from_provider 显式读取一次 Zombie，完成完整映射/去重解码并保存缓存，删除旧静态来源条目。** 每个阶段错误保留 Zombie 路径；`resolve_images`、provider.read 的图像错误、decode 错误分别用 `.map_err(|failure| error(ZOMBIE_ANIMATION, failure.reason))`。其余静态来源、图像集合、音频和向日葵路径保留。实际插入位置为 sunflower_idle 装配后、剩余 POSE_SOURCES 循环前。
 
 ```rust
 let bytes = provider.read(ZOMBIE_ANIMATION).await?;
@@ -204,11 +206,11 @@ let zombie_walk = ZombieWalk::new(PreparedAnimation::new(&clip))?;
 
 `LoadedResources` 加字段并在 `Ok(Self {...})` 移入；`POSE_SOURCES` 不再含 Zombie；`poses` 精确键为 Peashooter/Pea/Sun/LawnMower。更新 `ZOMBIE_TRACKS` 注释说明身体选择用于 walk，避免仍描述只取第44帧。全映射/去重保证图像总数仍是 `IMAGE_MAPPING.len()+1`，没有重复解码/prepare Zombie，也没有静态副本。
 
-- [ ] **步骤 4：更新资源集成测试。** 对全部 47 帧采样 `step/12`：索引为 `44+step`，输出精确源索引 `[12,13,14,17,18,19,20,21,22,23,24,25,28,29,30,35,36,38,39]`，每次 19 层、alpha=1、图像 ID 属于表内身体集、实际 images 有对应数据，借用地址等于缓存 `tracks[layer][44+step]`。`47/12` 回到44；不包含任何附件。把旧 `登记普通僵尸构图精确选择身体轨道排除附件` 改成动态整段核对，不保留访问旧 pose 的断言。
+- [x] **步骤 4：更新资源集成测试。** 对全部 47 帧采样 `step/12`：索引为 `44+step`，输出精确源索引 `[12,13,14,17,18,19,20,21,22,23,24,25,28,29,30,35,36,38,39]`，每次 19 层、`frame.a.unwrap_or(1.0) == 1.0`、图像 ID 属于表内身体集、实际 images 有对应数据，借用地址等于缓存 `tracks[layer][44+step]`。`47/12` 回到44；不包含任何附件。把旧 `登记普通僵尸构图精确选择身体轨道排除附件` 改成动态整段核对，不保留访问旧 pose 的断言。
 
 新增隔离临时清单病例移除 `reanim/Zombie_head.png`：维护 package.entry_count，复制 BACKGROUND、PeaShooter/SunFlower/Zombie XML 以及前两完整 clip 需要的图像，按现有向日葵错误测试方法装配；预期资源错误 path=Zombie、reason=图像引用没有唯一登记映射。未知图像原创 clip 直接调用 resolve_images 验证拒绝；生产装配显式重归属保证不误报 PeaShooter。测试不改变工作目录或共享环境。
 
-- [ ] **步骤 5：接入 Scene，保持池及坐标。** `Scene` 和 `upload` 增加 zombie_walk；源帧借用交给同一个 draw 闭包，所有 actor 仍消费当前 board 存活集合。
+- [x] **步骤 5：接入 Scene，保持池及坐标。** `Scene` 和 `upload` 增加 zombie_walk；源帧借用交给同一个 draw 闭包，所有 actor 仍消费当前 board 存活集合。
 
 ```rust
 match kind {
@@ -220,7 +222,7 @@ match kind {
 
 现有 `sunflower_scene_fixture` 创建一个全部白名单存在、仅一条可绘且 `x=1000` 的原创 walk，保证向日葵测试的隔离范围；去掉其 Zombie 静态键。新增 `#[cfg(test)] pub(crate) fn zombie_scene_fixture(world: &mut World) -> Scene` 供 render/main 测试使用，创建独立 World 所需的 Mesh2d/Visibility/VisibilityClass 注册、Assets 三资源，上传红蓝绿各2×2图像。walk 采用步骤1原创 XML语义；向日葵缓存保留合法裁剪外图层，其余静态帧裁剪外。该函数仅测试编译可见，不扩大库 API；无需重构 render.rs 或现有夹具。
 
-- [ ] **步骤 6：先写并验证真实 Scene 回归，再修正接线至通过。** 测试从原创 `GameState::from_day_definition` 装配，不直接修改 core 私有字段：规则基于现有 development-failure JSON 的严格解析变体，仅测试内替换 wave 为 tick1 的两只 row0/row2、x=30000/50000，`zombie_speed=1`（规则校验要求所有距离为正），`mower_trigger_x=4000`、`defeat_x=-20000`，确保僵尸留在视口且不被割草机吞掉。先 step 到 tick1，再对同一 game 多次 Scene 更新；这些是原创测试参数，不改变版本化内容。
+- [x] **步骤 6：先写并验证真实 Scene 回归，再修正接线至通过。** 测试从原创 `GameState::from_day_definition` 装配，不直接修改 core 私有字段：规则基于现有 development-failure JSON 的严格解析变体，仅测试内替换 wave 为 tick1 的两只 row0/row2、x=30000/50000，`zombie_speed=1`（规则校验要求所有距离为正），`mower_trigger_x=4000`、`defeat_x=-20000`，确保僵尸留在视口且不被割草机吞掉。先 step 到 tick1，再对同一 game 多次 Scene 更新；这些是原创测试参数，不改变版本化内容。
 
 真实消费者断言如下，不用只比较 sample 返回值代替 Scene 验收：
 
@@ -264,13 +266,13 @@ fn zombie_game() -> pvz_core::GameState {
 
 在消失测试中：首相位0绘制并保存4槽及3类资产数量；记录row0/row2两个ID；用同批 `SelectCard(Peashooter)`/`Plant(Cell { row:0,column:0 })`，随后最多4次 `game.step(&[])`，逐批收集事件，直到row0 ID消失。必须收到该ID的 `ZombieDied`，row2 ID仍存在，棋盘Running，Scene下一次在相位0只绘2槽且其余2槽Hidden。射手静态测试图裁剪外，不增加可见槽；row2 x每tick减少1，锚点从当前board读取。期间不产生天空阳光，沿用基准内容的sky_sun_interval=300。随后对同局采样1/12和3/12验证容量不增长、幸存者纹理与坐标正确。
 
-- [ ] **步骤 7：在 main 测试调用实际 update 验证时钟，保持生产接口。** 用 zombie_scene_fixture 和上述稳定存活测试game；提交 Pause 后设置 `animation_seconds=0.12`（与tick数不同），`Time<Real>` 推0.01两次且实际 `update`：底层顶点局部x=9、蓝纹理，时钟=.12不变。Resume命令帧相位不变，再推.14秒：相位=.26，`floor(.26*12)%3=0`，局部x=7且红纹理。按基础depth+源索引2定位两行底层；复用现有 harness，不改变 main 的 elapsed 或 ScreenshotWait 行为。
+- [x] **步骤 7：在 main 测试调用实际 update 验证时钟，保持生产接口。** 用 zombie_scene_fixture 和上述稳定存活测试game；提交 Pause 后设置 `animation_seconds=0.12`（与tick数不同），`Time<Real>` 推0.01两次且实际 `update`：底层顶点局部x=9、蓝纹理，时钟=.12不变。Resume命令帧相位不变，再推.14秒：相位=.26，`floor(.26*12)%3=0`，局部x=7且红纹理。按基础depth+源索引2定位两行底层；复用现有 harness，不改变 main 的 elapsed 或 ScreenshotWait 行为。
 
-- [ ] **步骤 8：扩展暂停、双终局、重开和回放真实 Scene 测试。** 在 `Runtime::failure_day()` 正常场景中保持 row1 向日葵，失败不种row0射手、胜利种row0射手；确认途中有存活 Zombie 的动态层被实际绘制。运行到 Lost/Won，冻结100秒后digest、animation_seconds、可见层顶点/纹理/alpha完全不变，Victory/Defeat只出现一次。失败终局保留的存活Zombie冻结，胜利移除后的槽隐藏；不强求胜利存在Zombie层。R后tick0、时钟0、旧Zombie层隐藏；新波次出现后按新全局相位重新绘制，仍使用旧池，不继承上局Zombie位置。保留向日葵重开再种植测试。将带/不带Scene的同版本回放逐批比较 `(state_digest, take_events, animation_seconds)`，涵盖暂停恢复、伤害、死亡、移除、终局、重开；在每批额外调用不同时间Scene，核心结果仍相同。
+- [x] **步骤 8：扩展暂停、双终局、重开和回放真实 Scene 测试。** 在 `Runtime::failure_day()` 正常场景中保持 row1 向日葵，失败不种row0射手、胜利种row0射手；确认途中有存活 Zombie 的动态层被实际绘制。运行到 Lost/Won，冻结100秒后digest、animation_seconds、可见层顶点/纹理/alpha完全不变，Victory/Defeat只出现一次。失败终局保留的存活Zombie冻结，胜利移除后的槽隐藏；不强求胜利存在Zombie层。R后tick0、时钟0、旧Zombie层隐藏；新波次出现后按新全局相位重新绘制，仍使用旧池，不继承上局Zombie位置。保留向日葵重开再种植测试。将带/不带Scene的同版本回放逐批比较 `(state_digest, take_events, animation_seconds)`，涵盖暂停恢复、伤害、死亡、移除、终局、重开；在每批额外调用不同时间Scene，核心结果仍相同。
 
-- [ ] **步骤 9：写原创基准并运行其断言。** 详见下一节，生产数据和公共 fixture 不复制原版帧变换或图片。使用独立构造代码，不为 benchmark 公开缓存内部字段。
+- [x] **步骤 9：写原创基准并运行其断言。** 详见下一节，生产数据和公共 fixture 不复制原版帧变换或图片。使用独立构造代码，不为 benchmark 公开缓存内部字段。
 
-- [ ] **步骤 10：主线程运行局部验证。** `cargo test -p pvz-app --locked`（含bin真实Scene/main测试、integration和doctest）、`cargo clippy -p pvz-app --all-targets --locked -- -D warnings`、`cargo fmt --all -- --check`。记录源码状态、命令、结果；失败修正原因，不跳过旧向日葵测试或降低lint。
+- [x] **步骤 10：主线程运行局部验证。** `cargo test -p pvz-app --locked`（含bin真实Scene/main测试、integration和doctest）、`cargo clippy -p pvz-app --all-targets --locked -- -D warnings`、`cargo fmt --all -- --check`。记录源码状态、命令、结果；失败修正原因，不跳过旧向日葵测试或降低lint。
 
 ## 基准与缓存结构统计合同
 
@@ -341,7 +343,7 @@ cargo bench -p pvz-app --bench presentation --locked -- 普通僵尸
 
 **文件：** 正式计划、S2总计划和上方文档入口、content-foundation-results.md。消费任务1最终源码/锁文件，产出可追溯Windows/Web实际运行证据、所有适用检查结果和main交付状态。不存在平台运行证据时本任务未完成，不能仅靠CPU测试关闭B1。
 
-- [ ] **步骤 1：完成适用workspace验收。** 依贡献指南运行格式、`cargo check --workspace --all-targets --locked`、`cargo test --workspace --locked`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo doc --workspace --no-deps --locked`、`cargo deny check`；兼容probe feature补对应 `--all-features` 检查/测试/Clippy/doc，保留doctest。默认和all-features干净coverage分别执行/导出，核对当前checkout路径与分母，报告新增缓存/失败/Scene/main路径命中及Web/设备缺口，不用忽略关键代码制造通过。运行相关core回放和上述app基准，其他未重测场景明确记录。
+- [x] **步骤 1：完成适用workspace验收。** 依贡献指南运行格式、`cargo check --workspace --all-targets --locked`、`cargo test --workspace --locked`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo doc --workspace --no-deps --locked`、`cargo deny check`；兼容probe feature补对应 `--all-features` 检查/测试/Clippy/doc，保留doctest。默认和all-features干净coverage分别执行/导出，核对当前checkout路径与分母，报告新增缓存/失败/Scene/main路径命中及Web/设备缺口，不用忽略关键代码制造通过。运行相关core回放和上述app基准，其他未重测场景明确记录。
 
 - [ ] **步骤 2：Windows正常登记资源入口验收。** 构建 `cargo build -p pvz-app --locked`，由主线程隐藏启动 `target/debug/pvz-app.exe`；能可靠捕获目标窗口/输入就保持后台，必须聚焦时仅做必要交互并说明。不得用probe或smoke代替正常输入。
 
@@ -356,9 +358,9 @@ cargo bench -p pvz-app --bench presentation --locked -- 普通僵尸
 
 时间截图若Zombie位置移动，可在正常暂停前记录两个未暂停相位（仅作为动态观察），暂停后的图对则必须静止；精确源帧端点由CPU测试证明，不把两张不同位置截图单独当换帧证明。必要的无遮挡图对同时核对局部手腿差异与身体锚点；后台捕获失败时保留记录，不冒充通过。
 
-- [ ] **步骤 3：Windows固定GPU冒烟回归。** 复用现有隐藏入口、AppExit传播和截图等待冻结合同，不新增B1专用CLI：`target/debug/pvz-app.exe --smoke 30 --slice-smoke --screenshot`，`--failure-smoke --smoke 400 --screenshot`；终局不足期限 `--failure-smoke --smoke 2` 应退出1；默认成功 `--slice-smoke --smoke 600 --screenshot` 应退出0。截图/日志按实际路径归档索引，避免把已终局无Zombie图当walk端点证据；确切源44/90由生产缓存和真实SceneCPU测试闭合。
+- [x] **步骤 3：Windows固定GPU冒烟回归。** 复用现有隐藏入口、AppExit传播和截图等待冻结合同，不新增B1专用CLI：`target/debug/pvz-app.exe --smoke 30 --slice-smoke --screenshot`，`--failure-smoke --smoke 400 --screenshot`；终局不足期限 `--failure-smoke --smoke 2` 应退出1；默认成功 `--slice-smoke --smoke 600 --screenshot` 应退出0。截图/日志按实际路径归档索引，避免把已终局无Zombie图当walk端点证据；确切源44/90由生产缓存和真实SceneCPU测试闭合。
 
-- [ ] **步骤 4：Web构建与正常隐藏浏览器验收。**
+- [ ] **步骤 4：Web构建与正常隐藏浏览器验收。** 当前冻结源码已有构建、正常操作、局部动态图对及清理记录；由于 Tab8 关闭前未查询诊断，步骤整体仍未完成。仓库维护后的新验证必须重新绑定实际平台包。
 
 ```sh
 cargo build -p pvz-app --target wasm32-unknown-unknown --release --locked
@@ -368,23 +370,36 @@ wasm-bindgen --target web --out-name pvz_app --out-dir target/web-probe target/w
 python -m http.server 8000 --bind 127.0.0.1
 ```
 
-主线程统一服务生命周期，绑定loopback，记录wasm-bindgen版本0.2.129及生成包状态。隐藏浏览器打开正常 `http://127.0.0.1:8000/web/`，点击启动按钮；不能用 `?probe=1` 验收资源walk。重做上表F无防守失败、R种row0射手胜利、双终局冻结、暂停恢复、再重开新Zombie、向日葵idle及无遮挡局部动态图对；检查浏览器warn/error和资源加载失败，保留历史shader问题的已知限制。probe构建仅验证兼容，不把其静态探针当walk通过。关闭本任务服务/浏览器；macOS/Linux构建回归来自对应CI，实际窗口未运行则明确未运行，Android/iOS仍待接入。
+主线程统一服务生命周期，绑定loopback，记录wasm-bindgen版本0.2.129及生成包状态。隐藏浏览器打开正常 `http://127.0.0.1:8000/web/`，点击启动按钮；不能用 `?probe=1` 验收资源walk。重做上表F无防守失败、R种row0射手胜利、双终局冻结、暂停恢复、再重开新Zombie、向日葵idle及无遮挡局部动态图对；检查浏览器warn/error和资源加载失败，保留历史shader问题的已知限制。probe构建仅验证兼容，不把其静态探针当walk通过。关闭本任务服务/浏览器；macOS/Linux构建回归来自对应CI，实际窗口未运行则明确未运行，Android/iOS仍待接入。实际补证登记于 `web-extra-observation.json`、`capture-files.json`、`web-captures.jsonl`；收集阳光与铲除、向日葵运行动态、16张额外截图和 `image-comparison.json` 已核对。`web-extra-sunflower-a/b.jpg` 当时已 Won 且受阳光遮挡，不作为向日葵动态证据；运行中动态仅采用 `web-extra-sunflower-running-a/b.jpg`。`compare_captures.py` 使用 bundled Python 退出0；Tab8已关闭、PID11512回环服务已停止，并核对无 pvz-app/cargo 进程。tab7 的 `web-final-observation.json` 记录 warn/error=[]，tab8 未查询诊断，不能外推为空。JPEG局部比较只支持本轮可观察冻结/变化结论，不等同未压缩 GPU 逐像素或原版行为证据。Web 构建、正常操作和清理证据已取得，但诊断日志缺项仍是本步骤必要待补项。
 
-- [ ] **步骤 5：写实际结果与同步入口。** B1记录源码状态、环境、target/feature、命令/退出码、覆盖/基准/缓存统计、截图与日志路径、输入路径、限制；阶段文字仅声明“普通僵尸walk开发增量完成”。S2-A勾选由它的交付证据决定，S2-B拆B1/B2，B2可靠事件到表现接口仍未实现；整个S2不因B1关闭。新正式计划链接在docs索引/AGENTS等已有导航中更新，不修改长期原则以降低要求。
+- [x] **步骤 5：写实际结果与同步入口。** B1记录源码状态、环境、target/feature、命令/退出码、覆盖/基准/缓存统计、截图与日志路径、输入路径、限制；阶段文字仅声明“普通僵尸walk开发增量完成”。S2-A勾选由它的交付证据决定，S2-B拆B1/B2，B2可靠事件到表现接口仍未实现；整个S2不因B1关闭。新正式计划链接在docs索引/AGENTS等已有导航中更新，不修改长期原则以降低要求。
 
 - [ ] **步骤 6：主线程最终复核与Git/CI交付。** 核查生产变更仅resources/render、main仅测试；无core/runtime/content/资源变化、无旧Zombie静态消费者、无新公开无用API、无无关文件；检查编码/链接/资源清单、`git diff --check`与暂存差异，保留其他任务修改。适用检查与实际Windows/Web验收全部完成后提交 `feat(app): 接入普通僵尸动态行走表现`，直接main普通推送（用户持续授权），记录目的commit；只以该commit对应CI核验完成，不引用S2-A旧CI代替。核对远端main、工作区剩余改动和本任务服务清理；无分支/PR流程、无强推。
 
 ## 最终验收与自审清单
 
-- [ ] 进入门槛有S2-A目的commit与对应CI，正式计划已复核/提交；依赖接口未漂移。
-- [ ] walk44..91、12fps资源事实与全局开发循环选择分开写明；19身体全段图像/可见性和源索引核对保留。
-- [ ] Zombie完整clip解析/映射/prepare一次、去重解码一次；错误归属Zombie；旧pose不存在，其他消费者继续有效。
-- [ ] 原创测试具体覆盖借用、源层序、空图/隐藏/短轨道/时间边界/错误、两只不同位置、池复用、材质换绑、移除尾槽、裁剪、actual main update。
-- [ ] Runtime与内容未改；同版本回放digest/事件顺序不变；暂停、胜利/失败、重开、新波次及向日葵回归闭合。
-- [ ] 新采样/1与10对象基准和真实缓存结构统计已执行，测量口径与限制明确，没有无依据时间或内存收益声明。
+- [x] 进入门槛有S2-A目的commit与对应CI，正式计划已复核/提交；冻结源码的依赖接口未漂移。维护后继续验证需重新核对。
+- [x] walk44..91、12fps资源事实与全局开发循环选择分开写明；19身体全段图像/可见性和源索引核对保留。
+- [x] Zombie完整clip解析/映射/prepare一次、去重解码一次；错误归属Zombie；旧pose不存在，其他消费者继续有效。
+- [x] 原创测试具体覆盖借用、源层序、空图/隐藏/短轨道/时间边界/错误、两只不同位置、池复用、材质换绑、移除尾槽、裁剪、actual main update。
+- [x] Runtime与内容未改；同版本回放digest/事件顺序不变；暂停、胜利/失败、重开、新波次及向日葵回归闭合。该勾选只针对冻结源码的既有工程证据。
+- [x] 新采样/1与10对象基准和真实缓存结构统计已执行，测量口径与限制明确，没有无依据时间或内存收益声明。维护后不复用其数值作为新基线。
 - [ ] Windows/Web正常输入与资源walk动态证据、双终局及重开已取得；GPU冒烟与CPU测试分别报告，其余平台限定于实际构建/运行范围。
 - [ ] 正式main提交/推送/该commit CI、编码、链接、资源边界和服务清理完成；所有执行结果由主线程实际核验后登记。
-- [ ] 原版walk/walk2选择、出生相位、插值/混合、切换与死亡时机仍未知，原版有效重复0/3；B1持续walk（包括碰到植物的僵尸）只是开发降级表现，不声明原版动作匹配。
-- [ ] 啃食不靠Damaged target或几何位置猜攻击者，死亡不靠不存在的当前位置猜锚点；B2先固定可靠输入与事件/回放合同，再另做可玩增量。
+- [x] 原版walk/walk2选择、出生相位、插值/混合、切换与死亡时机仍未知，原版有效重复0/3；B1持续walk（包括碰到植物的僵尸）只是开发降级表现，不声明原版动作匹配。
+- [x] 啃食不靠Damaged target或几何位置猜攻击者，死亡不靠不存在的当前位置猜锚点；B2先固定可靠输入与事件/回放合同，再另做可玩增量。
 
-自审结果：所有B1需求均映射到任务1缓存/装配/真实消费者/测试/基准，任务2平台/文档/交付；没有占位步骤，没有未经消费者验证的通用框架或未来动作占位。具体帧/图像事实来自当前静态资源核对；本计划不构成编译、GPU、平台运行或原版行为验收结果。
+自审结果：所有B1需求均映射到任务1缓存/装配/真实消费者/测试/基准，任务2平台/文档/交付；没有占位步骤，没有未经消费者验证的通用框架或未来动作占位。帧/图像事实、CPU 测试和冻结源码工程结果按对应证据范围记录；本计划不把这些结果扩大为当前新源码的编译、GPU、平台运行或原版行为验收。Windows 正常窗口、Web 诊断、最终复核和 Git/CI 仍是关闭 B1 的必要条件。
+
+## 2026-10-14 执行状态
+
+任务1实现、118项app测试与限定修复复核已完成，无开放Critical/Important；只修改五个app文件，main仅测试，源码尚未提交。步骤1/2已取得缺 `ZombieWalk` 的3处E0433红测；步骤6的Scene测试并非全部先失败，保留实际顺序偏差，不声明全任务完整TDD。alpha缺省按 `unwrap_or(1.0)` 有效绘制值、恢复命令当批core可推进tick而动画相位不变，均有原始失败与修正记录。
+
+冻结源码的任务2步骤1默认/all-features各222项workspace测试（含doctest）、适用check/Clippy/doc/fmt/deny/actionlint/native构建、两组干净覆盖率与三项walk基准已通过；相关core回放包含在workspace测试，未重跑未修改core/assets的旧时间基准。步骤3四条冻结源码 Windows GPU CLI 实际退出码为0/0/1/0。步骤5入口与结果文档已同步。步骤2仍待完成：Windows旧正常窗口JPEG记录缺完整无遮挡身体动态图对、失败冻结图对与resize，当前CUA无getApp/listWindows，无法补齐。步骤4的 default/probe 构建/生成及 Web 正常动态图对、跨循环暂停/恢复、双终局/重开、收集阳光、铲除、向日葵复验与DPR1 resize均有记录；`compare_captures.py` 使用 bundled Python 成功退出0并生成 `image-comparison.json`。Tab8已关闭且关闭前未查询 warn/error，Web 步骤4诊断子项仍待补，整个步骤未完成。步骤6和整批最终验收保持未完成；后续维护后的新验证尚在运行，不能复用冻结源码数值作为新结论。详细读数、索引和限制见[本批结果](../../behavior/content-foundation-results.md#2026-10-14-普通僵尸动态行走增量)。
+
+
+## 2026-10-15 维护后阶段性收尾
+
+本轮继续消费维护后的源码，完成无消费者接口清理、粒子属性树缓存清理、app 显示修复、Web 状态回归和文档整合。默认/all-features workspace 测试、check、Clippy、doc、fmt、deny、actionlint、干净覆盖率、资源解析/表现基准、native release、WASM default/probe 绑定及四条 CLI 冒烟均已通过；结果和原始输出见[维护后结果](../../behavior/content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)。
+
+本节不关闭步骤2 Windows 正常窗口、步骤4真实浏览器诊断、设备音频、原版行为和六平台完整运行；这些仍需真实平台或原版证据，不能用维护后的 CPU/CLI/Node 测试替代。维护工作的提交、推送和合并按用户本轮授权单独记录，不把 B1 阶段标为完成。
