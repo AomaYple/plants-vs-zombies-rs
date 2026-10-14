@@ -313,6 +313,14 @@ fn keyboard_audio(world: &mut World, state: &mut AppState, pause: bool, effect: 
 fn update(world: &mut World) {
     world.resource_scope(|world, mut state: Mut<AppState>| {
         poll_resources(world, &mut state);
+        #[cfg(not(target_arch = "wasm32"))]
+        if state.options.smoke.is_some()
+            && state.screenshot_requested
+            && state.screenshot_wait.is_some()
+        {
+            smoke(world, &mut state);
+            return;
+        }
         let mut window_query = world.query_filtered::<(Entity, &Window), With<PrimaryWindow>>();
         let Ok((window_entity, window)) = window_query.single(world) else { return; };
         let size = (window.physical_width(), window.physical_height());
@@ -343,7 +351,7 @@ fn update(world: &mut World) {
         consume_events(world, &mut state);
         sync_music(world, &state);
         let mut scene = state.scene.take();
-        if let Some(scene) = &mut scene { scene.update(world, &state.runtime.game); }
+        if let Some(scene) = &mut scene { scene.update(world, &state.runtime.game, state.runtime.animation_seconds); }
         state.scene = scene;
         let audio_status = if state.options.probe { "占位模式无音频".to_owned() } else if let Some(sink) = state.music_entity.and_then(|e| world.get::<AudioSink>(e)) { format!("音乐 {:.2}s 暂停={}", sink.position().as_secs_f64(), sink.is_paused()) } else { "音乐已停止/等待 E、M 用户手势".to_owned() };
         if state.options.probe { world.get_mut::<Text2d>(state.status).expect("状态文本存在").0 = format!("tick {} · 动画 {:.2}s · 帧 {} · 阳光 {} · DPI {dpi:.2}\nP/空格 暂停 · E 音效 · M 循环 · {audio_status}\n逻辑输入 {:?} · 模式 {}", state.runtime.game.clock().current_tick(), state.runtime.animation_seconds, state.runtime.render_frames, state.runtime.game.sun(), state.pointer, if state.failure.is_some() { "资源失败" } else if !state.ready { "加载中" } else if state.options.probe { "原创探针" } else { "登记资源" });
@@ -568,6 +576,12 @@ fn smoke(world: &mut World, state: &mut AppState) {
         state.screenshot_wait = Some(screenshot_wait::ScreenshotWait::new(
             world.resource::<Time<Real>>().elapsed(),
         ));
+        println!(
+            "GPU 截图等待冻结：tick={} animation_seconds={:.9} render_frames={}",
+            state.runtime.game.clock().current_tick(),
+            state.runtime.animation_seconds,
+            state.runtime.render_frames
+        );
         world.spawn(Screenshot::primary_window()).observe(
             move |capture: On<ScreenshotCaptured>,
                   time: Res<Time<Real>>,
@@ -774,6 +788,151 @@ mod tests {
         let mut world = harness();
         world.resource_mut::<AppState>().music = Some(Handle::default());
         world
+    }
+
+    fn sunflower_vertices(world: &mut World) -> Vec<[f32; 3]> {
+        use bevy::mesh::VertexAttributeValues;
+        // 行深度加源轨道索引，直接找到真实 Scene 的底层网格组件。
+        let handle = world
+            .query::<(&Transform, &Mesh2d)>()
+            .iter(world)
+            .find(|(transform, _)| (transform.translation.z - 11.01).abs() < 0.001)
+            .expect("向日葵底层网格实际存在")
+            .1
+            .0
+            .clone();
+        let mesh = world.resource::<Assets<Mesh>>().get(&handle).unwrap();
+        match mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap() {
+            VertexAttributeValues::Float32x3(vertices) => vertices.clone(),
+            other => panic!("向日葵顶点格式异常：{other:?}"),
+        }
+    }
+
+    #[test]
+    fn 实际update向日葵消费表现时钟暂停保持相位恢复后改变网格() {
+        let mut world = harness();
+        let scene = render::sunflower_scene_fixture(&mut world);
+        let mut runtime = Runtime::failure_day();
+        runtime.command(pvz_core::Command::SelectCard {
+            kind: pvz_core::PlantKind::Sunflower,
+        });
+        runtime.command(pvz_core::Command::Plant {
+            cell: pvz_core::Cell { row: 1, column: 0 },
+        });
+        // 先推进种植，再独立提交暂停：同批末尾暂停按核心合同不推进 tick。
+        runtime.advance(1.0 / 60.0);
+        assert_eq!(runtime.game.board().unwrap().plants().len(), 1);
+        runtime.command(pvz_core::Command::Pause);
+        runtime.advance(1.0 / 60.0);
+        assert!(runtime.paused);
+        // 此相位与 0 以及模拟 tick 都不同：12fps 第二帧的底层 x=9。
+        runtime.animation_seconds = 0.12;
+        assert_eq!(runtime.game.clock().current_tick(), 1);
+        let state = &mut *world.resource_mut::<AppState>();
+        state.runtime = runtime;
+        state.scene = Some(scene);
+        let expected = vec![
+            [-311.0, 104.0, 0.0],
+            [-309.0, 104.0, 0.0],
+            [-309.0, 102.0, 0.0],
+            [-311.0, 102.0, 0.0],
+        ];
+        for _ in 0..2 {
+            world
+                .resource_mut::<Time<Real>>()
+                .advance_by(Duration::from_secs_f64(0.01));
+            update(&mut world);
+            assert_eq!(world.resource::<AppState>().runtime.animation_seconds, 0.12);
+            assert_eq!(sunflower_vertices(&mut world), expected);
+        }
+        world
+            .resource_mut::<AppState>()
+            .runtime
+            .command(pvz_core::Command::Resume);
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs_f64(0.01));
+        update(&mut world);
+        assert!(!world.resource::<AppState>().runtime.paused);
+        assert_eq!(
+            world.resource::<AppState>().runtime.animation_seconds,
+            0.12,
+            "恢复命令当帧不承接暂停耗时"
+        );
+        assert_eq!(sunflower_vertices(&mut world), expected);
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs_f64(0.14));
+        update(&mut world);
+        assert!((world.resource::<AppState>().runtime.animation_seconds - 0.26).abs() < 1e-9);
+        assert_eq!(
+            sunflower_vertices(&mut world),
+            [
+                [-313.0, 104.0, 0.0],
+                [-311.0, 104.0, 0.0],
+                [-311.0, 102.0, 0.0],
+                [-313.0, 102.0, 0.0]
+            ]
+        );
+    }
+
+    #[test]
+    fn 实际update截图等待冻结运行时场景而真实时钟继续泵动() {
+        let mut world = harness();
+        let mut scene = render::sunflower_scene_fixture(&mut world);
+        let mut runtime = Runtime::failure_day();
+        runtime.command(pvz_core::Command::SelectCard {
+            kind: pvz_core::PlantKind::Sunflower,
+        });
+        runtime.command(pvz_core::Command::Plant {
+            cell: pvz_core::Cell { row: 1, column: 0 },
+        });
+        runtime.advance(1.0 / 60.0);
+        scene.update(&mut world, &runtime.game, 0.12);
+        let before_mesh = sunflower_vertices(&mut world);
+        let before_digest = runtime.game.state_digest();
+        let before_animation = runtime.animation_seconds;
+        let before_frames = runtime.render_frames;
+        {
+            let state = &mut *world.resource_mut::<AppState>();
+            state.options.smoke = Some(4);
+            state.options.screenshot = true;
+            state.screenshot_requested = true;
+            state.screenshot_wait = Some(screenshot_wait::ScreenshotWait::new(Duration::ZERO));
+            state.runtime = runtime;
+            state.scene = Some(scene);
+        }
+        let before_real = world.resource::<Time<Real>>().elapsed();
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs(1));
+        update(&mut world);
+        let state = world.resource::<AppState>();
+        assert_eq!(state.runtime.game.state_digest(), before_digest);
+        assert_eq!(state.runtime.animation_seconds, before_animation);
+        assert_eq!(state.runtime.render_frames, before_frames);
+        assert!(state.screenshot_wait.is_some(), "等待状态尚未完成");
+        assert!(world.resource::<Time<Real>>().elapsed() > before_real);
+        assert_eq!(sunflower_vertices(&mut world), before_mesh);
+
+        let mut exits = world.resource::<Messages<AppExit>>().get_cursor();
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs(29));
+        update(&mut world);
+        assert!(world.resource::<AppState>().screenshot_wait.is_some());
+        let messages: Vec<_> = exits.read(world.resource::<Messages<AppExit>>()).collect();
+        assert_eq!(messages.len(), 1, "30秒边界只交付一次退出");
+        assert!(
+            matches!(messages[0], AppExit::Error(_)),
+            "等待超时必须传播错误退出"
+        );
+        update(&mut world);
+        assert_eq!(
+            exits.read(world.resource::<Messages<AppExit>>()).count(),
+            0,
+            "完成后的等待轮询不重复退出"
+        );
     }
 
     fn audio_batch(world: &mut World, keys: &[KeyCode]) {

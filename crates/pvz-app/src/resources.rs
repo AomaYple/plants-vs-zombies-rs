@@ -10,6 +10,7 @@ use std::{
 
 pub const BACKGROUND: &str = "images/background1.jpg";
 pub const ANIMATION: &str = "reanim/PeaShooter.reanim";
+const SUNFLOWER_ANIMATION: &str = "reanim/SunFlower.reanim";
 pub const EFFECT: &str = "sounds/seedlift.ogg";
 pub const PEA_IMAGE: &str = "images/ProjectilePea.png";
 pub const MUSIC: &str = "sounds/ZombiesOnYourLawn.ogg";
@@ -60,7 +61,6 @@ pub const ZOMBIE_TRACKS: &[&str] = &[
     "anim_hair",
 ];
 pub const POSE_SOURCES: &[(VisualKind, &str, usize, &[&str])] = &[
-    (VisualKind::Sunflower, "reanim/SunFlower.reanim", 4, &[]),
     (
         VisualKind::Zombie,
         "reanim/Zombie.reanim",
@@ -571,9 +571,44 @@ pub fn decode_image(path: &str, bytes: &[u8]) -> Result<CpuImage, ResourceError>
         rgba: image.into_raw(),
     })
 }
+/// 单次装配所选向日葵 idle，采样借用源帧并保留源图层索引。
+pub struct SunflowerIdle {
+    animation: PreparedAnimation,
+    segment: std::ops::Range<usize>,
+    drawable_tracks: Vec<usize>,
+}
+impl SunflowerIdle {
+    pub fn new(animation: PreparedAnimation) -> Result<Self, ResourceError> {
+        let segment = animation
+            .marker_segment("anim_idle")
+            .ok_or_else(|| error(SUNFLOWER_ANIMATION, "没有向日葵 idle marker 区段"))?;
+        let drawable_tracks = animation.drawable_tracks(&segment);
+        if drawable_tracks.is_empty() {
+            return Err(error(SUNFLOWER_ANIMATION, "向日葵 idle 没有可绘制轨道"));
+        }
+        Ok(Self {
+            animation,
+            segment,
+            drawable_tracks,
+        })
+    }
+
+    pub fn sample(
+        &self,
+        seconds: f64,
+    ) -> impl Iterator<Item = (usize, &pvz_assets::AnimationFrame)> {
+        let index = self.animation.frame_at(seconds, &self.segment);
+        self.drawable_tracks.iter().filter_map(move |&layer| {
+            let frame = self.animation.tracks[layer].get(index)?;
+            (!frame.f.is_some_and(|n| n < 0.0) && frame.i.as_ref().is_some_and(|id| !id.is_empty()))
+                .then_some((layer, frame))
+        })
+    }
+}
 pub struct LoadedResources {
     pub background: CpuImage,
     pub animation: PreparedAnimation,
+    pub sunflower_idle: SunflowerIdle,
     pub images: BTreeMap<String, CpuImage>,
     pub effect: Vec<u8>,
     pub music: Vec<u8>,
@@ -606,6 +641,26 @@ impl LoadedResources {
         }
         let mut poses = BTreeMap::new();
         poses.insert(VisualKind::Peashooter, selected_pose(&animation, 79, &[])?);
+        let bytes = provider.read(SUNFLOWER_ANIMATION).await?;
+        let source = std::str::from_utf8(&bytes)
+            .map_err(|_| error(SUNFLOWER_ANIMATION, "动画不是 UTF-8 文本"))?;
+        let clip = parse_reanim(source).map_err(|_| error(SUNFLOWER_ANIMATION, "动画解析失败"))?;
+        // 完整 clip 的所有引用都须通过映射与清单验证，不只检查 idle 区段。
+        let mapping = resolve_images(&clip, provider.manifest())
+            .map_err(|failure| error(SUNFLOWER_ANIMATION, failure.reason))?;
+        for (id, path) in mapping {
+            if let std::collections::btree_map::Entry::Vacant(entry) = images.entry(id) {
+                let bytes = provider
+                    .read(&path)
+                    .await
+                    .map_err(|failure| error(SUNFLOWER_ANIMATION, failure.reason))?;
+                entry.insert(
+                    decode_image(&path, &bytes)
+                        .map_err(|failure| error(SUNFLOWER_ANIMATION, failure.reason))?,
+                );
+            }
+        }
+        let sunflower_idle = SunflowerIdle::new(PreparedAnimation::new(&clip))?;
         for (kind, path, frame, tracks) in POSE_SOURCES {
             let bytes = provider.read(path).await?;
             let source =
@@ -646,6 +701,7 @@ impl LoadedResources {
         Ok(Self {
             background,
             animation,
+            sunflower_idle,
             images,
             effect,
             music,
@@ -698,7 +754,36 @@ mod tests {
         .expect("native读取无需异步等待")
         .unwrap();
         assert_eq!(resources.images.len(), IMAGE_MAPPING.len() + 1);
-        assert_eq!(resources.poses.len(), 6);
+        assert_eq!(
+            resources.poses.keys().copied().collect::<Vec<_>>(),
+            [
+                VisualKind::Peashooter,
+                VisualKind::Zombie,
+                VisualKind::Pea,
+                VisualKind::Sun,
+                VisualKind::LawnMower,
+            ]
+        );
+        assert_eq!(resources.sunflower_idle.animation.fps, 12.0);
+        assert_eq!(resources.sunflower_idle.animation.tracks.len(), 29);
+        assert_eq!(resources.sunflower_idle.segment, 4..29);
+        for (seconds, expected_frame) in [(0.0, 4), (24.0 / 12.0, 28), (25.0 / 12.0, 4)] {
+            assert!(resources.sunflower_idle.sample(seconds).next().is_some());
+            assert_eq!(
+                resources
+                    .sunflower_idle
+                    .animation
+                    .frame_at(seconds, &resources.sunflower_idle.segment),
+                expected_frame
+            );
+            for (layer, frame) in resources.sunflower_idle.sample(seconds) {
+                assert!(std::ptr::eq(
+                    frame,
+                    &resources.sunflower_idle.animation.tracks[layer][expected_frame]
+                ));
+                assert!(resources.images.contains_key(frame.i.as_ref().unwrap()));
+            }
+        }
         assert_eq!(resources.effects.len(), 4);
         assert_eq!(
             (resources.background.width, resources.background.height),
@@ -706,6 +791,105 @@ mod tests {
         );
         assert!(resources.music_info.samples > 0);
         assert!(resources.animation.marker_segment("anim_idle").is_some());
+    }
+    #[test]
+    fn 登记向日葵缓存结构统计() {
+        let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
+            repository_provider(),
+        ))
+        .expect("native读取无需异步等待")
+        .unwrap();
+        let idle = &resources.sunflower_idle;
+        let animation = &idle.animation;
+        assert_eq!(animation.fps, 12.0);
+        assert_eq!(animation.tracks.len(), 29);
+        assert_eq!(idle.segment, 4..29);
+        assert_eq!(animation.tracks.len(), animation.names.len());
+        assert!(animation.tracks.len() <= animation.tracks.capacity());
+        assert!(animation.names.len() <= animation.names.capacity());
+        assert!(idle.drawable_tracks.len() <= idle.drawable_tracks.capacity());
+        assert_eq!(
+            idle.drawable_tracks,
+            animation.drawable_tracks(&idle.segment)
+        );
+
+        let mut expanded_frames = 0;
+        let mut image_bytes = 0;
+        let mut font_bytes = 0;
+        let mut text_bytes = 0;
+        let tracks: Vec<_> = animation
+            .tracks
+            .iter()
+            .enumerate()
+            .map(|(layer, track)| {
+                assert!(track.len() <= track.capacity());
+                expanded_frames += track.len();
+                for frame in track {
+                    image_bytes += frame.i.as_ref().map_or(0, String::len);
+                    font_bytes += frame.font.as_ref().map_or(0, String::len);
+                    text_bytes += frame.text.as_ref().map_or(0, String::len);
+                }
+                serde_json::json!({
+                    "源索引": layer,
+                    "len": track.len(),
+                    "capacity": track.capacity(),
+                })
+            })
+            .collect();
+        let frame_string_bytes = image_bytes + font_bytes + text_bytes;
+        let name_bytes: usize = animation.names.iter().map(String::len).sum();
+        assert_eq!(expanded_frames, animation.tracks.iter().flatten().count());
+        assert_eq!(
+            frame_string_bytes,
+            animation
+                .tracks
+                .iter()
+                .flatten()
+                .flat_map(|frame| [&frame.i, &frame.font, &frame.text])
+                .filter_map(Option::as_ref)
+                .map(String::len)
+                .sum::<usize>()
+        );
+        assert_eq!(
+            name_bytes,
+            animation.names.iter().flat_map(|name| name.bytes()).count()
+        );
+        assert_eq!(tracks.len(), animation.tracks.len());
+        assert!(expanded_frames > 0);
+        assert!(image_bytes > 0);
+        assert!(name_bytes > 0);
+        let cache_count = std::slice::from_ref(idle).len();
+        assert_eq!(cache_count, 1);
+
+        // 只统计本字段拥有的结构，不测分配次数、进程峰值或 GPU 内存。
+        let statistics = serde_json::json!({
+            "范围": "登记向日葵缓存结构统计",
+            "缓存份数": cache_count,
+            "fps": animation.fps,
+            "区段": { "start": idle.segment.start, "end": idle.segment.end },
+            "展开帧数": expanded_frames,
+            "帧字符串字节量": {
+                "i": image_bytes,
+                "font": font_bytes,
+                "text": text_bytes,
+                "合计": frame_string_bytes,
+            },
+            "names字节量": name_bytes,
+            "外层轨道Vec": {
+                "len": animation.tracks.len(),
+                "capacity": animation.tracks.capacity(),
+            },
+            "各轨道Vec": tracks,
+            "名称Vec": {
+                "len": animation.names.len(),
+                "capacity": animation.names.capacity(),
+            },
+            "源索引Vec": {
+                "len": idle.drawable_tracks.len(),
+                "capacity": idle.drawable_tracks.capacity(),
+            },
+        });
+        println!("向日葵缓存结构统计：{statistics}");
     }
     #[test]
     fn 损坏与未登记输入被明确拒绝且不会泄露输入() {
@@ -735,6 +919,58 @@ mod tests {
                 .reason
                 .contains("唯一登记")
         );
+    }
+    #[test]
+    fn 向日葵图像未登记时装配错误归属向日葵动画() {
+        let provider = repository_provider();
+        let temp = tempfile::tempdir().unwrap();
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../../../assets/manifest.json")).unwrap();
+        let records = manifest["files"].as_array_mut().unwrap();
+        let previous_len = records.len();
+        records.retain(|record| record["path"] != "reanim/SunFlower_head.png");
+        assert_eq!(records.len() + 1, previous_len);
+        let entry_count = records.len() - 1;
+        // 临时清单的非包条目数仍须满足 Manifest 的结构合同。
+        manifest["package"]["entry_count"] = serde_json::Value::from(entry_count);
+        manifest["package"]["extraction_check"] =
+            serde_json::Value::from("原创测试变体：移除一个向日葵图像登记项");
+        std::fs::create_dir(temp.path().join("assets")).unwrap();
+        std::fs::write(
+            temp.path().join("assets/manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        // 只复制到向日葵映射失败前所需的登记输入，测试目录互相隔离。
+        let shooter =
+            parse_reanim(std::str::from_utf8(&provider.native_bytes(ANIMATION).unwrap()).unwrap())
+                .unwrap();
+        let mut required: BTreeSet<_> = [BACKGROUND, ANIMATION, "reanim/SunFlower.reanim"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+        required.extend(
+            resolve_images(&shooter, provider.manifest())
+                .unwrap()
+                .into_values(),
+        );
+        for path in required {
+            let destination = temp.path().join("assets/original").join(&path);
+            std::fs::create_dir_all(destination.parent().unwrap()).unwrap();
+            std::fs::write(destination, provider.native_bytes(&path).unwrap()).unwrap();
+        }
+        let provider = AssetProvider {
+            index: pvz_assets::AssetRoot::open(temp.path()).unwrap(),
+        };
+        let result = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(provider))
+            .expect("native读取无需异步等待");
+        let error = match result {
+            Ok(_) => panic!("未登记向日葵图像应使装配失败"),
+            Err(error) => error,
+        };
+        assert_eq!(error.path, "reanim/SunFlower.reanim");
+        assert_eq!(error.reason, "图像引用没有唯一登记映射");
     }
     #[test]
     fn 登记默认开发片段包含头部嘴和茎() {

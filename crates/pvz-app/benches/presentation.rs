@@ -1,8 +1,9 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use pvz_app::viewport::{LogicalPoint, Viewport};
 use pvz_app::{
     animation::{Affine, PreparedAnimation},
     geometry::{ClipRect, clipped_quad},
+    resources::SunflowerIdle,
 };
 use pvz_assets::AnimationFrame;
 use std::hint::black_box;
@@ -86,6 +87,164 @@ fn presentation(c: &mut Criterion) {
         "表现/原创8轨道128帧_12fps开发动画时基索引",
         |b| b.iter(|| animation.frame_at(black_box(123.25), &segment)),
     );
+
+    // 原创代表性工作量：29 轨道、12fps、所选区段 4..29；不复制原版轨道。
+    // marker 和 27 条主体轨道各 30 帧，末条仅 6 帧；解析、预装配与核对在计时外。
+    let mut source = String::from("<fps>12</fps><track><name>anim_idle</name>");
+    for frame in 0..30 {
+        source.push_str(match frame {
+            0 | 29 => "<t><f>-1</f></t>",
+            4 => "<t><f>0</f></t>",
+            _ => "<t/>",
+        });
+    }
+    source.push_str("</track>");
+    for track in 1..28 {
+        source.push_str(&format!("<track><name>原创idle图层{track}</name>"));
+        for frame in 0..30 {
+            if frame == 0 {
+                let image = if track == 27 { "" } else { "原创idle图片" };
+                let visible = if track == 26 { -1 } else { 0 };
+                source.push_str(&format!(
+                    "<t><x>{track}</x><y>{track}</y><kx>35</kx><ky>-10</ky><i>{image}</i><f>{visible}</f></t>"
+                ));
+            } else if frame == 19 && track == 24 {
+                source.push_str("<t><i/></t>");
+            } else if frame == 19 && track == 25 {
+                source.push_str("<t><f>-1</f></t>");
+            } else if frame == 20 && track == 24 {
+                source.push_str("<t><i>原创idle图片</i></t>");
+            } else if frame == 20 && track == 25 {
+                source.push_str("<t><f>0</f></t>");
+            } else {
+                source.push_str(&format!("<t><x>{frame}</x></t>"));
+            }
+        }
+        source.push_str("</track>");
+    }
+    source.push_str("<track><name>原创idle真实短轨道</name>");
+    for frame in 0..6 {
+        source.push_str(if frame == 4 {
+            "<t><x>8</x><y>8</y><i>原创idle短图</i><f>0</f></t>"
+        } else {
+            "<t/>"
+        });
+    }
+    source.push_str("</track>");
+    let clip = pvz_assets::parse_reanim(&source).expect("原创向日葵基准夹具语法有效");
+    assert_eq!(clip.fps(), 12.0);
+    assert_eq!(clip.tracks().len(), 29);
+    assert!(clip.tracks()[..28].iter().all(|t| t.frame_count() == 30));
+    assert_eq!(clip.tracks()[28].frame_count(), 6);
+    let animation = PreparedAnimation::new(&clip);
+    assert_eq!(animation.marker_segment("anim_idle"), Some(4..29));
+    assert_eq!(animation.tracks.iter().map(Vec::len).sum::<usize>(), 846);
+    assert_eq!(
+        animation.drawable_tracks(&(4..29)),
+        (1..26).chain([28]).collect::<Vec<_>>()
+    );
+    let short_first = std::ptr::from_ref(&animation.tracks[28][4]);
+    let short_second = std::ptr::from_ref(&animation.tracks[28][5]);
+    assert!(animation.tracks[28].get(6).is_none());
+    let idle = SunflowerIdle::new(animation).expect("原创向日葵基准所选idle有效");
+    for (seconds, expected) in [(0.0, short_first), (1.0 / 12.0, short_second)] {
+        let (_, frame) = idle
+            .sample(seconds)
+            .find(|(layer, _)| *layer == 28)
+            .expect("真实短轨道的源帧4和5均可绘");
+        assert_eq!(std::ptr::from_ref(frame), expected, "采样借用展开帧");
+        assert_eq!(frame.i.as_deref(), Some("原创idle短图"));
+    }
+    for step in 2..25 {
+        assert!(
+            idle.sample(f64::from(step) / 12.0)
+                .all(|(layer, _)| layer != 28)
+        );
+    }
+    let sampled: Vec<_> = idle.sample(1.25).collect();
+    assert_eq!(
+        sampled.iter().map(|(layer, _)| *layer).collect::<Vec<_>>(),
+        (1..24).collect::<Vec<_>>()
+    );
+    assert!(sampled.iter().all(|(_, frame)| frame.x == Some(19.0)));
+    c.bench_function(
+        "表现/原创29轨道25帧_12fps向日葵所选idle采样",
+        |b| {
+            b.iter(|| {
+                let mut count = 0;
+                for (layer, frame) in idle.sample(black_box(1.25)) {
+                    black_box((layer, frame));
+                    count += 1;
+                }
+                black_box(count);
+            });
+        },
+    );
+
+    // 固定 5×9 原点、40×50 图像、800×600 裁剪；全部植物借用同一缓存。
+    // 计时包括生产采样、仿射与裁剪输出分配，不含 Bevy 网格池、纹理上传或 GPU 提交。
+    let origins: Vec<[f32; 2]> = (0..5)
+        .flat_map(|row| {
+            (0..9).map(move |column| [60.0 + column as f32 * 80.0, 100.0 + row as f32 * 90.0])
+        })
+        .collect();
+    assert_eq!(origins.len(), 45);
+    let clip_rect = ClipRect {
+        min: [0.0, 0.0],
+        max: [800.0, 600.0],
+    };
+    let mut group = c.benchmark_group("表现/原创向日葵idle采样与多植物仿射裁剪");
+    for plants in [1, 45] {
+        let origins = &origins[..plants];
+        let mut expected_vertices = 0;
+        for origin in origins {
+            for (_, frame) in idle.sample(1.25) {
+                let mut affine = Affine::from_frame(frame);
+                affine.tx += origin[0];
+                affine.ty += origin[1];
+                let vertices = clipped_quad(affine, [40.0, 50.0], clip_rect);
+                assert_eq!(vertices.len(), 4, "固定输入的四个顶点均在裁剪范围内");
+                assert_eq!(
+                    vertices[0].point,
+                    [
+                        origin[0] + 19.0,
+                        origin[1] + frame.y.expect("原创图层具有y坐标"),
+                    ]
+                );
+                assert!(vertices.iter().all(|vertex| {
+                    vertex.point.iter().all(|n| n.is_finite())
+                        && (0.0..=800.0).contains(&vertex.point[0])
+                        && (0.0..=600.0).contains(&vertex.point[1])
+                        && vertex.uv.iter().all(|n| (0.0..=1.0).contains(n))
+                }));
+                expected_vertices += vertices.len();
+            }
+        }
+        assert_eq!(
+            expected_vertices,
+            plants * 23 * 4,
+            "完整消费全部植物和可绘图层"
+        );
+        group.bench_with_input(
+            BenchmarkId::from_parameter(plants),
+            &origins,
+            |b, origins| {
+                b.iter(|| {
+                    let mut count = 0;
+                    for origin in *origins {
+                        for (_, frame) in idle.sample(black_box(1.25)) {
+                            let mut affine = Affine::from_frame(frame);
+                            affine.tx += origin[0];
+                            affine.ty += origin[1];
+                            count += black_box(clipped_quad(affine, [40.0, 50.0], clip_rect)).len();
+                        }
+                    }
+                    black_box(count);
+                });
+            },
+        );
+    }
+    group.finish();
 }
 criterion_group!(benches, presentation);
 criterion_main!(benches);

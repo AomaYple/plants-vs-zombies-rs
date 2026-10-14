@@ -164,7 +164,7 @@ Web 条件代码、GPU 实际绘制和设备路径不在 native 分母；stable 
 
 Windows CI 已在现有 probe30/slice30 之后配置失败400成功冒烟和期限2 OS 退出码回归：前者须观察到 `Lost` 且退出0，后者必须非零退出。actionlint 通过，本机上述实际进程正/负例通过；目的提交 `f1850b1` 对应 Windows 实现检查及其余七个 CI job 均已成功，具体运行见下文交付记录。修复后 WASM release 构建与 wasm-bindgen 生成也退出0（`exit-fix-15.log/16.log`）。新包随后在后台浏览器通过启动按钮加载默认登记画面，正常 F 输入进入失败，画面显示阳光150、2/2波次及僵尸突破防线；正常 R 重开恢复阳光150、1/2波次及守住草坪。warn/error 查询为 `[]`，截图 `web-exit-fix-failure.png` 已核对；自有 tab3 和服务 PID23732 已关闭。该新包未完整重跑胜利及再次种植，main 退出传播修复没有改变玩法、Runtime 或时钟，完整双终局/冻结/再种植合同沿用上表此前同轮正常输入证据，不能把它改写成新包全流程重测。观察和清理记录为 `web-exit-fix-observation.json`。
 
-S1 全部适用本地 L3 验收及最终独立复核完成：双终局、冻结、重开/再种植证据、两组合各194项测试、七基准、实际进程0/1/0、actionlint、修复后两组合干净覆盖率和新 WASM 回归已齐。完整目的提交 `f1850b1ce5bad82b91338867c3f4cca8387410fc` 已推送 `main`；对应 [CI 运行 38502468453](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38502468453) 的 sha 与该提交一致，status 为 completed、conclusion 为 success，仓库结构、依赖审计、Web 构建、Windows/macOS/Linux 实现检查及 default/all 覆盖率与基准入口共八个 job 全部成功，账本见本轮原始索引。S1 已完成开发闭环；当前进入 [S2-A 向日葵 idle 实施准备](../superpowers/plans/2026-10-14-sunflower-idle.md)，源码尚未实施。本次阶段状态/计划文档尚未提交，其提交与 CI 另行核验，不引用 S1 的成功作为本次文档提交结果。原版行为测量仍为独立证据轨，不因 S1 工程进展变为已还原。
+S1 全部适用本地 L3 验收及最终独立复核完成：双终局、冻结、重开/再种植证据、两组合各194项测试、七基准、实际进程0/1/0、actionlint、修复后两组合干净覆盖率和新 WASM 回归已齐。完整目的提交 `f1850b1ce5bad82b91338867c3f4cca8387410fc` 已推送 `main`；对应 [CI 运行 38502468453](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38502468453) 的 sha 与该提交一致，status 为 completed、conclusion 为 success，仓库结构、依赖审计、Web 构建、Windows/macOS/Linux 实现检查及 default/all 覆盖率与基准入口共八个 job 全部成功，账本见本轮原始索引。S1 已完成开发闭环；当时进入 S2-A 实施准备，后续向日葵增量独立记录在下节，不把 S1 的成功当作 S2-A 提交验收。原版行为测量仍为独立证据轨，不因 S1 工程进展变为已还原。
 
 ### 本轮原始索引
 
@@ -181,6 +181,85 @@ S1 全部适用本地 L3 验收及最终独立复核完成：双终局、冻结�
 | 失败边界探索 | `failure-bounded.json`、`failure-bounded.log` |
 | S1 目的提交对应 CI | `ci.json`；sha=`f1850b1ce5bad82b91338867c3f4cca8387410fc`，run=`38502468453`，completed/success，八个 job 全部成功 |
 | 结构检查快照 | `structure.json`；最终文档及交付检查由主代理继续核验 |
+
+## 2026-10-14 向日葵动态待机增量
+
+S2-A 在 `35bfd8cd8e4485a810bb634a64e558ea92e12505` 起点完成向日葵动态 idle、原创回归与本地可玩验收；最终独立复核和文档检查已通过，Git/对应 CI 收口中。只修改 app 资源、构图、入口、测试与基准，core/runtime、内容、规则 2.0 和锁文件没有变化。`SunFlower.reanim` 的 12fps、29 轨道、`anim_idle` 半开区段 `4..29` 是资源事实；采用全局表现时钟和离散采样是开发合同，不代表原版播放器、独立实体相位、插值或混合已验证。原版 `tutorial-plant-01` 合格重复仍为 0/3。
+
+### 实现和正确性保护
+
+资源装配一次解析向日葵完整 clip、验证全部图像映射并解码，把唯一 `SunflowerIdle` 缓存移动到 `Scene`；原向日葵静态 pose 已移除，其余五类继续消费静态姿态。更新借用采样帧和已有纹理，保留源层顺序、alpha、仿射、裁剪与网格/材质池；main 消费 `Runtime.animation_seconds`。原创夹具验证短轨道缺帧、隐藏/空图、纹理槽位换绑、部分/完全裁剪、固定区段 4/5/28/4、异常时间、移除及 45 株共享，暂停、双终局与重开测试直接读取实际 Scene 网格。
+
+同 seed/规则/命令回放对照逐批保存完整核心摘要、事件及表现时间，包含恢复当批、两终局、大 elapsed、重开与再植；额外 Scene 采样即时断言 core 摘要不变。成功/失败夹具分别断言初始余额 0/100、植物数 2/1、种植数和支出 150/50，重开再植后具体顶点由 `[-313,104,0]` 变为 `[-311,104,0]`。这些测试不使用截图像素判断 core 回放。
+
+既有 native 冒烟截图等待现在冻结 Runtime、Scene、脚本和输入推进，Bevy 渲染与 `Time<Real>` 继续泵动；恰好 30 秒仅一次 `AppExit::Error`，保持超时与错误退出传播。固定预算 4/5 的实际 GPU 图分别记录 tick60/75、表现时间 1.0/1.25 秒、render_frames4/5；1000×750 图像中向日葵区域变化 5286 像素，边界框 `[116,254,199,343]`，逐张核对主体完整。CPU 构图、GPU 实跑及原版行为各自登记。
+
+### 实际平台流程
+
+Windows 11 原生窗口内容为 1000×750、DPI 1.25，截图含边框为 1002×782；Web 使用本批 release 包、wasm-bindgen 0.2.129、隐藏的 Codex In-app Browser，1280×720 画面、800×600 逻辑区域缩放 1.2。均以正常 F/R/P 与卡片/草坪点击完成，不注入规则或隐藏游戏状态。
+
+| 流程 | Windows | Web |
+| --- | --- | --- |
+| 动态、暂停和恢复 | 安全 row1/column0 向日葵，阳光150→100；P 暂停图对主体逐像素一致，恢复及重开再植有可见姿态变化 | F 后同一位置种植；暂停图对逐像素一致，恢复有可见变化；失败/胜利重开再植后间隔400ms主体区域各变化8058像素 |
+| 失败冻结 | row0 无防守，第二只僵尸突破，向日葵在安全行存活；终局前延后种植以避免阳光遮挡，无遮挡主体图对差异0像素 | 失败前正常再植安全行向日葵，明确 Lost，无遮挡主体图对差异0像素；R 后重新选卡种植恢复动态 |
+| 胜利冻结 | F 同一关卡 row0 射手、row1 向日葵，总费用150、余额0；明确 Won，无遮挡主体图对差异0像素；R 清空、再植动态另有本轮正常输入证据 | R 后 row0 射手，正常防守11秒后种 row1 向日葵，连续运行到 Won；光标移至画布外后，无遮挡主体图对差异0像素；R 后再植动态已验证 |
+
+Windows 最终补证 PID4012 运行忽略目录 `native-ui/pvz-app.exe`，SHA-256 `04711041ee79d7532b4fc97d6c23923ea76ae090212fe214225954bc343ca4f5` 与最终 `target/debug` 一致。psutil 7.1.0 只暂停/恢复该进程在模型决策间隔的 OS 调度，所有输入仍经正常键鼠；准备完成后连续运行到终局，冻结图对之间没有 OS 暂停。失败截对捕获始于 UTC07:45:10.645 与07:46:32.383，胜利始于07:57:05.011 与07:58:27.895；每次结束时间也保留，不用文件写入时间冒充捕获时间。此前 PID27572 的正常暂停/双终局/重开/再植证据保留，但其输入准备采用 OS 控制、只有部分写文件时刻，作为补充而非精确时间轴。
+
+Web 无遮挡 Lost 截对始于 UTC07:54:45.442 与07:55:50.220；最终无光标 Won 截对始于07:59:27.587 与08:00:21.945。首次无遮挡胜利图对有251个像素差异，框局限光标位置，保留为探索；之后把光标移到画布外重新捕获，主体差异0。旧阳光遮挡终局图只证明状态与存活，不作为完整主体冻结主要证据。当前浏览器 warn/error 查询为 `[]`，Windows stderr 为空；不据此宣称历史 GPU shader 诊断已根治。本次自有 native 进程、Web 标签5与回环服务PID18912均已关闭。
+
+当前 Windows 默认成功600/失败400隐藏冒烟均退出0；短失败预算4实际退出1，正确拒绝未达终局，不把探索的预期0写成通过。没有重新实听设备音频、默认 Web 十波完整胜利、真实 DPR2/4、触摸或其他浏览器；macOS/Linux 实际窗口及 Android/iOS 仍待对应阶段。WASM default/probe 构建和绑定生成通过，构建不能替代其他平台运行。
+
+### 本地检查与覆盖率
+
+最终源码 `cargo fmt --all -- --check`；默认/all-features 分别执行 workspace all-targets check、workspace test（保留 doctest）、all-targets Clippy `-D warnings` 和 doc；`cargo deny check`、actionlint、native build 共12条命令全部退出0。两组合各210项测试；Cargo jobs=2、测试线程默认并行。deny 四类检查通过，重复传递依赖 WARN 保留。锁定 Rust1.99.0、Edition2024、Bevy0.20；没有新增依赖或 feature。
+
+覆盖率分别 `cargo llvm-cov clean --workspace --locked` → 对应 feature 的 `cargo llvm-cov --workspace --locked --no-report` → `cargo llvm-cov report --json --output-path ...`，feature 参数只传测试。两报告均为4546/5189行（87.6084%）、463/539函数（85.8998%）、7130/8045区域（88.6265%），28个文件全部位于当前 checkout，没有追加窗口 profile。部分 cfg(test) 源码计入分母，新增测试使分母变化，不能当生产覆盖提升证据；未启用 branch/MCDC，count0不表示100%。doctest由常规测试单独验证。
+
+| 受影响源码 | 命中行/总行 | 范围与遗漏 |
+| --- | --- | --- |
+| app/animation.rs | 81/81 | 离散采样和准备全部行命中；不能称分支/原版语义100% |
+| app/resources.rs | 491/521 | idle 构造/采样、映射与登记资源失败有覆盖；平台装配/未触发读取错误仍按报告保留 |
+| app/render.rs | 902/1093 | 真实 Scene CPU 构图、池、可见性、纹理和时钟已命中；相机、标签、Scene GPU上传等没有纯测试profile，由独立窗口/GPU证据验证 |
+| app/main.rs | 695/979 | update 时钟接线、截图等待、期限/退出消费者已命中；真实初始化/设备/音频脚本及窗口输入不在纯测试profile，Web条件代码不在native分母 |
+
+资源/Scene 红测按真实缺失接口/静态消费者失败登记。截图等待首次测试失败来自夹具前置条件，不是 guard 缺失红测，明确保留该流程偏差；最终恰好30秒实际 update 回归已通过。一次局部测试因运行中的 exe 被 Windows 锁住而无法替换，停止自有进程后重跑 bin33+presentation11通过，不把构建锁失败归为行为失败。其他编译/夹具失败与修复记录保留在命令索引，未删有效测试或降低门槛。
+
+### 基准和缓存策略
+
+独占运行 `cargo bench -p pvz-app --bench presentation --locked` 退出0、391.566秒。每场景3秒预热、100样本、约5秒采样；Windows11、i7-11800H、8核16线程，未控制维护者其他活动或CPU电源/温度。原创29轨道夹具含真正6帧短轨道，准备与合同断言在计时外；计时完整遍历采样输出。以下采用 Criterion JSON `mean` 和95%区间：
+
+| 场景 | 均值 | 95%置信区间 |
+| --- | --- | --- |
+| JSON解析校验/Runtime装配，1241字节 | 2.30059 µs | 2.29552–2.30589 µs |
+| 3840×2160输入1点反变换 | 4.75576 ns | 4.74812–4.76386 ns |
+| 原创29轨道/25帧/12fps所选idle借用采样 | 47.11351 ns | 47.00620–47.22696 ns |
+| 原创8轨道/128帧/12fps索引 | 7.51104 ns | 7.48016–7.55239 ns |
+| 双轴仿射裁剪1四边形 | 370.81153 ns | 369.02186–373.10559 ns |
+| 1株采样与仿射裁剪 | 5.20120 µs | 5.18622–5.21768 µs |
+| 45株采样与仿射裁剪 | 237.56819 µs | 236.73711–238.52310 µs |
+
+构图计时包含几何输出分配，不含 Bevy 网格池/GPU 提交，core/assets 生产逻辑未变，本批不重复其无关基准。真实45株Scene另验证只有一份缓存、纹理/网格/材质更新不累积。登记缓存结构为841展开帧、图像字符串24862字节、名称519字节、font/text为0；外层轨道/names与每轨道Vec为29/29，可绘索引28/32。仅统计结构，不包含String额外容量、分配器元数据、峰值、分配次数或GPU显存。没有同条件旧基线，不宣称速度、内存或开发耗时改善。
+
+### S2-A 原始索引与交付边界
+
+原始证据位于忽略目录 `artifacts/validation/s2-a-2026-10-14/`，不进入 Git/CI/发行包；公开测试和基准夹具原创，原版资源保持原清单指纹。
+
+| 证据 | 本批文件 |
+| --- | --- |
+| 环境、最终源码/程序包身份 | `environment.json`、`final-source-state.json`、`final-package-state.json` |
+| 最终本地命令和原始输出 | `final-l3-commands.json`、`final-l3-*.log`、`final-local-tests-fixed.json/log` |
+| 干净覆盖率和路径核对 | `final-cov-coverage-commands.json`、`final-cov-coverage-default.json`、`final-cov-coverage-all.json`、`final-coverage-summary.json`、`coverage-zero-regions.json` |
+| 独占基准及结构统计 | `task4-bench.json/log`、`bench-summary.json`、本轮Criterion估计、`cache-structure.json` |
+| GPU固定相位及成功/失败冒烟 | `gpu-slice-1s-final.json/log`、`gpu-slice-125s-final.json/log`、`gpu-1s.png`、`gpu-125s.png`、`gpu-image-comparison.json`、`windows-success-smoke-600.json/log`、`windows-failure-smoke-400.json/log` |
+| Windows最终无遮挡双终局 | `windows-unoccluded-lost-a/b.jpg`、`windows-unoccluded-won-a/b.jpg`、`windows-unoccluded-captures.jsonl`、`windows-process-control.jsonl`；旧暂停/重开/再植图单列补充 |
+| Web暂停/终局/重开再植 | `web-paused-a/b.png`、`web-unoccluded-lost-a/b.png`、`web-won-nocursor-a/b.png`、`web-replant-dynamic-a/b.png`、`web-won-replant-dynamic-a/b.png`、`web-captures.jsonl`、`web-final-logs.json` |
+| 图像比较、操作与清理 | `final-pixel-comparison.json`、`platform-observation-index.json` |
+| 独立复核与执行账本 | `.superpowers/sdd/2026-10-14-sunflower-idle/` 内任务报告、限定复核和progress；Git/对应CI收口后另追加交付记录 |
+
+最终限定独立复核在本地交付范围内规格与质量通过，无新的实质阻塞；核查源码/日志与图像，没有重跑 Cargo/UI。原 Windows 遮挡、操作索引及 Web/覆盖率/文档缺口均已关闭。主线程核对 73 个源码/配置和 5 个程序包指纹一致，L0 检查 3353 个文件、3229 条原版资源、328 条本地文档链接和 5 个 workspace 成员，均通过；Git 和该提交对应 CI 另行登记，不提前勾选阶段。
+
+本节工程与可玩运行不表示整个 S2、其他平台或原版一致性完成；S2-B 源码仍未实施，只有当前子阶段完整交付后才继续。
 
 ## 2026-10-13 仓库质量复核补充
 

@@ -2,6 +2,7 @@ use pvz_app::geometry::{ClipRect, clipped_quad};
 use pvz_app::{
     animation::{Affine, PreparedAnimation},
     audio::{AudioError, validate_audio},
+    resources::SunflowerIdle,
 };
 use pvz_assets::AnimationFrame;
 
@@ -132,4 +133,135 @@ fn 绘制轨道排除纯marker和全隐藏图片保留原层序() {
     assert_eq!(animation.drawable_tracks(&(0..2)), [2, 3]);
     assert_eq!(animation.drawable_tracks(&(0..1)), [2]);
     assert!(animation.drawable_tracks(&(2..3)).is_empty());
+}
+
+#[test]
+fn 向日葵idle采样继承清空隐藏和短轨道并保留源层序() {
+    // 原创夹具，仅验证本项目开发采样合同。
+    let source = "<fps>12</fps><track><name>anim_idle</name><t><f>-1</f></t><t><f>0</f></t><t/><t/><t><f>-1</f></t></track><track><name>底层</name><t><x>7</x><i>原创底图</i></t><t/><t><x>9</x></t><t><i></i></t></track><track><name>上层</name><t><f>-1</f><i>原创上图</i></t><t/><t><f>0</f></t><t><f>-1</f></t></track><track><name>短轨道</name><t><i>原创短图</i></t><t/></track>";
+    let idle = SunflowerIdle::new(PreparedAnimation::new(
+        &pvz_assets::parse_reanim(source).unwrap(),
+    ))
+    .unwrap();
+    let snapshot = |seconds| {
+        idle.sample(seconds)
+            .map(|(layer, frame)| (layer, frame.i.as_deref().unwrap(), frame.x))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        snapshot(0.0),
+        [(1, "原创底图", Some(7.0)), (3, "原创短图", None)]
+    );
+    assert_eq!(
+        snapshot(1.0 / 12.0),
+        [(1, "原创底图", Some(9.0)), (2, "原创上图", None)]
+    );
+    assert!(snapshot(2.0 / 12.0).is_empty());
+    assert_eq!(snapshot(3.0 / 12.0), snapshot(0.0));
+}
+
+#[test]
+fn 向日葵idle使用资源时基处理帧边界循环与异常时间() {
+    // 原创逐帧位置夹具，让每个采样帧都能被精确辨别。
+    let source = "<fps>12</fps><track><name>anim_idle</name><t><f>-1</f></t><t><f>0</f></t><t/><t/><t><f>-1</f></t></track><track><name>图像</name><t><x>0</x><i>原创图像</i></t><t><x>1</x></t><t><x>2</x></t><t><x>3</x></t><t><x>4</x></t></track>";
+    let idle = SunflowerIdle::new(PreparedAnimation::new(
+        &pvz_assets::parse_reanim(source).unwrap(),
+    ))
+    .unwrap();
+    let boundary = 1.0 / 12.0;
+    for (seconds, expected_x) in [
+        (0.0, 1.0),
+        (boundary - 1e-9, 1.0),
+        (boundary, 2.0),
+        (boundary + 1e-9, 2.0),
+        (2.0 / 12.0, 3.0),
+        (3.0 / 12.0 - 1e-9, 3.0),
+        (3.0 / 12.0, 1.0),
+        (3.0 / 12.0 + 1e-9, 1.0),
+        (6.0 / 12.0, 1.0),
+        (-1.0, 1.0),
+        (f64::NAN, 1.0),
+        (f64::INFINITY, 1.0),
+        (f64::NEG_INFINITY, 1.0),
+    ] {
+        let actual: Vec<_> = idle
+            .sample(seconds)
+            .map(|(layer, frame)| (layer, frame.i.as_deref().unwrap(), frame.x))
+            .collect();
+        assert_eq!(
+            actual,
+            [(1, "原创图像", Some(expected_x))],
+            "采样时间 {seconds:?}"
+        );
+    }
+    let enormous: Vec<_> = idle.sample(f64::MAX).collect();
+    assert_eq!(enormous.len(), 1);
+    assert_eq!(enormous[0].0, 1);
+    assert_eq!(enormous[0].1.i.as_deref(), Some("原创图像"));
+    assert!([Some(1.0), Some(2.0), Some(3.0)].contains(&enormous[0].1.x));
+}
+
+#[test]
+fn 向日葵idle构造拒绝缺失区段和不可绘图片并保留资源上下文() {
+    // 原创失败夹具，不依赖原版程序或资源文件。
+    let cases = [
+        (
+            "<fps>12</fps><track><name>其他</name><t><i>原创图像</i></t></track>",
+            "没有向日葵 idle marker 区段",
+        ),
+        (
+            "<fps>12</fps><track><name>anim_idle</name><t><f>-1</f></t><t/></track>",
+            "没有向日葵 idle marker 区段",
+        ),
+        (
+            "<fps>12</fps><track><name>anim_idle</name><t><f>0</f></t></track>",
+            "向日葵 idle 没有可绘制轨道",
+        ),
+        (
+            "<fps>12</fps><track><name>anim_idle</name><t><f>0</f></t></track><track><name>隐藏</name><t><f>-1</f><i>原创图像</i></t></track>",
+            "向日葵 idle 没有可绘制轨道",
+        ),
+        (
+            "<fps>12</fps><track><name>anim_idle</name><t><f>0</f></t></track><track><name>空图</name><t><i></i></t></track>",
+            "向日葵 idle 没有可绘制轨道",
+        ),
+    ];
+    for (source, expected_reason) in cases {
+        let animation = PreparedAnimation::new(&pvz_assets::parse_reanim(source).unwrap());
+        let error = match SunflowerIdle::new(animation) {
+            Ok(_) => panic!("无效向日葵 idle 应被拒绝：{expected_reason}"),
+            Err(error) => error,
+        };
+        assert_eq!(error.path, "reanim/SunFlower.reanim");
+        assert_eq!(error.reason, expected_reason);
+    }
+
+    // 解析器先拒绝无时间点轨道；直接构造缓存输入验证该低层边界。
+    let animation = PreparedAnimation {
+        tracks: vec![vec![]],
+        names: vec!["anim_idle".to_owned()],
+        fps: 12.0,
+    };
+    let error = match SunflowerIdle::new(animation) {
+        Ok(_) => panic!("无帧 marker 应被拒绝"),
+        Err(error) => error,
+    };
+    assert_eq!(error.path, "reanim/SunFlower.reanim");
+    assert_eq!(error.reason, "没有向日葵 idle marker 区段");
+}
+
+#[test]
+fn 动画空段与反向区段只返回起点() {
+    let animation = PreparedAnimation {
+        tracks: vec![],
+        names: vec![],
+        fps: 12.0,
+    };
+    let start = 5;
+    let end = 4;
+    for segment in [start..start, start..end] {
+        for seconds in [0.0, 1.0, -1.0, f64::NAN, f64::INFINITY, f64::MAX] {
+            assert_eq!(animation.frame_at(seconds, &segment), start);
+        }
+    }
 }
