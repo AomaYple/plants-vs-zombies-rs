@@ -10,33 +10,11 @@ impl ParticleSystem {
     pub fn emitters(&self) -> &[ParticleEmitter] {
         &self.emitters
     }
-    /// 兼容单发射器消费者；多发射器消费者应遍历 `emitters`。
-    pub fn name(&self) -> &str {
-        self.emitters[0].name().unwrap_or("")
-    }
-    pub fn image(&self) -> &str {
-        self.emitters[0].image().unwrap_or("")
-    }
-    pub fn emitter_type(&self) -> &str {
-        self.emitters[0].emitter_type().unwrap_or("")
-    }
-    /// 仅首发射器声明单个有限常数时返回数值；曲线应通过属性树读取。
-    pub fn system_duration(&self) -> Option<f32> {
-        self.emitters[0]
-            .property("SystemDuration")
-            .and_then(|p| p.text.parse::<f32>().ok())
-            .filter(|v| v.is_finite() && *v >= 0.0)
-    }
-    /// 首发射器的 FieldType，保持旧接口；完整结构见属性树。
-    pub fn fields(&self) -> &[String] {
-        &self.emitters[0].field_types
-    }
 }
 /// 一个完整发射器；实际资源允许 Name、Image 和 EmitterType 缺省。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParticleEmitter {
     properties: Vec<ParticleProperty>,
-    field_types: Vec<String>,
 }
 impl ParticleEmitter {
     pub fn properties(&self) -> &[ParticleProperty] {
@@ -180,7 +158,6 @@ pub(crate) fn parse(source: &str) -> Result<ParticleSystem, AssetError> {
         }
         let mut seen = BTreeSet::new();
         let mut properties = Vec::new();
-        let mut field_types = Vec::new();
         for child in node.children {
             if !matches!(child.tag.as_str(), "Field" | "SystemField")
                 && !seen.insert(child.tag.clone())
@@ -188,17 +165,9 @@ pub(crate) fn parse(source: &str) -> Result<ParticleSystem, AssetError> {
                 return Err(xml::error("Emitter 的标量字段重复"));
             }
             let value = property(child)?;
-            if value.name == "Field"
-                && let Some(field_type) = value.children.iter().find(|p| p.name == "FieldType")
-            {
-                field_types.push(field_type.text.clone());
-            }
             properties.push(value);
         }
-        emitters.push(ParticleEmitter {
-            properties,
-            field_types,
-        });
+        emitters.push(ParticleEmitter { properties });
     }
     Ok(ParticleSystem { emitters })
 }

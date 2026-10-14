@@ -10,7 +10,7 @@ mod particles;
 mod reanim;
 mod xml;
 
-pub use diagnostics::{AuditReport, Diagnostic, EventKind};
+pub use diagnostics::{AuditReport, Diagnostic};
 pub use manifest::{
     AssetError, AssetIndex, AssetKind, AssetRecord, AssetRoot, Manifest, PackageMetadata,
     SourceArchive,

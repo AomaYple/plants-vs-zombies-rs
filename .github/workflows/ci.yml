@@ -16,6 +16,11 @@ jobs:
       has_app: ${{ steps.metadata.outputs.has_app }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: 检查 Web 启动状态回归
+        run: node --experimental-vm-modules --test web/startup.test.mjs
       - name: 安装工作流检查工具
         shell: bash
         env:

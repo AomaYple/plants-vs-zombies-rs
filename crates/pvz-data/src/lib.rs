@@ -8,5 +8,5 @@ mod ids;
 mod version;
 
 pub use day::{ContentBasis, DayLevelDefinition, DayRulesDefinition, DaySpawnDefinition};
-pub use ids::{AssetId, IdentifierError, LevelId, PlantId, ReferenceBaselineId, ZombieId};
+pub use ids::{AssetId, IdentifierError, LevelId, ReferenceBaselineId};
 pub use version::{InvalidRulesVersion, RulesVersion, SchemaVersion, UnsupportedSchemaVersion};

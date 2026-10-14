@@ -10,6 +10,7 @@ use std::{
 
 pub const BACKGROUND: &str = "images/background1.jpg";
 pub const ANIMATION: &str = "reanim/PeaShooter.reanim";
+const ZOMBIE_ANIMATION: &str = "reanim/Zombie.reanim";
 const SUNFLOWER_ANIMATION: &str = "reanim/SunFlower.reanim";
 pub const EFFECT: &str = "sounds/seedlift.ogg";
 pub const PEA_IMAGE: &str = "images/ProjectilePea.png";
@@ -38,7 +39,7 @@ pub const SOUND_SOURCES: &[(SoundCue, &str)] = &[
     (SoundCue::Hit, "sounds/splat.ogg"),
     (SoundCue::Mower, "sounds/lawnmower.ogg"),
 ];
-/// 从登记XML第44帧选择普通僵尸身体；附件选择是开发构图合同。
+/// 从登记 XML 选择普通僵尸 walk 身体；排除附件是开发构图合同。
 pub const ZOMBIE_TRACKS: &[&str] = &[
     "anim_innerarm3",
     "anim_innerarm2",
@@ -61,12 +62,6 @@ pub const ZOMBIE_TRACKS: &[&str] = &[
     "anim_hair",
 ];
 pub const POSE_SOURCES: &[(VisualKind, &str, usize, &[&str])] = &[
-    (
-        VisualKind::Zombie,
-        "reanim/Zombie.reanim",
-        44,
-        ZOMBIE_TRACKS,
-    ),
     (VisualKind::LawnMower, "reanim/LawnMower.reanim", 0, &[]),
     (VisualKind::Sun, "reanim/Sun.reanim", 0, &[]),
 ];
@@ -605,10 +600,53 @@ impl SunflowerIdle {
         })
     }
 }
+/// 单次装配普通僵尸 walk；源索引和展开帧借用属于开发采样合同。
+pub struct ZombieWalk {
+    animation: PreparedAnimation,
+    segment: std::ops::Range<usize>,
+    drawable_tracks: Vec<usize>,
+}
+impl ZombieWalk {
+    pub fn new(animation: PreparedAnimation) -> Result<Self, ResourceError> {
+        let segment = animation
+            .marker_segment("anim_walk")
+            .ok_or_else(|| error(ZOMBIE_ANIMATION, "没有普通僵尸 walk marker 区段"))?;
+        if ZOMBIE_TRACKS
+            .iter()
+            .any(|name| !animation.names.iter().any(|n| n == name))
+        {
+            return Err(error(ZOMBIE_ANIMATION, "普通僵尸 walk 指定身体轨道不存在"));
+        }
+        let drawable_tracks = animation
+            .drawable_tracks(&segment)
+            .into_iter()
+            .filter(|&layer| ZOMBIE_TRACKS.contains(&animation.names[layer].as_str()))
+            .collect::<Vec<_>>();
+        if drawable_tracks.is_empty() {
+            return Err(error(ZOMBIE_ANIMATION, "普通僵尸 walk 没有可绘制身体轨道"));
+        }
+        Ok(Self {
+            animation,
+            segment,
+            drawable_tracks,
+        })
+    }
+    pub fn sample(
+        &self,
+        seconds: f64,
+    ) -> impl Iterator<Item = (usize, &pvz_assets::AnimationFrame)> {
+        let index = self.animation.frame_at(seconds, &self.segment);
+        self.drawable_tracks.iter().filter_map(move |&layer| {
+            let frame = self.animation.tracks[layer].get(index)?;
+            (!frame.f.is_some_and(|n| n < 0.0) && frame.i.as_ref().is_some_and(|id| !id.is_empty()))
+                .then_some((layer, frame))
+        })
+    }
+}
 pub struct LoadedResources {
     pub background: CpuImage,
-    pub animation: PreparedAnimation,
     pub sunflower_idle: SunflowerIdle,
+    pub zombie_walk: ZombieWalk,
     pub images: BTreeMap<String, CpuImage>,
     pub effect: Vec<u8>,
     pub music: Vec<u8>,
@@ -661,6 +699,25 @@ impl LoadedResources {
             }
         }
         let sunflower_idle = SunflowerIdle::new(PreparedAnimation::new(&clip))?;
+        let bytes = provider.read(ZOMBIE_ANIMATION).await?;
+        let source = std::str::from_utf8(&bytes)
+            .map_err(|_| error(ZOMBIE_ANIMATION, "动画不是 UTF-8 文本"))?;
+        let clip = parse_reanim(source).map_err(|_| error(ZOMBIE_ANIMATION, "动画解析失败"))?;
+        let mapping = resolve_images(&clip, provider.manifest())
+            .map_err(|failure| error(ZOMBIE_ANIMATION, failure.reason))?;
+        for (id, path) in mapping {
+            if let std::collections::btree_map::Entry::Vacant(entry) = images.entry(id) {
+                let bytes = provider
+                    .read(&path)
+                    .await
+                    .map_err(|failure| error(ZOMBIE_ANIMATION, failure.reason))?;
+                entry.insert(
+                    decode_image(&path, &bytes)
+                        .map_err(|failure| error(ZOMBIE_ANIMATION, failure.reason))?,
+                );
+            }
+        }
+        let zombie_walk = ZombieWalk::new(PreparedAnimation::new(&clip))?;
         for (kind, path, frame, tracks) in POSE_SOURCES {
             let bytes = provider.read(path).await?;
             let source =
@@ -700,8 +757,8 @@ impl LoadedResources {
         let music_info = validate_audio(&music).map_err(|_| error(MUSIC, "音乐 OGG 解码失败"))?;
         Ok(Self {
             background,
-            animation,
             sunflower_idle,
+            zombie_walk,
             images,
             effect,
             music,
@@ -758,7 +815,6 @@ mod tests {
             resources.poses.keys().copied().collect::<Vec<_>>(),
             [
                 VisualKind::Peashooter,
-                VisualKind::Zombie,
                 VisualKind::Pea,
                 VisualKind::Sun,
                 VisualKind::LawnMower,
@@ -790,7 +846,11 @@ mod tests {
             (1400, 600)
         );
         assert!(resources.music_info.samples > 0);
-        assert!(resources.animation.marker_segment("anim_idle").is_some());
+        assert!(
+            resources.poses[&VisualKind::Peashooter]
+                .iter()
+                .any(|frame| frame.i.as_deref() == Some("IMAGE_REANIM_PEASHOOTER_STALK_BOTTOM"))
+        );
     }
     #[test]
     fn 登记向日葵缓存结构统计() {
@@ -858,13 +918,10 @@ mod tests {
         assert!(expanded_frames > 0);
         assert!(image_bytes > 0);
         assert!(name_bytes > 0);
-        let cache_count = std::slice::from_ref(idle).len();
-        assert_eq!(cache_count, 1);
 
         // 只统计本字段拥有的结构，不测分配次数、进程峰值或 GPU 内存。
         let statistics = serde_json::json!({
             "范围": "登记向日葵缓存结构统计",
-            "缓存份数": cache_count,
             "fps": animation.fps,
             "区段": { "start": idle.segment.start, "end": idle.segment.end },
             "展开帧数": expanded_frames,
@@ -890,6 +947,113 @@ mod tests {
             },
         });
         println!("向日葵缓存结构统计：{statistics}");
+    }
+    #[test]
+    fn 登记普通僵尸walk缓存结构统计() {
+        let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
+            repository_provider(),
+        ))
+        .expect("native读取无需异步等待")
+        .unwrap();
+        let idle = &resources.zombie_walk;
+        let animation = &idle.animation;
+        assert_eq!(animation.fps, 12.0);
+        assert_eq!(animation.tracks.len(), 42);
+        assert_eq!(idle.segment, 44..91);
+        assert_eq!(animation.tracks.len(), animation.names.len());
+        assert!(animation.tracks.len() <= animation.tracks.capacity());
+        assert!(animation.names.len() <= animation.names.capacity());
+        assert!(idle.drawable_tracks.len() <= idle.drawable_tracks.capacity());
+        assert_eq!(
+            idle.drawable_tracks,
+            animation
+                .drawable_tracks(&idle.segment)
+                .into_iter()
+                .filter(|&layer| ZOMBIE_TRACKS.contains(&animation.names[layer].as_str()))
+                .collect::<Vec<_>>()
+        );
+
+        let mut expanded_frames = 0;
+        let mut image_bytes = 0;
+        let mut font_bytes = 0;
+        let mut text_bytes = 0;
+        let tracks: Vec<_> = animation
+            .tracks
+            .iter()
+            .enumerate()
+            .map(|(layer, track)| {
+                assert!(track.len() <= track.capacity());
+                expanded_frames += track.len();
+                for frame in track {
+                    image_bytes += frame.i.as_ref().map_or(0, String::len);
+                    font_bytes += frame.font.as_ref().map_or(0, String::len);
+                    text_bytes += frame.text.as_ref().map_or(0, String::len);
+                }
+                serde_json::json!({
+                    "源索引": layer,
+                    "len": track.len(),
+                    "capacity": track.capacity(),
+                })
+            })
+            .collect();
+        let frame_string_bytes = image_bytes + font_bytes + text_bytes;
+        let name_bytes: usize = animation.names.iter().map(String::len).sum();
+        assert_eq!(expanded_frames, animation.tracks.iter().flatten().count());
+        assert_eq!(
+            frame_string_bytes,
+            animation
+                .tracks
+                .iter()
+                .flatten()
+                .flat_map(|frame| [&frame.i, &frame.font, &frame.text])
+                .filter_map(Option::as_ref)
+                .map(String::len)
+                .sum::<usize>()
+        );
+        assert_eq!(
+            name_bytes,
+            animation.names.iter().flat_map(|name| name.bytes()).count()
+        );
+        assert_eq!(tracks.len(), animation.tracks.len());
+        assert_eq!(expanded_frames, 21168);
+        assert!(animation.tracks.iter().all(|track| track.len() == 504));
+        assert_eq!(
+            idle.drawable_tracks,
+            [
+                12, 13, 14, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 35, 36, 38, 39
+            ]
+        );
+        assert!(image_bytes > 0);
+        assert!(name_bytes > 0);
+
+        // 只统计本字段拥有的结构，不测分配次数、进程峰值或 GPU 内存。
+        let statistics = serde_json::json!({
+            "范围": "登记普通僵尸walk缓存结构统计",
+            "fps": animation.fps,
+            "区段": { "start": idle.segment.start, "end": idle.segment.end },
+            "展开帧数": expanded_frames,
+            "帧字符串字节量": {
+                "i": image_bytes,
+                "font": font_bytes,
+                "text": text_bytes,
+                "合计": frame_string_bytes,
+            },
+            "names字节量": name_bytes,
+            "外层轨道Vec": {
+                "len": animation.tracks.len(),
+                "capacity": animation.tracks.capacity(),
+            },
+            "各轨道Vec": tracks,
+            "名称Vec": {
+                "len": animation.names.len(),
+                "capacity": animation.names.capacity(),
+            },
+            "源索引Vec": {
+                "len": idle.drawable_tracks.len(),
+                "capacity": idle.drawable_tracks.capacity(),
+            },
+        });
+        println!("普通僵尸walk缓存结构统计：{statistics}");
     }
     #[test]
     fn 损坏与未登记输入被明确拒绝且不会泄露输入() {
@@ -973,6 +1137,79 @@ mod tests {
         assert_eq!(error.reason, "图像引用没有唯一登记映射");
     }
     #[test]
+    fn 普通僵尸图像未登记时装配错误归属僵尸动画() {
+        let provider = repository_provider();
+        let temp = tempfile::tempdir().unwrap();
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../../../assets/manifest.json")).unwrap();
+        let records = manifest["files"].as_array_mut().unwrap();
+        let previous_len = records.len();
+        records.retain(|record| record["path"] != "reanim/Zombie_head.png");
+        assert_eq!(records.len() + 1, previous_len);
+        let entry_count = records.len() - 1;
+        // 临时清单的非包条目数仍须满足 Manifest 的结构合同。
+        manifest["package"]["entry_count"] = serde_json::Value::from(entry_count);
+        manifest["package"]["extraction_check"] =
+            serde_json::Value::from("原创测试变体：移除一个僵尸图像登记项");
+        std::fs::create_dir(temp.path().join("assets")).unwrap();
+        std::fs::write(
+            temp.path().join("assets/manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        // 只复制到僵尸映射失败前所需的登记输入，测试目录互相隔离。
+        let shooter =
+            parse_reanim(std::str::from_utf8(&provider.native_bytes(ANIMATION).unwrap()).unwrap())
+                .unwrap();
+        let mut required: BTreeSet<_> =
+            [BACKGROUND, ANIMATION, SUNFLOWER_ANIMATION, ZOMBIE_ANIMATION]
+                .into_iter()
+                .map(str::to_owned)
+                .collect();
+        required.extend(
+            resolve_images(&shooter, provider.manifest())
+                .unwrap()
+                .into_values(),
+        );
+        let sunflower = parse_reanim(
+            std::str::from_utf8(&provider.native_bytes(SUNFLOWER_ANIMATION).unwrap()).unwrap(),
+        )
+        .unwrap();
+        required.extend(
+            resolve_images(&sunflower, provider.manifest())
+                .unwrap()
+                .into_values(),
+        );
+        for (_, path, _, _) in POSE_SOURCES {
+            required.insert((*path).to_owned());
+            let clip =
+                parse_reanim(std::str::from_utf8(&provider.native_bytes(path).unwrap()).unwrap())
+                    .unwrap();
+            required.extend(
+                resolve_images(&clip, provider.manifest())
+                    .unwrap()
+                    .into_values(),
+            );
+        }
+        for path in required {
+            let destination = temp.path().join("assets/original").join(&path);
+            std::fs::create_dir_all(destination.parent().unwrap()).unwrap();
+            std::fs::write(destination, provider.native_bytes(&path).unwrap()).unwrap();
+        }
+        let provider = AssetProvider {
+            index: pvz_assets::AssetRoot::open(temp.path()).unwrap(),
+        };
+        let result = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(provider))
+            .expect("native读取无需异步等待");
+        let error = match result {
+            Ok(_) => panic!("未登记僵尸图像应使装配失败"),
+            Err(error) => error,
+        };
+        assert_eq!(error.path, ZOMBIE_ANIMATION);
+        assert_eq!(error.reason, "图像引用没有唯一登记映射");
+    }
+    #[test]
     fn 登记默认开发片段包含头部嘴和茎() {
         let provider = repository_provider();
         let bytes = provider.native_bytes(ANIMATION).unwrap();
@@ -993,34 +1230,56 @@ mod tests {
     }
 
     #[test]
-    fn 登记普通僵尸构图精确选择身体轨道排除附件() {
+    fn 登记普通僵尸walk整段选择身体排除附件并借用源帧() {
         let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
             repository_provider(),
         ))
         .unwrap()
         .unwrap();
-        let pose = &resources.poses[&VisualKind::Zombie];
-        assert_eq!(pose.len(), ZOMBIE_TRACKS.len());
-        let ids: Vec<_> = pose
+        let walk = &resources.zombie_walk;
+        let layers = [
+            12, 13, 14, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 35, 36, 38, 39,
+        ];
+        let body_ids: BTreeSet<_> = layers
             .iter()
-            .map(|frame| frame.i.as_deref().unwrap())
+            .map(|&layer| walk.animation.tracks[layer][44].i.as_deref().unwrap())
             .collect();
-        assert_eq!(ids[0], "IMAGE_REANIM_ZOMBIE_INNERARM_HAND");
-        assert_eq!(ids[ids.len() - 1], "IMAGE_REANIM_ZOMBIE_HAIR");
-        assert!(ids.contains(&"IMAGE_REANIM_ZOMBIE_BODY"));
-        assert!(ids.contains(&"IMAGE_REANIM_ZOMBIE_HEAD"));
-        assert!(!ids.iter().any(|id| {
-            [
-                "BUCKET",
-                "CONE",
-                "SCREENDOOR",
-                "DUCKYTUBE",
-                "MUSTACHE",
-                "FLAGHAND",
-            ]
-            .iter()
-            .any(|part| id.contains(part))
-        }));
+        assert_eq!(body_ids.len(), 19);
+        for step in 0..47 {
+            let frames: Vec<_> = walk.sample(f64::from(step) / 12.0).collect();
+            assert_eq!(
+                frames.iter().map(|(layer, _)| *layer).collect::<Vec<_>>(),
+                layers
+            );
+            for (layer, frame) in frames {
+                assert!(std::ptr::eq(
+                    frame,
+                    &walk.animation.tracks[layer][44 + step as usize]
+                ));
+                assert_eq!(
+                    frame.a.unwrap_or(1.0),
+                    1.0,
+                    "资源缺省 alpha 的有效绘制值为 1"
+                );
+                let id = frame.i.as_deref().unwrap();
+                assert!(body_ids.contains(id));
+                assert!(resources.images.contains_key(id));
+                assert!(
+                    ![
+                        "BUCKET",
+                        "CONE",
+                        "SCREENDOOR",
+                        "DUCKYTUBE",
+                        "MUSTACHE",
+                        "FLAGHAND"
+                    ]
+                    .iter()
+                    .any(|part| id.contains(part))
+                );
+            }
+        }
+        assert_eq!(walk.animation.frame_at(47.0 / 12.0, &walk.segment), 44);
+        assert!(!resources.poses.contains_key(&VisualKind::Zombie));
         for pose in resources.poses.values() {
             assert!(!pose.is_empty());
             assert!(

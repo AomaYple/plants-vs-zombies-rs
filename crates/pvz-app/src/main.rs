@@ -359,7 +359,7 @@ fn update(world: &mut World) {
             let board = state.runtime.game.board().expect("正常游戏拥有棋盘");
             let selection = if state.runtime.shovel { "铲除" } else { match board.selected() { Some(pvz_core::PlantKind::Sunflower) => "向日葵", Some(pvz_core::PlantKind::Peashooter) => "豌豆射手", None => "请选卡" } };
             let status = if state.failure.is_some() { "资源加载失败" } else if !state.ready { "加载资源" } else if board.paused() { "已暂停" } else { match board.status() { pvz_core::GameStatus::Running => "守住草坪", pvz_core::GameStatus::Won => "胜利！", pvz_core::GameStatus::Lost => "失败，请重开" } };
-            world.get_mut::<Text2d>(state.status).expect("状态文本存在").0 = format!("阳光 {}  ·  选择：{selection}  ·  {status}  ·  {} / {} 只已出现\n开发规则 2.0（尚未还原） · 冷却(日/豌) {}/{}秒 · F 失败场景 · {}", state.runtime.game.sun(), board.spawned(), board.rules().wave.len(), board.cooldown_remaining(pvz_core::PlantKind::Sunflower, state.runtime.game.tick()).div_ceil(60), board.cooldown_remaining(pvz_core::PlantKind::Peashooter, state.runtime.game.tick()).div_ceil(60), state.feedback);
+            world.get_mut::<Text2d>(state.status).expect("状态文本存在").0 = format!("阳光 {}  ·  选择：{selection}  ·  {status}  ·  {} / {} 只已出现\n开发规则 2.0（尚未还原） · 冷却(日/豌) {}/{}秒 · F 失败场景 · {}", state.runtime.game.sun(), board.spawned(), board.rules().wave.len(), board.cooldown_remaining(pvz_core::PlantKind::Sunflower, state.runtime.game.tick()).div_ceil(u64::from(state.runtime.game.clock().ticks_per_second())), board.cooldown_remaining(pvz_core::PlantKind::Peashooter, state.runtime.game.tick()).div_ceil(u64::from(state.runtime.game.clock().ticks_per_second())), state.feedback);
         }
         if let Some(error) = &state.failure { world.get_mut::<Text2d>(state.error_text).expect("错误文本存在").0.clone_from(error); }
         smoke(world, &mut state);
@@ -670,7 +670,6 @@ mod tests {
         world.insert_resource(Time::<Real>::default());
         world.insert_resource(Messages::<AppExit>::default());
         world.insert_resource(Messages::<WindowEvent>::default());
-        world.insert_resource(ButtonInput::<KeyCode>::default());
         world.spawn((
             PrimaryWindow,
             Window {
@@ -736,12 +735,60 @@ mod tests {
             repeat: false,
             window,
         }));
-        // 与引擎同帧更新按钮快照后进入 update 的入口一致。
-        world.resource_mut::<ButtonInput<KeyCode>>().press(key_code);
         world
             .resource_mut::<Time<Real>>()
             .advance_by(Duration::from_secs_f64(1.0 / 60.0));
         update(world);
+    }
+
+    #[test]
+    fn 实际update冷却提示按内容频率换算且不推进模拟() {
+        for (frequency, seconds) in [(30, 6), (120, 2)] {
+            let mut world = harness();
+            let mut content: serde_json::Value =
+                serde_json::from_str(include_str!("../../../content/levels/development-day.json"))
+                    .unwrap();
+            content["ticks_per_second"] = frequency.into();
+            let mut runtime = Runtime::from_day_json(&content.to_string()).unwrap();
+            runtime.command(pvz_core::Command::SelectCard {
+                kind: pvz_core::PlantKind::Sunflower,
+            });
+            runtime.command(pvz_core::Command::Plant {
+                cell: pvz_core::Cell { row: 0, column: 0 },
+            });
+            runtime.command(pvz_core::Command::Pause);
+            runtime.advance(1.0 / f64::from(frequency));
+            assert_eq!(runtime.game.board().unwrap().plants().len(), 1);
+            assert_eq!(
+                runtime
+                    .game
+                    .board()
+                    .unwrap()
+                    .cooldown_remaining(pvz_core::PlantKind::Sunflower, runtime.game.tick()),
+                180
+            );
+            assert!(
+                runtime
+                    .take_events()
+                    .iter()
+                    .any(|event| matches!(event, pvz_core::Event::Planted { .. }))
+            );
+            let digest = runtime.game.state_digest();
+            let animation = runtime.animation_seconds;
+            world.resource_mut::<AppState>().runtime = runtime;
+            update(&mut world);
+            let state = world.resource::<AppState>();
+            assert_eq!(state.runtime.game.state_digest(), digest);
+            assert_eq!(state.runtime.animation_seconds, animation);
+            assert!(
+                world
+                    .get::<Text2d>(state.status)
+                    .unwrap()
+                    .0
+                    .contains(&format!("冷却(日/豌) {seconds}/0秒")),
+                "{frequency} Hz 的实际状态提示错误"
+            );
+        }
     }
 
     #[test]
@@ -874,6 +921,152 @@ mod tests {
                 [-313.0, 102.0, 0.0]
             ]
         );
+    }
+
+    #[test]
+    fn 实际update普通僵尸walk消费表现时钟暂停恢复保持接线() {
+        use bevy::mesh::VertexAttributeValues;
+        let mut world = harness();
+        let scene = render::zombie_scene_fixture(&mut world);
+        let mut runtime = Runtime::failure_day();
+        runtime.game = render::zombie_test_game();
+        runtime.command(pvz_core::Command::Pause);
+        runtime.advance(1.0 / 60.0);
+        assert!(runtime.paused);
+        runtime.animation_seconds = 0.12;
+        let state = &mut *world.resource_mut::<AppState>();
+        state.runtime = runtime;
+        state.scene = Some(scene);
+        let bottom = |world: &mut World| {
+            let handles: Vec<_> = world
+                .query::<(&Transform, &Mesh2d, &MeshMaterial2d<ColorMaterial>)>()
+                .iter(world)
+                .filter(|(transform, _, _)| {
+                    [2.02, 22.02]
+                        .iter()
+                        .any(|depth| (transform.translation.z - depth).abs() < 0.001)
+                })
+                .map(|(transform, mesh, material)| {
+                    (transform.translation.z, mesh.0.clone(), material.0.clone())
+                })
+                .collect();
+            assert_eq!(handles.len(), 2);
+            let mut result: Vec<_> = handles
+                .into_iter()
+                .map(|(depth, mesh, material)| {
+                    let vertices = match world
+                        .resource::<Assets<Mesh>>()
+                        .get(&mesh)
+                        .unwrap()
+                        .attribute(Mesh::ATTRIBUTE_POSITION)
+                        .unwrap()
+                    {
+                        VertexAttributeValues::Float32x3(vertices) => vertices.clone(),
+                        other => panic!("僵尸顶点格式异常：{other:?}"),
+                    };
+                    let material = world
+                        .resource::<Assets<ColorMaterial>>()
+                        .get(&material)
+                        .unwrap();
+                    let image = world
+                        .resource::<Assets<Image>>()
+                        .get(material.texture.as_ref().unwrap())
+                        .unwrap();
+                    (depth, vertices, image.data.clone(), material.color.alpha())
+                })
+                .collect();
+            result.sort_by(|a, b| a.0.total_cmp(&b.0));
+            result
+        };
+        let paused_digest = world.resource::<AppState>().runtime.game.state_digest();
+        let mut paused_scene = None;
+        for _ in 0..2 {
+            world
+                .resource_mut::<Time<Real>>()
+                .advance_by(Duration::from_secs_f64(0.01));
+            update(&mut world);
+            assert_eq!(world.resource::<AppState>().runtime.animation_seconds, 0.12);
+            let actual = bottom(&mut world);
+            assert_eq!(
+                world.resource::<AppState>().runtime.game.state_digest(),
+                paused_digest
+            );
+            if let Some(previous) = &paused_scene {
+                assert_eq!(&actual, previous, "暂停的两次实际 update 完全冻结图层");
+            }
+            paused_scene = Some(actual.clone());
+            for (index, (_, vertices, image, alpha)) in actual.iter().enumerate() {
+                let x = world
+                    .resource::<AppState>()
+                    .runtime
+                    .game
+                    .board()
+                    .unwrap()
+                    .zombies()[index]
+                    .x as f32
+                    / pvz_core::UNITS_PER_PIXEL as f32
+                    - 40.0;
+                assert!((vertices[0][0] - (x + 9.0 - 400.0)).abs() < 0.001);
+                assert_eq!(
+                    image.as_deref(),
+                    Some([0, 0, 255, 255].repeat(4).as_slice())
+                );
+                assert_eq!(*alpha, 1.0);
+            }
+        }
+        let paused = bottom(&mut world);
+        world
+            .resource_mut::<AppState>()
+            .runtime
+            .command(pvz_core::Command::Resume);
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs_f64(0.01));
+        update(&mut world);
+        assert_eq!(world.resource::<AppState>().runtime.animation_seconds, 0.12);
+        // Resume 按现有核心合同可推进命令 tick，但不补播暂停期间的动画时间。
+        // 以当前棋盘锚点验证相同蓝图相位，不能要求旧世界坐标也不移动。
+        for (index, (depth, vertices, image, alpha)) in bottom(&mut world).iter().enumerate() {
+            let x = world
+                .resource::<AppState>()
+                .runtime
+                .game
+                .board()
+                .unwrap()
+                .zombies()[index]
+                .x as f32
+                / pvz_core::UNITS_PER_PIXEL as f32
+                - 40.0;
+            assert_eq!(*depth, paused[index].0);
+            for (vertex, offset) in vertices.iter().zip([0.0, 2.0, 2.0, 0.0]) {
+                assert!((vertex[0] - (x + 9.0 + offset - 400.0)).abs() < 0.001);
+            }
+            assert_eq!(image, &paused[index].2, "Resume 命令帧保留蓝纹理");
+            assert_eq!(*alpha, 1.0);
+        }
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs_f64(0.14));
+        update(&mut world);
+        assert!((world.resource::<AppState>().runtime.animation_seconds - 0.26).abs() < 1e-9);
+        for (index, (_, vertices, image, alpha)) in bottom(&mut world).iter().enumerate() {
+            let x = world
+                .resource::<AppState>()
+                .runtime
+                .game
+                .board()
+                .unwrap()
+                .zombies()[index]
+                .x as f32
+                / pvz_core::UNITS_PER_PIXEL as f32
+                - 40.0;
+            assert!((vertices[0][0] - (x + 7.0 - 400.0)).abs() < 0.001);
+            assert_eq!(
+                image.as_deref(),
+                Some([255, 0, 0, 255].repeat(4).as_slice())
+            );
+            assert_eq!(*alpha, 0.5);
+        }
     }
 
     #[test]

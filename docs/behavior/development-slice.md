@@ -52,7 +52,7 @@
 7. 按行处理割草机：僵尸中心到达启动x即启动一次。运动割草机按僵尸/割草机相对旧新位置扫掠；启动当tick也清除触发线左侧的同排僵尸，避免高速跨越导致割草机漏救。割草机越过右界加半宽后永久耗尽。
 8. 先检查存活僵尸是否突破失败x；否则波次全部生成且存活僵尸为空时胜利。终局不继续生成/移动实体。
 
-碰撞均为开发的按行一维区间合同，不是对原版碰撞形状的测量结论。表现静态构图的外形不反向决定规则碰撞。规则坐标和UI命令不受视口、DPI或纹理尺寸影响。
+碰撞均为开发的按行一维区间合同，不是对原版碰撞形状的测量结论。静态构图和动态采样的外形都不反向决定规则碰撞。规则坐标和UI命令不受视口、DPI或纹理尺寸影响。
 
 ## 登记资源构图与音效
 
@@ -60,18 +60,20 @@
 
 | 表现对象 | 登记来源与选择 | 开发取舍 |
 | --- | --- | --- |
-| 向日葵 | `reanim/SunFlower.reanim`，`anim_idle`起始帧4 | 使用所有该帧可见图像，按源轨道顺序静态构图 |
+| 向日葵 | `reanim/SunFlower.reanim`，`anim_idle`半开区段`4..29`、12fps | `SunflowerIdle` 共享缓存，按全局表现时钟离散循环，借用当前可绘源轨道 |
 | 豌豆射手 | `reanim/PeaShooter.reanim`，`anim_full_idle`为79..104，选择帧79 | 使用完整头/嘴/茎/叶静态构图 |
-| 普通僵尸 | `reanim/Zombie.reanim`，`anim_walk`起始帧44 | 显式19条身体轨道白名单，排除旗手、门板、泳圈、胡须、路障、铁桶等附件 |
+| 普通僵尸 | `reanim/Zombie.reanim`，`anim_walk`半开区段`44..91`、12fps | `ZombieWalk` 共享缓存，按全局表现时钟离散循环；显式19条身体轨道白名单，排除旗手、门板、泳圈、胡须、路障、铁桶等附件 |
 | 割草机 | `reanim/LawnMower.reanim`，帧0正常构图 | `anim_normal`无显式非负f，不能假装现有marker方法适用；使用登记帧0，隐藏tricked附件 |
 | 阳光 | `reanim/Sun.reanim`，帧0 | 保持Sun3→Sun2→Sun1源层序、变换及透明度 |
 | 豌豆 | `images/ProjectilePea.png` | 原始28×28图像以中心定位 |
 
-僵尸白名单按源层序为：`anim_innerarm3`、`anim_innerarm2`、`anim_innerarm1`、`Zombie_neck`、`anim_head1`、`Zombie_innerleg_upper`、`Zombie_innerleg_lower`、`Zombie_innerleg_foot`、`Zombie_outerleg_upper`、`Zombie_outerleg_foot`、`Zombie_outerleg_lower`、`Zombie_body`、`Zombie_tie`、`anim_head2`、`anim_tongue`、`Zombie_outerarm_hand`、`Zombie_outerarm_upper`、`Zombie_outerarm_lower`、`anim_hair`。这只是已登记静态构图的显式选择，不是完整原版播放器附件语义。
+僵尸白名单按源层序为：`anim_innerarm3`、`anim_innerarm2`、`anim_innerarm1`、`Zombie_neck`、`anim_head1`、`Zombie_innerleg_upper`、`Zombie_innerleg_lower`、`Zombie_innerleg_foot`、`Zombie_outerleg_upper`、`Zombie_outerleg_foot`、`Zombie_outerleg_lower`、`Zombie_body`、`Zombie_tie`、`anim_head2`、`anim_tongue`、`Zombie_outerarm_hand`、`Zombie_outerarm_upper`、`Zombie_outerarm_lower`、`anim_hair`。它是开发 walk 的显式身体选择，不是完整原版播放器附件语义。
 
 核心状态生成实体画面；事件驱动中文即时反馈与音频：种植→`sounds/plant.ogg`，收集→`sounds/points.ogg`，豌豆命中→`sounds/splat.ogg`，割草机启动→`sounds/lawnmower.ogg`。这组音效对应关系属于开发选择，不声称原版触发一致。已有音乐/音频探针保留，实际音频设备与浏览器用户手势解锁须另行验收。缺失图像映射、构图轨道、登记文件、错误指纹或解码失败均显式失败，不回退占位。
 
-当前六类对象是登记静态构图，会按模拟状态移动/生成/移除；尚未实现完整idle/射击/啃食/死亡动画混合与原版粒子。该差距属于表现验收未完成项，不能把静态资源加载成功称为完整原版表现还原。
+向日葵已接入动态 idle，本地 B1 工作区已接入普通僵尸 walk；Peashooter、Pea、Sun、LawnMower 继续消费静态姿态，实体仍按模拟状态移动/生成/移除。动态缓存只在资源装配时解析、prepare、映射与解码，再移入唯一 Scene 缓存；各实体借用帧与已有纹理，并复用网格/材质池。全局相位、离散循环、暂停/双终局冻结与重开清零是开发合同，新出生僵尸使用当前全局相位；碰到植物仍持续 walk，移除直接隐藏旧槽，没有啃食或死亡伪动画。原版动作选择、独立出生相位、插值/混合与切换时机仍未知，可靠啃食/死亡反馈由 B2 独立实现。
+
+完整动作混合与原版粒子尚未完成，资源值和开发动态消费者不能单独证明完整原版表现还原。S2-A 已交付范围、B1 冻结源码的 CPU/GPU/平台证据及缺项见[增量结果](content-foundation-results.md)；维护后工程检查、native/WASM 构建与绑定及 CLI 冒烟已完成，源码已纳入维护提交；Git/CI 记录见[维护结果](content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)。B1 的 Windows 正常窗口缺项、Web 诊断和完整平台验收继续待完成。
 
 ## 自动验证与实际运行边界
 

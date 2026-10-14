@@ -1,4 +1,4 @@
-use pvz_assets::{AssetError, AssetRoot, Diagnostic, EventKind, parse_particle, parse_reanim};
+use pvz_assets::{AssetError, AssetRoot, Diagnostic, parse_particle, parse_reanim};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -105,7 +105,6 @@ fn 缺失和哈希错误按路径稳定排序() {
             },
         ]
     );
-    assert_eq!(report.diagnostics()[0].kind(), EventKind::Error);
 }
 
 #[test]
@@ -158,11 +157,15 @@ fn reanim和粒子原创夹具可以解析() {
         "<Emitter><Name>原创</Name><EmitterType>Box</EmitterType><Image>IMAGE_TEST</Image><SystemDuration>100</SystemDuration><Field><FieldType>Position</FieldType></Field></Emitter>",
     )
     .unwrap();
-    assert_eq!(particle.name(), "原创");
-    assert_eq!(particle.image(), "IMAGE_TEST");
-    assert_eq!(particle.emitter_type(), "Box");
-    assert_eq!(particle.system_duration(), Some(100.0));
-    assert_eq!(particle.fields(), &["Position".to_owned()]);
+    let emitter = &particle.emitters()[0];
+    assert_eq!(emitter.name(), Some("原创"));
+    assert_eq!(emitter.image(), Some("IMAGE_TEST"));
+    assert_eq!(emitter.emitter_type(), Some("Box"));
+    assert_eq!(emitter.property("SystemDuration").unwrap().text(), "100");
+    assert_eq!(
+        emitter.property("Field").unwrap().children()[0].text(),
+        "Position"
+    );
 }
 
 #[test]

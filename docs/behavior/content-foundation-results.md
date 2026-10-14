@@ -297,3 +297,67 @@ S2-A 目的提交 `3e6634e5103de15b3f8f8ffe5d6c363895e47a3b` 已直接推送 `ma
 | 各任务实施、独立复核与裁决 | 当前 `.superpowers/sdd/2026-10-12-versioned-day-content/` 账本，清理工作区前由主代理保存到本批 `reviews/` |
 
 文档中的“已通过”仅覆盖本页明确列出的本地或对应提交的 CI 证据，两者范围分别记录。整体静态复核、root 最终结构检查、限定文档修复复核和本批 Git 交付已完成；后续实现仍按路线图的独立任务和平台验收推进。
+
+
+## 2026-10-14 普通僵尸动态行走增量
+
+本节记录 S2-B1 工作区冻结源码（基线 `e8e0a8fae64616985fdec7ff4cb321594189c673`）的工程、表现与平台证据。任务1已完成缓存、装配、真实 Scene、main 表现时钟接线、原创回归与基准；源码仍只有 5 个 `pvz-app` 文件改动且尚未提交。任务2步骤1、步骤3已完成，步骤5文档已同步；Web构建/正常操作/清理证据已取得，但步骤4诊断日志子项仍待补；Windows 正常窗口步骤2、任务2步骤6和 B1 Git/CI 交付仍未完成。
+
+### 实现与行为边界
+
+`Zombie.reanim` 只解析/prepare 一次，使用 `anim_walk` 源帧半开段 `44..91`、12fps；19 条身体白名单轨道按源索引借用，附件和旧 Zombie 静态 pose 已删除，完整图像映射去重后登记图像仍为94张。`Scene` 共享一个 `ZombieWalk` 缓存，按每个存活僵尸自己的 row/x 绘制并复用网格、材质和槽位；源索引用于层深度，僵尸出生使用当前全局表现相位。僵尸移除后只隐藏尾槽，不播放死亡动作；碰到植物仍持续 walk。啃食/死亡需要可靠 core 输入与事件合同，属于 B2，未在本增量实现。
+
+源帧、空图/隐藏、短轨道、marker/身体轨道缺失、时间边界、错误归属、全47帧映射、两只不同位置、池/材质复用、裁剪、移除尾槽、暂停/双终局/重开回放及真实 `main::update` 均有测试覆盖。Task1 的缓存红测实际因缺 `ZombieWalk` 出现 3 处 E0433；Scene 测试并非全部先失败，保留该流程偏差，不把本任务表述为全部测试先行。此前 alpha 缺省与 Resume 当批推进的两个真实失败和修正裁决保留在 SDD progress。
+
+### 工程检查、覆盖率与基准
+
+Windows 11 10.0.26300、Rust/Cargo 1.99.0、Bevy 0.20、cargo-llvm-cov 0.9.1、cargo-deny 0.20.2、wasm-bindgen 0.2.129，Cargo jobs=2，测试线程默认并行。默认与 all-features 均通过 workspace check、222 项测试（25 组，含 doctest）、Clippy `-D warnings`、doc、fmt、deny、actionlint、native build；四条 GPU CLI 实际退出码为 `0/0/1/0`（默认成功、完整失败、期限不足失败、默认成功），均符合预期。Web release default/probe 构建与 wasm-bindgen 生成均退出0。macOS/Linux仅有此前 S2-A CI 构建，Android/iOS未接入，不能借用为 B1 实际运行证据。
+
+默认/all-features 干净纯测试覆盖率统计相同：28 个当前 checkout 文件，5446/6106 行（89.19096%）、529/609 函数、8715/9670 区域（90.12410%）；无 branch/MCDC 分母，未追加窗口 profile。`pvz-app` 受影响文件为 `resources.rs` 713/749 行、`render.rs` 1445/1646 行、`main.rs` 830/1115 行。覆盖率不等于原版动作一致性，也不含 Web 条件、GPU/设备路径。
+
+普通僵尸 walk 三项 Criterion 均已运行并通过：完整19身体借用采样均值34.2873ns（95%区间34.1335–34.4440ns）；1只采样与仿射裁剪4485.139ns（4470.120–4501.047ns）；10只44899.118ns（44767.200–45044.689ns）。构造、prepare、选择与上传、Bevy/GPU不计入计时；没有同条件旧动态基线，不宣称性能提升。缓存统计为21168展开帧、名称626字节、图像字符串447436字节、font/text为0，名称Vec与外层42/42、每轨504/504、源索引19/32；这些是结构长度/有效字符串字节，不是堆分配次数、峰值进程内存或显存。
+
+### Windows 与 Web 实际运行
+
+Windows 旧正常窗口记录包含暂停/恢复、F 无防守失败、R 重开、row0 射手胜利、row1 向日葵和再种植截图；但普通 JPEG 截图主体被 HUD 裁剪，未取得完整无遮挡身体动态图对，失败冻结图对和窗口 resize 也未执行。当前 CUA 没有 `getApp/listWindows`，不能补做这些步骤；不以四条 GPU CLI 或终局无僵尸截图代替 walk 端点证据。
+
+Web 当前 default/probe 包、绑定与回环服务流程通过。tab7/tab8 正常入口已有无遮挡中间行普通僵尸 walk 两相位图对；默认关卡跨大于47/12秒的暂停图对、恢复图对、十波胜利冻结、F 无防守失败跨约1.3秒冻结、R 重开再植及1000×800 DPR1 resize记录。早期 `web-extra-paused-a/b.jpg` 曾误记录终局画面，后已更正为 `web-extra-default-won-a/b.jpg`；更正前记录不能作为暂停证据。新增 `web-extra-collected-shoveled.jpg` 记录可见天空阳光收集（阳光25）和 row1 向日葵铲除；`web-extra-restart-planted.jpg` 记录重开后种植，向日葵运行中动态仅由 `web-extra-sunflower-running-a/b.jpg` 支持，因为 `web-extra-sunflower-a/b.jpg` 已 Won 且被阳光遮挡。`capture-files.json` 已登记本轮16张额外截图；`compare_captures.py` 使用 bundled Python 退出0并生成 `image-comparison.json`。解码JPEG草坪局部比较中，新暂停、失败冻结及默认胜利图对差异均为0，恢复图对有11700像素变化；这是局部可观察证据，不等同未压缩GPU逐像素或原版证据。Tab8已关闭，PID11512服务已停止，核对无 pvz-app/cargo 进程；tab7 的 `web-final-observation.json` 记录 warn/error=[]，tab8 未查询诊断，不能外推为空。Web 构建、正常操作和清理证据已取得，步骤4诊断日志子项仍待补。
+
+### 原版证据与原始索引
+
+原版普通僵尸 walk/walk2 选择、出生相位、插值/混合、切换及死亡时机仍未知；原版有效重复保持 `0/3`。本地持续 walk（包括碰到植物时）是开发表现合同，不声明原版动作匹配。B1 原始证据位于忽略目录 `artifacts/validation/s2-b1-2026-10-14/`：`final-commands.json`、`final-source-state.json`、`final-coverage-summary.json`、`workspace-test-summary.json`、`bench-summary.json`、`cache-structure.json`、`gpu-smoke-summary.json`、`windows-captures.jsonl`、`web-captures.jsonl`、`web-final-observation.json`、`web-extra-observation.json`、`capture-files.json`、`image-comparison.json`、`compare_captures.py` 及对应日志/截图。它们不进入 Git、CI 或发行包。
+
+### 阶段性收尾与交接
+
+2026-10-14 按用户要求暂停实施，冻结当前 B1 工作区。统一总计划、细化计划与路线图中的 Web 状态：功能、构建及清理有证据，Tab8 诊断未查询，所以步骤4整体仍未完成。Windows 正常窗口缺项、最终独立复核、B1 目的提交/推送及对应 CI 保持待验；啃食/死亡 B2 未启动。本次只核对工作区、源码指纹、文档、锁定元数据与结构，不重复已记录的源码测试、覆盖率、基准或平台运行；本机接续结果保存为 `closeout-checks.json`，详细过程追加至 B1 执行账本。
+
+
+## 2026-10-15 全仓审计与维护阶段性收尾
+
+本节记录从 `e8e0a8fae64616985fdec7ff4cb321594189c673` 工作区继续完成的全仓审计、接口清理和显示修复。它消费本轮维护后的源码，不能回写或扩大既有 S2-B1 冻结证据。维护没有实施 S2-B2、没有改变 core 规则、内容 JSON、RNG、事件顺序或原版行为结论。
+
+### 整合与清理
+
+删除了经调用方核对确认无生产消费者的 `PlantId`、`ZombieId`、标识符 `into_inner`，以及恒定为 `Error` 的 `EventKind`/`Diagnostic::kind`。粒子解析保留完整的多发射器、属性和 Field/SystemField 子树，删除只读首发射器便捷接口和重复 `field_types` 缓存；测试改为从真实属性树验证顺序和文本。app 删除上传后丢弃的 Peashooter 完整动画字段，移除测试夹具中不被生产读取的按钮快照，收紧两个模块内辅助函数并修正事件说明。文档入口、架构、行为合同、历史计划和 B1 边界已统一；`docs/handoff.md` 及其公开引用保持删除。
+
+冷却提示现在按内容的 `SimulationClock::ticks_per_second()` 换算，真实 `main::update` 回归覆盖 30 Hz 和 120 Hz，种植后暂停保留 180 tick，分别显示 6 秒和 2 秒。Web 启动脚本只在初始化成功后允许画布隐藏状态，准备期点击、下载失败、初始化失败和成功后画布点击由 `web/startup.test.mjs` 执行实际 inline module；这是真实脚本和 WASM 编译边界的 Node 模拟，不替代浏览器关卡验收。
+
+### 本轮验证
+
+局部回归和全 workspace 默认/all-features 测试、doctest、check、Clippy、doc、fmt、cargo-deny、actionlint 均通过。cargo-deny 的既有重复依赖仅为 warning，advisories、bans、licenses、sources 均通过。默认与 all-features 干净覆盖率报告均为 5457/6114 行（89.2542%）、523/602 函数（86.8771%）；报告路径均属于当前 checkout，未启用分支/MCDC，也没有把 GPU、浏览器、设备音频计入分母。
+
+独占基准 `cargo bench -p pvz-assets --bench parsing -p pvz-app --bench presentation --locked` 退出 0。维护后粒子属性树夹具均值分别为 2.979 µs（1 Field，95% 区间 2.836–3.169 µs）和 4.597 µs（Field/SystemField，4.526–4.693 µs）；普通僵尸 walk 采样均值 35.586 ns（35.319–35.869 ns），1/10 对象仿射构图为 8.604/48.578 µs。Criterion 对若干当前环境表现场景报告相对已有本地基线的回退；该比较受机器和缓存影响，尚未完成同条件归因，本轮不宣称提速、内存收益或分配改善。
+
+native release 构建、WASM default/probe release 构建和 `wasm-bindgen` 两套绑定均通过；产物哈希与大小见维护证据。四条隐藏窗口 CLI 冒烟实际退出码为 `0/0/1/0`（30 帧切片、400 帧失败、2 帧期限不足、600 帧默认成功），并将本轮截图复制到维护证据目录。Node Web 回归四场景通过。Windows 正常可玩窗口、真实浏览器诊断、设备音频、六平台完整运行和原版有效重复仍未完成；原版有效重复保持 `0/3`。
+
+### 维护证据索引
+
+本轮原始输出位于忽略目录 `artifacts/validation/repository-maintenance-2026-10-14/`，包括 `initial-state.json`/`initial.diff`、红测与局部绿测日志、`coverage-default.json`/`coverage-all.json`、`bench-current.json`、`gpu-summary.json`、`gpu-registered.png`/`gpu-failure.png`、`wasm-bindings.json`、`metadata.json` 和 CI 结构检查脚本。失败输出按原样保留，首次 WASM 绑定命令使用了错误的下划线文件名并已改用 Cargo 实际产物 `pvz-app.wasm` 重做；这属于命令修正记录，不是构建结论。
+
+本轮阶段性收尾意味着维护结果可审阅、工程检查可重复、未完成的平台与原版门槛仍显式保留。它不关闭 S2-B1 的 Windows 正常窗口、Web 诊断和完整平台验收条件，也不把开发动态表现升级为原版行为还原。维护源码已经提交，Git/CI 与可玩阶段完成分别核验。
+
+### 维护提交与远端交付
+
+源码维护提交为 `fd8254b284e1c6bc0e0c1e1c09dc6de30d6d5888`（`chore: 完成仓库阶段性维护收尾`），已推送 `codex/repository-maintenance-closeout`，并创建 [PR #4](https://github.com/AomaYple/plants-vs-zombies-rs/pull/4)。原源码推送检查为 [CI 运行 38595279665](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38595279665)，PR 检查为 [CI 运行 38596733467](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38596733467)；状态按对应 SHA 与事件读取，不能仅凭已创建工作流声明通过。
+
+本次文档核对清除了当前入口中的“源码尚未提交”和“维护验证进行中”，保留 2026-10-14 原执行记录的当时事实。源码、Cargo.lock、资源和构建配置未因这次记录更新改变，本轮实现验证可以按相同输入复用；本次文档仍单独检查编码、链接、资源边界、锁定元数据和差异。PR 合并后核对主线与对应 CI，并清理已合入的本地/远端任务分支；实际合并提交、检查和清理账本保存在本机维护证据目录。

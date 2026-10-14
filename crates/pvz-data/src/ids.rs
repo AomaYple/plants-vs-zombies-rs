@@ -102,11 +102,6 @@ macro_rules! define_id {
             pub fn as_str(&self) -> &str {
                 &self.0
             }
-
-            /// 取出标识符的底层字符串。
-            pub fn into_inner(self) -> String {
-                self.0
-            }
         }
 
         impl AsRef<str> for $name {
@@ -167,7 +162,5 @@ macro_rules! define_id {
 }
 
 define_id!(AssetId, true, "版本化参考资源的相对路径标识符。");
-define_id!(PlantId, false, "植物定义的稳定标识符。");
-define_id!(ZombieId, false, "僵尸定义的稳定标识符。");
 define_id!(LevelId, false, "关卡定义的稳定标识符。");
 define_id!(ReferenceBaselineId, false, "原版行为参考基线的稳定标识符。");

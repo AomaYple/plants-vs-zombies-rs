@@ -1,6 +1,6 @@
 # pvz-app
 
-Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片采用六类对象的登记静态构图，尚未接入完整动作混合与原版粒子。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
+Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片使用登记资源，向日葵已接动态 idle，本地 B1 工作区已接普通僵尸开发 walk，其余对象继续静态构图；完整动作混合与原版粒子尚未接入。B1 平台完整验收尚未完成；源码已纳入维护提交，Git/CI 记录见[维护结果](../../docs/behavior/content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
 
 正常入口 `Runtime::day()` 消费编译时嵌入的原创 [development-day.json](../../content/levels/development-day.json)，native/Web 使用相同字节，schema 1、规则 2.0、依据 `development`、seed 7、初始阳光 150 和有序波次均由内容定义。默认波次无操作会由割草机完成胜利。按 `F` 可从同一正常入口进入明确标记的 [development-failure.json](../../content/levels/development-failure.json) 开发失败场景；该场景放任第二只僵尸会失败，种植豌豆射手仍可获胜。`F` 是当前阶段的单一开发入口，不是通用选关系统。`Runtime::from_day_json(&str)` 在解析前按 UTF-8 字节数拒绝超过 1048576 字节的输入，再复用 serde_json 和 core 纯类型装配；损坏 JSON、未知/遗漏/重复字段、未知版本和非法参数明确返回中文包装错误，保留原始原因，不回退默认规则。项目自带内容无效时正常入口明确失败；独立 `Runtime::default()` 继续用于原创空棋盘 probe。
 
@@ -30,11 +30,13 @@ Web 入口先编译 WebAssembly 模块，再等待用户点击“启动”按钮
 
 ## 仿射与开发动画合同
 
-纯 `PreparedAnimation` 在装配时继承缺省字段，保留显式空图片，源轨道顺序作为图层顺序；marker 取首个非负 `f` 连续区段，按资源 fps 离散循环，不反向驱动模拟。该采样能力已测试，当前切片仍使用静态构图。PeaShooter 选择 `anim_full_idle`（79..104）的帧 79，包含头、嘴、叶与茎；`anim_idle`（4..29）只启用叶与茎。`kx` 控制 y 基向量、`ky` 控制 x 基向量，分别生成 `[-sy*sin(kx), sy*cos(kx)]` 与 `[sx*cos(ky), sx*sin(ky)]`。独立角度、缩放和平移使用原创夹具验证；原版完整插值、锚点、marker、sprite atlas 和 `f` 语义仍待测量。其他构图的来源与轨道选择见开发切片合同。
+纯 `PreparedAnimation` 在装配时继承缺省字段，保留显式空图片，源轨道顺序作为图层顺序；marker 取首个非负 `f` 连续区段，按资源 fps 离散循环，不反向驱动模拟。该采样能力已由向日葵 idle 和普通僵尸 walk 的真实 Scene 消费。PeaShooter 选择 `anim_full_idle`（79..104）的帧 79，包含头、嘴、叶与茎；`anim_idle`（4..29）只启用叶与茎。`kx` 控制 y 基向量、`ky` 控制 x 基向量，分别生成 `[-sy*sin(kx), sy*cos(kx)]` 与 `[sx*cos(ky), sx*sin(ky)]`。独立角度、缩放和平移使用原创夹具验证；原版完整插值、锚点、marker、sprite atlas 和 `f` 语义仍待测量。其他构图的来源与轨道选择见开发切片合同。
 
 Bevy 世界坐标 Y 向上，纯逻辑坐标 Y 向下；适配层执行 `(x-400, 300-y)`。Camera viewport 使用 framebuffer 像素，正交投影覆盖 800×600 逻辑单位，直接在实际 framebuffer 绘制。纹理顶点经 CPU 凸多边形裁剪，同时插值 UV，再送入 `Mesh2d/ColorMaterial`；没有低分辨率渲染纹理作为中间输出。右侧红蓝原创四边形验证独立错切、图层遮挡和右侧裁剪。1400×600 背景使用 800×600 开发裁剪，不横向挤压。
 
 `properties/resources.xml` 实查没有 PeaShooter 图像登记。`resources.rs` 当前保存 93 项经 Reanim 引用与清单逐项核对的显式图像映射，另加载豌豆图像，共 94 张；每个引用必须精确匹配唯一登记文件。运行时不使用大小写或文件名猜测，该映射不宣称复现原版资源管理系统。
+
+普通僵尸 `ZombieWalk` 装配完整 `Zombie.reanim`，选资源 `anim_walk` 半开段 `44..91`、12fps，保留19条身体源轨道并排除附件；全映射/去重解码后图像集合仍为94张，没有旧 Zombie 静态副本。Scene 共享唯一缓存，按各僵尸当前位置借用采样并复用网格/材质槽。全局相位、离散采样、新出生接当前相位及碰植物仍持续 walk 均为开发合同；移除直接隐藏旧槽，没有死亡伪动画。暂停/双终局/重开和实际 main update 已有 CPU 回归，Windows 完整正常窗口缺项及任务2最终交付复核分别见[本批结果](../../docs/behavior/content-foundation-results.md#2026-10-14-普通僵尸动态行走增量)。
 
 ## 测试与性能入口
 
@@ -45,7 +47,7 @@ cargo clippy -p pvz-app --all-targets --all-features --locked -- -D warnings
 cargo bench -p pvz-app --bench presentation --locked
 ```
 
-纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。内容回归验证默认入口、实际参数消费、无回退错误边界、一 MiB 字节上限、30/120 Hz 推进、暂停/恢复、终局和重开。binary 回归在无设备的 Bevy World 中驱动真实 `update` 与播放请求组件，覆盖同批暂停/音乐顺序、sink 多帧尚未建立时的暂停、恢复、重开及终局拒绝；请求状态验证不代表后端已创建 sink 或实测游标。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；这些表现场景的构造/解析位于计时区外。新增 schema 1/规则 2.0 原创白天 JSON 场景明确标注字节数，计时包含解析、校验与 Runtime 装配，嵌入输入且不计文件 I/O。基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。本批内容迁移的实际结果与待验范围见[版本化内容结果](../../docs/behavior/content-foundation-results.md)，历史平台/切片验收保留在[切片结果](../../docs/behavior/vertical-slice-results.md)。
+纯 lib 测试不创建窗口、GPU 或音频设备，默认并行；隔离临时目录验证缺失和脱敏错误，登记资源测试校验并实际解码六类构图所需集合。内容回归验证默认入口、实际参数消费、无回退错误边界、一 MiB 字节上限、30/120 Hz 推进、暂停/恢复、终局和重开。binary 回归在无设备的 Bevy World 中驱动真实 `update` 与播放请求组件，覆盖同批暂停/音乐顺序、sink 多帧尚未建立时的暂停、恢复、重开及终局拒绝；请求状态验证不代表后端已创建 sink 或实测游标。Criterion 覆盖 4K 输入映射、双轴仿射/裁剪、原创 8 轨道×128 帧和 12 fps 动画时间索引；这些表现场景的构造/解析位于计时区外。新增 schema 1/规则 2.0 原创白天 JSON 场景明确标注字节数，计时包含解析、校验与 Runtime 装配，嵌入输入且不计文件 I/O。新增普通僵尸原创42轨道×504帧夹具，测完整19身体借用采样以及1/10只的仿射裁剪；prepare、映射/上传、Bevy池与GPU不计入计时。测试覆盖源索引、空图/隐藏/短轨道、错误归属、真实两只僵尸坐标、池复用/材质换绑、移除尾槽、裁剪及暂停/双终局/重开回放。基准不读取或内嵌原版素材。GPU、设备输入与播放游标需要平台运行证据，CPU 基准不代表整体帧率。本批内容迁移的实际结果与待验范围见[版本化内容结果](../../docs/behavior/content-foundation-results.md)，历史平台/切片验收保留在[切片结果](../../docs/behavior/vertical-slice-results.md)。
 
 ## 平台与依赖边界
 
