@@ -2,7 +2,7 @@
 
 **plants-vs-zombies-rs** 是使用 Rust 与 Bevy 实现的非官方跨平台重写项目。
 
-2026-10-14 按用户要求阶段性收尾，S2-B1 实现已冻结，必要平台验收、最终复核与交付尚待完成。
+2026-10-15 已完成全仓审计、维护和工程验证；S2-B1 实现已冻结并纳入维护提交，完整平台验收仍待完成。
 目标是以版本化的原版参考资源和可观察行为为参考，重新编写游戏逻辑、动画播放器、渲染、音频接线、关卡系统与工具。
 
 ## 当前状态
@@ -11,7 +11,7 @@
 
 此前切片输入、截图退出、音乐生命周期及整分支复核已通过，历史 Web 胜利与 DPR 1 下 2K/4K 输入映射、Windows 音频范围见 [切片验收结果](docs/behavior/vertical-slice-results.md)。版本化内容批次没有重复全部历史平台检查。S1 已在 Windows/Web 正常入口完成开发防守关卡的失败、胜利、终局冻结、重开与再次种植，当前源码的 Windows 默认成功/失败隐藏冒烟也通过；本轮没有重跑 Web 默认十波完整胜利，也没有实听设备音频。S1 已完成开发闭环交付：双终局、错误退出码修复、两组合各 194 项测试、干净覆盖率、七基准及最终独立复核通过，修复后的 WASM 包完成启动/F失败/R重开回归；目的提交 `f1850b1ce5bad82b91338867c3f4cca8387410fc` 已推送 `main`，对应 [CI 运行 38502468453](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38502468453) 八个 job 全部成功，详细范围见[本轮双终局结果](docs/behavior/content-foundation-results.md#2026-10-14-白天单关双终局闭环)。原版窗口曾通过资格观察，当前三次教程重复及窗口控制恢复见[参考基线](docs/behavior/reference-baseline.md#2026-10-13-首个端到端案例登记)；原版时基/规则、完整动态表现和其余平台运行继续待验收。
 
-当前[总计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)按阶段性最小可玩垂直切片推进：已有切片是 S0 历史起点，S1 已完成开发闭环，S2-A 向日葵动态 idle 已完成独立可玩交付，提交 `3e6634e` 的八项 CI 全部成功；当前 [S2-B1 普通僵尸 walk](docs/superpowers/plans/2026-10-14-zombie-walk.md)已完成缓存、真实 Scene 接入、原创测试、两组合 workspace 检查、覆盖率与基准；Windows 正常窗口缺项和平台最终复核仍待验，源码尚未提交/推送，不能标记独立可玩交付完成，随后逐对象接入动态表现、增加策略与两关进度，再逐关完善地形、冒险和模式。每个阶段保留一个完整可玩版本，六平台适配随阶段推进。[原版行为测量专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)作为横向证据轨逐参数采纳；窗口阻塞只影响直接依赖它的任务，开发参数和工程验证继续与原版一致性证据分开记录。
+当前[总计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)按阶段性最小可玩垂直切片推进：已有切片是 S0 历史起点，S1 已完成开发闭环，S2-A 向日葵动态 idle 已完成独立可玩交付，提交 `3e6634e` 的八项 CI 全部成功；当前 [S2-B1 普通僵尸 walk](docs/superpowers/plans/2026-10-14-zombie-walk.md)已完成缓存、真实 Scene 接入、原创测试、两组合 workspace 检查、覆盖率与基准；源码已纳入维护提交 `fd8254b`，交付与对应检查见 [PR #4](https://github.com/AomaYple/plants-vs-zombies-rs/pull/4)；Windows 正常窗口缺项、Web 诊断和平台最终复核仍待验，不能标记独立可玩交付完成，随后逐对象接入动态表现、增加策略与两关进度，再逐关完善地形、冒险和模式。每个阶段保留一个完整可玩版本，六平台适配随阶段推进。[原版行为测量专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)作为横向证据轨逐参数采纳；窗口阻塞只影响直接依赖它的任务，开发参数和工程验证继续与原版一致性证据分开记录。
 本地 B1 工作区已显示普通僵尸持续 walk，并保留向日葵 idle；碰到植物时仍使用 walk，没有可靠啃食/死亡动作接口。原版动作选择、出生相位、插值/混合和切换时机仍未知，具体工程、平台证据和未完成项见[普通僵尸增量结果](docs/behavior/content-foundation-results.md#2026-10-14-普通僵尸动态行走增量)。
 
 `pvz-data`、`pvz-core` 和 `pvz-assets` 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式资源根目录审计时读取清单登记输入。

@@ -354,4 +354,10 @@ native release 构建、WASM default/probe release 构建和 `wasm-bindgen` 两�
 
 本轮原始输出位于忽略目录 `artifacts/validation/repository-maintenance-2026-10-14/`，包括 `initial-state.json`/`initial.diff`、红测与局部绿测日志、`coverage-default.json`/`coverage-all.json`、`bench-current.json`、`gpu-summary.json`、`gpu-registered.png`/`gpu-failure.png`、`wasm-bindings.json`、`metadata.json` 和 CI 结构检查脚本。失败输出按原样保留，首次 WASM 绑定命令使用了错误的下划线文件名并已改用 Cargo 实际产物 `pvz-app.wasm` 重做；这属于命令修正记录，不是构建结论。
 
-本轮阶段性收尾意味着维护结果可审阅、工程检查可重复、未完成的平台与原版门槛仍显式保留。它不关闭 S2-B1 的 Windows 正常窗口/Web 诊断/Git 交付条件，也不把开发动态表现升级为原版行为还原。
+本轮阶段性收尾意味着维护结果可审阅、工程检查可重复、未完成的平台与原版门槛仍显式保留。它不关闭 S2-B1 的 Windows 正常窗口、Web 诊断和完整平台验收条件，也不把开发动态表现升级为原版行为还原。维护源码已经提交，Git/CI 与可玩阶段完成分别核验。
+
+### 维护提交与远端交付
+
+源码维护提交为 `fd8254b284e1c6bc0e0c1e1c09dc6de30d6d5888`（`chore: 完成仓库阶段性维护收尾`），已推送 `codex/repository-maintenance-closeout`，并创建 [PR #4](https://github.com/AomaYple/plants-vs-zombies-rs/pull/4)。原源码推送检查为 [CI 运行 38595279665](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38595279665)，PR 检查为 [CI 运行 38596733467](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38596733467)；状态按对应 SHA 与事件读取，不能仅凭已创建工作流声明通过。
+
+本次文档核对清除了当前入口中的“源码尚未提交”和“维护验证进行中”，保留 2026-10-14 原执行记录的当时事实。源码、Cargo.lock、资源和构建配置未因这次记录更新改变，本轮实现验证可以按相同输入复用；本次文档仍单独检查编码、链接、资源边界、锁定元数据和差异。PR 合并后核对主线与对应 CI，并清理已合入的本地/远端任务分支；实际合并提交、检查和清理账本保存在本机维护证据目录。

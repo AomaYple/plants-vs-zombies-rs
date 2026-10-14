@@ -1,6 +1,6 @@
 # pvz-app
 
-Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片使用登记资源，向日葵已接动态 idle，本地 B1 工作区已接普通僵尸开发 walk，其余对象继续静态构图；完整动作混合与原版粒子尚未接入。B1 平台完整验收与 Git/CI 尚未完成。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
+Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片使用登记资源，向日葵已接动态 idle，本地 B1 工作区已接普通僵尸开发 walk，其余对象继续静态构图；完整动作混合与原版粒子尚未接入。B1 平台完整验收尚未完成；源码已纳入维护提交，Git/CI 记录见[维护结果](../../docs/behavior/content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
 
 正常入口 `Runtime::day()` 消费编译时嵌入的原创 [development-day.json](../../content/levels/development-day.json)，native/Web 使用相同字节，schema 1、规则 2.0、依据 `development`、seed 7、初始阳光 150 和有序波次均由内容定义。默认波次无操作会由割草机完成胜利。按 `F` 可从同一正常入口进入明确标记的 [development-failure.json](../../content/levels/development-failure.json) 开发失败场景；该场景放任第二只僵尸会失败，种植豌豆射手仍可获胜。`F` 是当前阶段的单一开发入口，不是通用选关系统。`Runtime::from_day_json(&str)` 在解析前按 UTF-8 字节数拒绝超过 1048576 字节的输入，再复用 serde_json 和 core 纯类型装配；损坏 JSON、未知/遗漏/重复字段、未知版本和非法参数明确返回中文包装错误，保留原始原因，不回退默认规则。项目自带内容无效时正常入口明确失败；独立 `Runtime::default()` 继续用于原创空棋盘 probe。
 

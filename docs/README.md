@@ -9,7 +9,7 @@
 | [版本化白天内容设计](superpowers/specs/2026-10-12-versioned-day-content.md) | 严格内容格式、纯装配与实际时钟消费边界 |
 | [原版行为基线测量设计](superpowers/specs/2026-10-12-reference-behavior-measurement.md) | 可观察行为、证据分类与规则替换边界 |
 | [当前总计划：阶段性最小可玩垂直切片](superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md) | S1 已完成开发闭环、S2-A 已交付、当前 S2-B1、后续阶段与证据边界 |
-| [当前细化计划：普通僵尸 walk（S2-B1）](superpowers/plans/2026-10-14-zombie-walk.md) | 冻结源码已有缓存/真实 Scene/工程证据；仓库维护后的新验证进行中，Windows 缺项、Web 诊断、最终复核与 Git/CI 待完成 |
+| [当前细化计划：普通僵尸 walk（S2-B1）](superpowers/plans/2026-10-14-zombie-walk.md) | 缓存/真实 Scene 与维护后工程验证已完成；源码已纳入维护提交，Windows 缺项、Web 诊断和平台最终复核待完成 |
 | [已完成：向日葵 idle（S2-A）](superpowers/plans/2026-10-14-sunflower-idle.md) | 可玩增量、实跑与提交 `3e6634e` 对应八项 CI 通过；流程偏差与限制保留 |
 | [横向专题计划：原版行为测量与并行开发](superpowers/plans/2026-10-12-reference-behavior-measurement.md) | 案例依赖、窗口阻塞处理、独立开发与逐参数采纳 |
 | [已完成：版本化白天内容计划](superpowers/plans/2026-10-12-versioned-day-content.md) | 已完成的白天内容数据化与应用装配验收 |
@@ -28,4 +28,4 @@
 | [平台探针结果](behavior/platform-probe-results.md) | 任务 5 的窗口、输入、图形与音频历史验证 |
 | [技术决策](adr/README.md) | 已采纳决策与重新评估条件 |
 
-文档职责与更新约定见 [原则索引](principles/README.md#文档职责与维护)。当前阶段与后续顺序只在总计划和路线图维护；结果页保存各批源码、命令、环境及实际验收范围。S1 与 S2-A 已完成交付；S2-B1 冻结源码的工程证据保留，仓库维护后的新验证仍在进行，Windows 正常窗口缺项、Web 诊断、最终复核和 Git/CI 尚未闭合，整个 S2 保持未完成。文档中“计划”“待接入”“待测量”表示工作尚未完成；开发参数作为原版规格使用或验收前须完成相应测量。
+文档职责与更新约定见 [原则索引](principles/README.md#文档职责与维护)。当前阶段与后续顺序只在总计划和路线图维护；结果页保存各批源码、命令、环境及实际验收范围。S1 与 S2-A 已完成交付；S2-B1 冻结源码的历史证据保留，维护后工程验证已完成，源码已纳入维护提交；Git/CI 记录见[维护结果](behavior/content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)。Windows 正常窗口缺项、Web 诊断和平台最终复核仍未闭合，整个 S2 保持未完成。文档中“计划”“待接入”“待测量”表示工作尚未完成；开发参数作为原版规格使用或验收前须完成相应测量。
