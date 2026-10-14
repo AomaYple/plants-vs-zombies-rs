@@ -2,7 +2,7 @@
 
 当前总入口为[阶段性最小可玩垂直切片计划](superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)：每个阶段和独立子阶段都交付从正常入口开始、能操作、能到结果并重试/返回的版本，保留此前可玩流程。正确性优先，本轮优先缩短游戏开发等待与返工；长期取舍遵守[共同原则](principles/README.md#共同原则)。
 
-已有静态白天开发切片和版本化内容已交付所记录的工程范围，作为 S0 历史起点。S1 已完成开发闭环：Windows/Web 正常 F 开发防守关卡的双终局、冻结、重开与再次种植已实跑，冒烟错误退出码缺陷已修复且实际进程正/负例通过，默认/all-features workspace 各 194 项测试与适用静态门槛通过；修复后两组合干净覆盖率均为3325/4134行，受影响七基准保留本轮结果，新 WASM 包启动/F失败/R重开回归和最终独立复核通过。目的提交 `f1850b1ce5bad82b91338867c3f4cca8387410fc` 已推送 `main`，对应 [CI 运行 38502468453](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38502468453) 八个 job 全部成功。当前进入 [S2-A 向日葵 idle 交付验收](superpowers/plans/2026-10-14-sunflower-idle.md)，已完成源码与 Windows/Web 本地可玩验收，独立复核和 Git/对应 CI 正在收口；后续接入僵尸动作。不重建已有五包或重做内容数据化。原版测量保持横向证据轨，不能用工程验收代替原版一致性。
+已有静态白天开发切片和版本化内容已交付所记录的工程范围，作为 S0 历史起点。S1 已完成开发闭环：Windows/Web 正常 F 开发防守关卡的双终局、冻结、重开与再次种植已实跑，冒烟错误退出码缺陷已修复且实际进程正/负例通过，默认/all-features workspace 各 194 项测试与适用静态门槛通过；修复后两组合干净覆盖率均为3325/4134行，受影响七基准保留本轮结果，新 WASM 包启动/F失败/R重开回归和最终独立复核通过。目的提交 `f1850b1ce5bad82b91338867c3f4cca8387410fc` 已推送 `main`，对应 [CI 运行 38502468453](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38502468453) 八个 job 全部成功。S2-A 向日葵动态 idle 已完成独立可玩交付，提交 `3e6634e` 的对应八项 CI 全部成功；当前按 [S2-B1 普通僵尸 walk 计划](superpowers/plans/2026-10-14-zombie-walk.md)接入走路，再独立实现可靠啃食/死亡反馈。不重建已有五包或重做内容数据化。原版测量保持横向证据轨，不能用工程验收代替原版一致性。
 
 ## 可玩阶段
 
@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | S0 历史可玩起点 | 当前白天静态切片中的种植、收阳光、防守及指定胜利流程 | 已交付历史范围；完整双终局仍交由 S1 |
 | S1 可靠白天单关 | 正常玩到胜利或失败、冻结、暂停/恢复、重开再种植 | 已完成开发闭环；`f1850b1` 交付与对应 CI 通过 |
-| S2 动态白天单关 | 同一完整关卡首先接向日葵 idle，再接僵尸动作与反馈 | S2-A 本地可玩验收完成、交付收口中；S2-B 未实施 |
+| S2 动态白天单关 | 同一完整关卡首先接向日葵 idle，再接僵尸动作与反馈 | S2-A 已交付；S2-B1 计划已细化，源码未实施；B2 待后续可靠观察接口 |
 | S3 两关白天冒险 | 使用坚果/路障等新策略、选卡、两关解锁、保存并继续 | 待开始；内容先各自一关，再连接进度 |
 | S4 四种环境关卡 | 夜间 → 泳池 → 雾 → 屋顶，每种单独玩完一关 | 待开始；各子阶段独立验收 |
 | S5 冒险通关闭环 | 从已有进度到最终遭遇、通关或失败重试 | 待开始；开发贯通不等同完整原版冒险 |
@@ -38,7 +38,7 @@
 
 ## 证据和维护入口
 
-- [总计划](superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)：S1 已完成开发闭环与后续阶段；[S2-A 细化计划](superpowers/plans/2026-10-14-sunflower-idle.md)维护已实施的向日葵增量及交付门槛，S2-B 尚未实施；S1 双终局回归作为后续固定合同。
+- [总计划](superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)：S1 已完成开发闭环与后续阶段；[S2-B1 细化计划](superpowers/plans/2026-10-14-zombie-walk.md)维护当前走路增量；S2-A 已交付，B2 啃食/死亡反馈后续独立实施；S1 双终局回归作为后续固定合同。
 - [切片结果](behavior/vertical-slice-results.md)、[版本化内容与质量结果](behavior/content-foundation-results.md)、[平台探针结果](behavior/platform-probe-results.md)：保留实际提交、命令、范围与限制，不改写为本次重测。
 - [已完成基础计划](superpowers/plans/2026-10-07-foundation-and-asset-audit.md)、[已完成内容计划](superpowers/plans/2026-10-12-versioned-day-content.md)：历史验收索引。
 - [项目原则](principles/README.md)、[贡献指南](../CONTRIBUTING.md)：质量约束及实际检查/提交流程；本页不重复全量命令和长期规则。
