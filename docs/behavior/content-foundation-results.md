@@ -101,7 +101,7 @@ Web 日志保留两个既有可选3D管线能力 WARN 与 CPU 预处理回退信
 
 ## 2026-10-14 白天单关双终局闭环
 
-本节记录 S1 在 `a2f16c9` 起点工作区的新增验收，S1 尚未提交，不能引用历史 CI 作为本增量交付结果。失败场景为版本化原创内容 `content/levels/development-failure.json`，关卡 ID `development-failure-slice`、规则 2.0、依据 `development`，通过正常入口的 `F` 键进入；默认入口仍加载 `development-day.json`。默认内容无种植时可由割草机完成胜利，等待不能称作默认失败。开发关卡和实跑结果不代表原版规则事实。
+本节记录 S1 在 `a2f16c9` 起点工作区的新增验收，完整目的提交 `f1850b1ce5bad82b91338867c3f4cca8387410fc` 已推送 `main`，其对应 CI 已核验通过，交付详情见本节后文。失败场景为版本化原创内容 `content/levels/development-failure.json`，关卡 ID `development-failure-slice`、规则 2.0、依据 `development`，通过正常入口的 `F` 键进入；默认入口仍加载 `development-day.json`。默认内容无种植时可由割草机完成胜利，等待不能称作默认失败。开发关卡和实跑结果不代表原版规则事实。
 
 ### 当前运行证据
 
@@ -162,9 +162,9 @@ Web 条件代码、GPU 实际绘制和设备路径不在 native 分母；stable 
 
 修复直接让 `main` 返回 Bevy `app.run()` 的 `AppExit`，复用其标准 `Termination` 实现向 OS 传播错误；新增两条真实 Runtime/冒烟消费者期限边界测试。限定独立静态复核通过、未发现新增阻断，未更改 core/runtime、内容、规则版本或热路径。修复后真实进程 `--failure-smoke --smoke 400 --screenshot` 观察到 tick4049 `Defeat`、退出0；合法期限2负例退出1；`--slice-smoke --smoke 600 --screenshot` 观察到 tick5767 `Victory`、退出0。正例、负例与旧错误退出0分别保留，当前证据不再只依赖内部 AppExit。
 
-Windows CI 已在现有 probe30/slice30 之后配置失败400成功冒烟和期限2 OS 退出码回归：前者须观察到 `Lost` 且退出0，后者必须非零退出。actionlint 通过，本机上述实际进程正/负例通过；本增量远端 CI 尚未触发/核验，不写成 CI 已通过。修复后 WASM release 构建与 wasm-bindgen 生成也退出0（`exit-fix-15.log/16.log`）。新包随后在后台浏览器通过启动按钮加载默认登记画面，正常 F 输入进入失败，画面显示阳光150、2/2波次及僵尸突破防线；正常 R 重开恢复阳光150、1/2波次及守住草坪。warn/error 查询为 `[]`，截图 `web-exit-fix-failure.png` 已核对；自有 tab3 和服务 PID23732 已关闭。该新包未完整重跑胜利及再次种植，main 退出传播修复没有改变玩法、Runtime 或时钟，完整双终局/冻结/再种植合同沿用上表此前同轮正常输入证据，不能把它改写成新包全流程重测。观察和清理记录为 `web-exit-fix-observation.json`。
+Windows CI 已在现有 probe30/slice30 之后配置失败400成功冒烟和期限2 OS 退出码回归：前者须观察到 `Lost` 且退出0，后者必须非零退出。actionlint 通过，本机上述实际进程正/负例通过；目的提交 `f1850b1` 对应 Windows 实现检查及其余七个 CI job 均已成功，具体运行见下文交付记录。修复后 WASM release 构建与 wasm-bindgen 生成也退出0（`exit-fix-15.log/16.log`）。新包随后在后台浏览器通过启动按钮加载默认登记画面，正常 F 输入进入失败，画面显示阳光150、2/2波次及僵尸突破防线；正常 R 重开恢复阳光150、1/2波次及守住草坪。warn/error 查询为 `[]`，截图 `web-exit-fix-failure.png` 已核对；自有 tab3 和服务 PID23732 已关闭。该新包未完整重跑胜利及再次种植，main 退出传播修复没有改变玩法、Runtime 或时钟，完整双终局/冻结/再种植合同沿用上表此前同轮正常输入证据，不能把它改写成新包全流程重测。观察和清理记录为 `web-exit-fix-observation.json`。
 
-S1 全部适用本地 L3 验收完成：双终局、冻结、重开/再种植证据、194项测试、七基准、实际进程0/1/0、actionlint、修复后两组合干净覆盖率和新 WASM 回归已齐；Git 与对应 CI 仍待交付，整个 S1 尚未标记完成。S2 源码尚未实施。原版行为测量仍为独立证据轨，不因 S1 工程进展变为已还原。
+S1 全部适用本地 L3 验收及最终独立复核完成：双终局、冻结、重开/再种植证据、两组合各194项测试、七基准、实际进程0/1/0、actionlint、修复后两组合干净覆盖率和新 WASM 回归已齐。完整目的提交 `f1850b1ce5bad82b91338867c3f4cca8387410fc` 已推送 `main`；对应 [CI 运行 38502468453](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38502468453) 的 sha 与该提交一致，status 为 completed、conclusion 为 success，仓库结构、依赖审计、Web 构建、Windows/macOS/Linux 实现检查及 default/all 覆盖率与基准入口共八个 job 全部成功，账本见本轮原始索引。S1 已完成开发闭环；当前进入 [S2-A 向日葵 idle 实施准备](../superpowers/plans/2026-10-14-sunflower-idle.md)，源码尚未实施。本次阶段状态/计划文档尚未提交，其提交与 CI 另行核验，不引用 S1 的成功作为本次文档提交结果。原版行为测量仍为独立证据轨，不因 S1 工程进展变为已还原。
 
 ### 本轮原始索引
 
@@ -179,6 +179,7 @@ S1 全部适用本地 L3 验收完成：双终局、冻结、重开/再种植证
 | 修复后新 WASM 回归 | `web-exit-fix-observation.json`、`web-exit-fix-failure.png` |
 | 基准命令与原始估计 | `bench-commands.json`、`bench-0.log`、`bench-1.log`、`criterion/*/new/estimates.json` 与 `benchmark.json`，只按本轮日志筛选 |
 | 失败边界探索 | `failure-bounded.json`、`failure-bounded.log` |
+| S1 目的提交对应 CI | `ci.json`；sha=`f1850b1ce5bad82b91338867c3f4cca8387410fc`，run=`38502468453`，completed/success，八个 job 全部成功 |
 | 结构检查快照 | `structure.json`；最终文档及交付检查由主代理继续核验 |
 
 ## 2026-10-13 仓库质量复核补充
@@ -214,4 +215,4 @@ S1 全部适用本地 L3 验收完成：双终局、冻结、重开/再种植证
 | 内容/结构/元数据检查 | `content-audit.md`、`structure.json`、`metadata.json`；root 最终检查通过，3348 文件、3229 资源、228 本地链接、5 个成员；限定文档修复复核已通过 |
 | 各任务实施、独立复核与裁决 | 当前 `.superpowers/sdd/2026-10-12-versioned-day-content/` 账本，清理工作区前由主代理保存到本批 `reviews/` |
 
-文档中的“已通过”仅覆盖本页明确列出的本地证据。整体静态复核、root 最终结构检查、限定文档修复复核和本批 Git 交付已完成；后续实现仍按路线图的独立任务和平台验收推进。
+文档中的“已通过”仅覆盖本页明确列出的本地或对应提交的 CI 证据，两者范围分别记录。整体静态复核、root 最终结构检查、限定文档修复复核和本批 Git 交付已完成；后续实现仍按路线图的独立任务和平台验收推进。
