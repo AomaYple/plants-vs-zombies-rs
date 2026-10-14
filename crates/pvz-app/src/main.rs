@@ -36,6 +36,9 @@ struct Options {
     /// 隐藏窗口中的固定切片输入脚本，证据写入独立目录。
     #[arg(long, requires = "smoke")]
     slice_smoke: bool,
+    /// 隐藏窗口调用与 F 键相同的逻辑入口；加速等待开发失败并校验终局。
+    #[arg(long, requires = "smoke", conflicts_with_all = ["probe", "slice_smoke", "audio_smoke"])]
+    failure_smoke: bool,
 }
 #[derive(Resource)]
 struct AppState {
@@ -63,7 +66,7 @@ struct AppState {
     feedback: String,
 }
 
-fn main() {
+fn main() -> AppExit {
     #[cfg(not(target_arch = "wasm32"))]
     let mut options = <Options as clap::Parser>::parse();
     #[cfg(target_arch = "wasm32")]
@@ -73,6 +76,7 @@ fn main() {
         screenshot: false,
         audio_smoke: false,
         slice_smoke: false,
+        failure_smoke: false,
     };
     options.probe |= cfg!(feature = "probe");
     if options.audio_smoke && (options.probe || options.smoke.is_none_or(|frames| frames < 120)) {
@@ -88,6 +92,14 @@ fn main() {
             .error(
                 clap::error::ErrorKind::ValueValidation,
                 "切片冒烟需要登记资源模式",
+            )
+            .exit();
+    }
+    if options.failure_smoke && options.probe {
+        <Options as clap::CommandFactory>::command()
+            .error(
+                clap::error::ErrorKind::ValueValidation,
+                "失败冒烟需要登记资源模式，不能与探针 feature 共用",
             )
             .exit();
     }
@@ -119,7 +131,7 @@ fn main() {
         initialize(world, options.clone())
     });
     app.add_systems(Update, update);
-    app.run();
+    app.run()
 }
 
 fn initialize(world: &mut World, options: Options) {
@@ -246,6 +258,9 @@ fn apply_input(state: &mut AppState, event: InputEvent) {
     {
         println!("逻辑输入探针：{event:?}");
     }
+    if event == InputEvent::LoadFailureScenario && !state.options.probe {
+        state.feedback = "已载入开发失败场景（F）".to_owned();
+    }
     state.runtime.input(event);
 }
 
@@ -320,7 +335,8 @@ fn update(world: &mut World) {
         if state.ready && state.failure.is_some() { state.runtime.render_frames += 1; }
         if state.ready && state.failure.is_none() {
             slice_script(&mut state);
-            let elapsed = if state.options.slice_smoke { 0.25 } else { world.resource::<Time<Real>>().delta_secs_f64() };
+            failure_script(&mut state);
+            let elapsed = if state.options.slice_smoke || state.options.failure_smoke { 0.25 } else { world.resource::<Time<Real>>().delta_secs_f64() };
             state.runtime.advance(elapsed);
         }
         audio_smoke(world, &mut state);
@@ -335,7 +351,7 @@ fn update(world: &mut World) {
             let board = state.runtime.game.board().expect("正常游戏拥有棋盘");
             let selection = if state.runtime.shovel { "铲除" } else { match board.selected() { Some(pvz_core::PlantKind::Sunflower) => "向日葵", Some(pvz_core::PlantKind::Peashooter) => "豌豆射手", None => "请选卡" } };
             let status = if state.failure.is_some() { "资源加载失败" } else if !state.ready { "加载资源" } else if board.paused() { "已暂停" } else { match board.status() { pvz_core::GameStatus::Running => "守住草坪", pvz_core::GameStatus::Won => "胜利！", pvz_core::GameStatus::Lost => "失败，请重开" } };
-            world.get_mut::<Text2d>(state.status).expect("状态文本存在").0 = format!("阳光 {}  ·  选择：{selection}  ·  {status}  ·  {} / {} 只已出现\n开发规则 2.0（尚未还原） · 冷却(日/豌) {}/{}秒 · {}", state.runtime.game.sun(), board.spawned(), board.rules().wave.len(), board.cooldown_remaining(pvz_core::PlantKind::Sunflower, state.runtime.game.tick()).div_ceil(60), board.cooldown_remaining(pvz_core::PlantKind::Peashooter, state.runtime.game.tick()).div_ceil(60), state.feedback);
+            world.get_mut::<Text2d>(state.status).expect("状态文本存在").0 = format!("阳光 {}  ·  选择：{selection}  ·  {status}  ·  {} / {} 只已出现\n开发规则 2.0（尚未还原） · 冷却(日/豌) {}/{}秒 · F 失败场景 · {}", state.runtime.game.sun(), board.spawned(), board.rules().wave.len(), board.cooldown_remaining(pvz_core::PlantKind::Sunflower, state.runtime.game.tick()).div_ceil(60), board.cooldown_remaining(pvz_core::PlantKind::Peashooter, state.runtime.game.tick()).div_ceil(60), state.feedback);
         }
         if let Some(error) = &state.failure { world.get_mut::<Text2d>(state.error_text).expect("错误文本存在").0.clone_from(error); }
         smoke(world, &mut state);
@@ -425,7 +441,7 @@ fn consume_events(world: &mut World, state: &mut AppState) {
         if let Some(text) = feedback {
             state.feedback = text.to_owned();
         }
-        if state.options.slice_smoke
+        if (state.options.slice_smoke || state.options.failure_smoke)
             && !matches!(
                 event,
                 Event::TickStarted { .. } | Event::TickCompleted { .. }
@@ -497,6 +513,14 @@ fn slice_script(state: &mut AppState) {
     }
 }
 
+/// 只通过正常入口的场景选择，不修改阳光、伤害或模拟规则。
+fn failure_script(state: &mut AppState) {
+    if state.options.failure_smoke && state.runtime.render_frames == 0 {
+        apply_input(state, InputEvent::LoadFailureScenario);
+        println!("失败场景冒烟：调用 F 键共用逻辑入口；不代表设备键盘实跑");
+    }
+}
+
 fn smoke(world: &mut World, state: &mut AppState) {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(wait) = &mut state.screenshot_wait {
@@ -522,11 +546,22 @@ fn smoke(world: &mut World, state: &mut AppState) {
         return;
     }
     state.screenshot_requested = true;
+    if state.options.failure_smoke
+        && state
+            .runtime
+            .game
+            .board()
+            .is_none_or(|board| board.status() != pvz_core::GameStatus::Lost)
+    {
+        state.failure = Some("失败冒烟未在指定帧数内观察到开发关卡失败".to_owned());
+    }
     #[cfg(not(target_arch = "wasm32"))]
     if state.options.screenshot {
         use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
         let path = if state.options.probe {
             "artifacts/viewport/probe.png"
+        } else if state.options.failure_smoke {
+            "artifacts/vertical-slice/failure.png"
         } else {
             "artifacts/vertical-slice/registered.png"
         };
@@ -639,6 +674,7 @@ mod tests {
                 screenshot: false,
                 audio_smoke: false,
                 slice_smoke: false,
+                failure_smoke: false,
             },
             runtime: Runtime::day(),
             input: PlatformInput::default(),
@@ -717,6 +753,21 @@ mod tests {
         assert!(state.runtime.paused);
         assert_eq!(state.runtime.game.board().unwrap().plants().len(), 1);
         assert_eq!(state.runtime.game.sun(), 100);
+    }
+
+    #[test]
+    fn 实际update入口按_f切换明确失败场景() {
+        let mut world = harness();
+        batch(&mut world, &[], KeyCode::KeyF);
+        let state = world.resource::<AppState>();
+        assert_eq!(
+            state.runtime.game.level().as_str(),
+            "development-failure-slice"
+        );
+        assert_eq!(
+            state.runtime.game.board().unwrap().status(),
+            pvz_core::GameStatus::Running
+        );
     }
 
     fn music_harness() -> World {
@@ -842,6 +893,60 @@ mod tests {
         assert_music_request(&world, true);
         audio_batch(&mut world, &[KeyCode::KeyP]);
         assert_music_request(&world, false);
+    }
+
+    #[test]
+    fn 失败冒烟期限前继续等待而期限未达失败时只错误退出一次() {
+        let mut world = harness();
+        world.resource_scope(|world, mut state: Mut<AppState>| {
+            state.options.failure_smoke = true;
+            state.options.smoke = Some(2);
+            failure_script(&mut state);
+            state.runtime.advance(0.25);
+            smoke(world, &mut state);
+            assert!(world.resource::<Messages<AppExit>>().is_empty());
+            assert!(state.failure.is_none());
+            state.runtime.advance(0.25);
+            assert_eq!(
+                state.runtime.game.board().unwrap().status(),
+                pvz_core::GameStatus::Running
+            );
+            smoke(world, &mut state);
+            smoke(world, &mut state);
+            assert_eq!(
+                state.failure.as_deref(),
+                Some("失败冒烟未在指定帧数内观察到开发关卡失败")
+            );
+        });
+        let mut reader = world.resource::<Messages<AppExit>>().get_cursor();
+        let exits: Vec<_> = reader.read(world.resource::<Messages<AppExit>>()).collect();
+        assert!(matches!(exits.as_slice(), [AppExit::Error(_)]));
+    }
+
+    #[test]
+    fn 失败冒烟期限到达且已失败时只成功退出一次() {
+        let mut world = harness();
+        world.resource_scope(|world, mut state: Mut<AppState>| {
+            state.options.failure_smoke = true;
+            failure_script(&mut state);
+            for _ in 0..1000 {
+                if state.runtime.game.board().unwrap().status() == pvz_core::GameStatus::Lost {
+                    break;
+                }
+                state.runtime.advance(0.25);
+            }
+            assert_eq!(
+                state.runtime.game.board().unwrap().status(),
+                pvz_core::GameStatus::Lost
+            );
+            state.options.smoke = Some(u32::try_from(state.runtime.render_frames).unwrap());
+            smoke(world, &mut state);
+            smoke(world, &mut state);
+            assert!(state.failure.is_none());
+        });
+        let mut reader = world.resource::<Messages<AppExit>>().get_cursor();
+        let exits: Vec<_> = reader.read(world.resource::<Messages<AppExit>>()).collect();
+        assert!(matches!(exits.as_slice(), [AppExit::Success]));
     }
 
     #[test]

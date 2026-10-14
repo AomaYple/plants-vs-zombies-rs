@@ -12,6 +12,7 @@ pub enum InputEvent {
     Resume,
     TogglePause,
     Restart,
+    LoadFailureScenario,
     PlayEffect,
     ToggleMusic,
 }

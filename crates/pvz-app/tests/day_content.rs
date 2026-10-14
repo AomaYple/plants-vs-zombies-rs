@@ -37,6 +37,122 @@ fn 默认内容入口与旧开发工厂拥有相同初始合同而探针保持�
 }
 
 #[test]
+fn 默认内容无玩家命令仍能完成割草机胜利并冻结() {
+    let mut runtime = Runtime::day();
+    for _ in 0..1_000 {
+        runtime.advance(0.25);
+        if runtime.game.board().unwrap().status() != GameStatus::Running {
+            break;
+        }
+    }
+    assert_eq!(runtime.game.tick(), 5_714);
+    assert_eq!(runtime.game.board().unwrap().status(), GameStatus::Won);
+    assert!(runtime.take_events().contains(&Event::Victory));
+    let terminal = runtime.game.state_digest();
+    let animation = runtime.animation_seconds;
+    runtime.advance(100.0);
+    assert_eq!(runtime.game.state_digest(), terminal);
+    assert_eq!(runtime.animation_seconds, animation);
+}
+
+#[test]
+fn 明确开发失败场景无玩家命令可达失败并可重开() {
+    let mut runtime = Runtime::failure_day();
+    let initial = runtime.game.state_digest();
+    for _ in 0..1_000 {
+        runtime.advance(0.25);
+        if runtime.game.board().unwrap().status() != GameStatus::Running {
+            break;
+        }
+    }
+    assert_eq!(runtime.game.level().as_str(), "development-failure-slice");
+    assert_eq!(runtime.game.tick(), 4_049);
+    assert_eq!(runtime.game.board().unwrap().status(), GameStatus::Lost);
+    let events = runtime.take_events();
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| matches!(event, Event::MowerStarted { row: 0 }))
+            .count(),
+        1
+    );
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| matches!(event, Event::Defeat))
+            .count(),
+        1
+    );
+    assert!(!events.contains(&Event::Victory));
+    let terminal = runtime.game.state_digest();
+    let animation = runtime.animation_seconds;
+    runtime.advance(100.0);
+    assert_eq!(runtime.game.state_digest(), terminal);
+    assert_eq!(runtime.animation_seconds, animation);
+    runtime.command(Command::SelectCard {
+        kind: PlantKind::Peashooter,
+    });
+    runtime.command(Command::Plant {
+        cell: Cell { row: 0, column: 0 },
+    });
+    runtime.advance(0.25);
+    assert_eq!(runtime.game.state_digest(), terminal);
+    assert_eq!(
+        runtime.take_events(),
+        vec![
+            Event::CommandRejected {
+                reason: pvz_core::Rejection::Ended
+            };
+            2
+        ]
+    );
+    runtime.command(Command::Restart);
+    runtime.advance(1.0 / 60.0);
+    assert_eq!(runtime.game.state_digest(), initial);
+    assert_eq!(runtime.animation_seconds, 0.0);
+    assert_eq!(runtime.game.board().unwrap().status(), GameStatus::Running);
+    assert_eq!(runtime.game.tick(), 0);
+    assert_eq!(runtime.game.sun(), 150);
+    assert!(runtime.take_events().contains(&Event::Restarted));
+    runtime.command(Command::SelectCard {
+        kind: PlantKind::Peashooter,
+    });
+    runtime.command(Command::Plant {
+        cell: Cell { row: 0, column: 0 },
+    });
+    runtime.advance(1.0 / 60.0);
+    let mut fresh = Runtime::failure_day();
+    fresh.command(Command::SelectCard {
+        kind: PlantKind::Peashooter,
+    });
+    fresh.command(Command::Plant {
+        cell: Cell { row: 0, column: 0 },
+    });
+    fresh.advance(1.0 / 60.0);
+    assert_eq!(runtime.game.state_digest(), fresh.game.state_digest());
+    assert_eq!(runtime.take_events(), fresh.take_events());
+}
+
+#[test]
+fn 明确开发失败场景种植豌豆射手仍可获胜() {
+    let mut runtime = Runtime::failure_day();
+    runtime.command(Command::SelectCard {
+        kind: PlantKind::Peashooter,
+    });
+    runtime.command(Command::Plant {
+        cell: Cell { row: 0, column: 0 },
+    });
+    for _ in 0..1_000 {
+        runtime.advance(0.25);
+        if runtime.game.board().unwrap().status() != GameStatus::Running {
+            break;
+        }
+    }
+    assert_eq!(runtime.game.board().unwrap().status(), GameStatus::Won);
+    assert!(runtime.take_events().contains(&Event::Victory));
+}
+
+#[test]
 fn 内容变更驱动实际种植成本与初始状态而没有回退() {
     let mut value = content_value();
     value["seed"] = 42.into();

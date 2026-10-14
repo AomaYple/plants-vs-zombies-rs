@@ -28,7 +28,7 @@ flowchart TD
 
 ## 数据流
 
-[原创关卡 JSON](../../content/levels/development-day.json)编译时嵌入 app → 大小检查与 serde_json 严格解析 → data DTO → core 支持版本/频率检查、字段转换与既有规则校验 → 带初始时钟的状态 → Runtime 读取实际频率推进。默认内容保持 `development` 依据；native/Web 使用同一输入字节，无文件加载器或静默回退。probe 独立使用空棋盘，旧开发工厂保留为迁移对照及测试/基准消费者。完整格式与恢复合同见[内容设计](../superpowers/specs/2026-10-12-versioned-day-content.md)。
+ [原创关卡 JSON](../../content/levels/development-day.json)编译时嵌入 app → 大小检查与 serde_json 严格解析 → data DTO → core 支持版本/频率检查、字段转换与既有规则校验 → 带初始时钟的状态 → Runtime 读取实际频率推进。默认内容保持 `development` 依据；native/Web 使用同一输入字节，无文件加载器或静默回退。正常入口的 `F` 键只切换到同样装配链上的明确 `development-failure.json`，不引入通用选关层。probe 独立使用空棋盘，旧开发工厂保留为迁移对照及测试/基准消费者。完整格式与恢复合同见[内容设计](../superpowers/specs/2026-10-12-versioned-day-content.md)。
 
 平台有序窗口事件 → 物理/逻辑坐标映射 → 有序游戏命令 → core 更新 → 状态/事件 → UI、构图与音频。切片暂停、重开和终局可以不推进 tick，具体见 [开发切片合同](../behavior/development-slice.md)。声音与表现消费事件，不反向决定伤害。
 

@@ -4,7 +4,7 @@
 
 ## 版本、入口与状态
 
-`GameState::new/with_clock` 保留空棋盘规则1.0及原有阳光命令消费者；`GameState::day(seed, initial, rules)` 验证纯数据 `SliceRules` 并创建规则2.0切片，保留为独立迁移对照。正常应用由 `Runtime::day()` 解析编译时嵌入的原创 [development-day.json](../../content/levels/development-day.json)，通过 `GameState::from_day_definition` 纯类型装配；native/Web 共享同一字节输入，内容 schema 1、规则2.0、依据 `development`、seed7、关卡 `development-day-slice`、初始阳光150和有序开发波次。`RulesVersion::current()` 为2.0，旧空棋盘摘要明确返回1.0。两者不兼容，当前没有持久回放消费者，不预建迁移器；`--probe` 保留无原版资源的独立探针。
+`GameState::new/with_clock` 保留空棋盘规则1.0及原有阳光命令消费者；`GameState::day(seed, initial, rules)` 验证纯数据 `SliceRules` 并创建规则2.0切片，保留为独立迁移对照。正常应用由 `Runtime::day()` 解析编译时嵌入的原创 [development-day.json](../../content/levels/development-day.json)，通过 `GameState::from_day_definition` 纯类型装配；native/Web 共享同一字节输入，内容 schema 1、规则2.0、依据 `development`、seed7、关卡 `development-day-slice`、初始阳光150和有序开发波次。默认波次无操作会由每排割草机完成胜利，不能把它当作失败脚本。正常入口按 `F` 会装配独立的 [development-failure.json](../../content/levels/development-failure.json)，关卡标识为 `development-failure-slice`；它让放任第二只僵尸突破而失败，种植豌豆射手仍可获胜。`F` 入口仅是当前阶段的明确开发场景，不是通用选关系统。`RulesVersion::current()` 为2.0，旧空棋盘摘要明确返回1.0。两者不兼容，当前没有持久回放消费者，不预建迁移器；`--probe` 保留无原版资源的独立探针。
 
 `Runtime::from_day_json(&str)` 在解析前按 UTF-8 字节长度拒绝超过1048576字节的输入，复用 serde_json 并将错误包装为中文，保留解析或核心错误作为原因。未知 schema/rules/basis/字段、遗漏/重复字段、损坏 JSON、非法参数均明确失败，没有默认规则回退；项目自带内容无效时默认入口明确失败。不增加文件配置器、热重载或选关界面，原创内容不进入原版资源清单。
 

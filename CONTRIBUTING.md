@@ -34,7 +34,7 @@ Web 包生成额外使用 `wasm-bindgen-cli 0.2.129`，对应当前锁文件中�
 
 覆盖率 CI 分别执行默认和 all-features 测试，生成独立 LCOV/JSON 报告并保存为工作流产物；这些是 Linux 纯测试统计，不包含本机追加的 Windows 窗口运行。基准入口在 CI 默认组合编译验证，本机在没有并发测试竞争时执行实际计时。报告与构建产物位于忽略的 `target/`。
 
-Windows 实现检查复用该 job 的编译产物运行隐藏窗口 `--probe --smoke 30 --screenshot` 与 `--smoke 30 --slice-smoke --screenshot`，每步限制 10 分钟。冒烟采用引擎同步管线编译；无资源截图须实际包含原创红蓝夹具，保存失败或夹具缺失返回非零退出。该运行只验证 runner 上的最小绘制和登记资源入口，不包含真实音频设备、人工交互或原版行为比对。
+Windows 实现检查复用该 job 的编译产物运行隐藏窗口 `--probe --smoke 30 --screenshot` 与 `--smoke 30 --slice-smoke --screenshot`，每步限制 10 分钟。S1 的 CI 增量还配置 `--failure-smoke --smoke 400 --screenshot` 成功场景与 `--failure-smoke --smoke 2` 期限回归：完整失败场景须观察到 `Lost` 并退出 0，期限内未观察到 `Lost` 必须非零退出，不能只检查应用内部错误事件。冒烟采用引擎同步管线编译；无资源截图须实际包含原创红蓝夹具，保存失败或夹具缺失返回非零退出。该运行只验证 runner 上的最小绘制、登记资源入口和 OS 退出码，不包含真实音频设备、人工交互或原版行为比对；每次增量是否通过仍核对对应远端 CI。
 
 ## 编码、命名与 Rust 风格
 

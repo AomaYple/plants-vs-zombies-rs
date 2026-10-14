@@ -1,5 +1,5 @@
 use crate::{
-    content::{DEFAULT_DAY_JSON, DayContentError, MAX_DAY_CONTENT_BYTES},
+    content::{DEFAULT_DAY_JSON, DayContentError, FAILURE_DAY_JSON, MAX_DAY_CONTENT_BYTES},
     input::InputEvent,
     viewport::LogicalPoint,
 };
@@ -57,6 +57,10 @@ impl Runtime {
     pub fn day() -> Self {
         Self::from_day_json(DEFAULT_DAY_JSON).expect("项目内嵌白天内容必须有效")
     }
+    /// 返回从正常入口切换的明确开发失败场景；不改变默认关卡内容。
+    pub fn failure_day() -> Self {
+        Self::from_day_json(FAILURE_DAY_JSON).expect("项目内嵌白天失败场景必须有效")
+    }
     /// 解析版本化白天内容并调用纯核心装配；任何失败均不回退默认规则。
     pub fn from_day_json(source: &str) -> Result<Self, DayContentError> {
         if source.len() > MAX_DAY_CONTENT_BYTES {
@@ -97,6 +101,11 @@ impl Runtime {
             return;
         }
         match event {
+            InputEvent::LoadFailureScenario => {
+                let render_frames = self.render_frames;
+                *self = Self::failure_day();
+                self.render_frames = render_frames;
+            }
             InputEvent::Pause => self.command(Command::Pause),
             InputEvent::Resume => self.command(Command::Resume),
             InputEvent::TogglePause => self.toggle_pause(),

@@ -146,6 +146,7 @@ impl PlatformInput {
                     let control = match event.key_code {
                         KeyCode::KeyP | KeyCode::Space => Some(InputEvent::TogglePause),
                         KeyCode::KeyR => Some(InputEvent::Restart),
+                        KeyCode::KeyF => Some(InputEvent::LoadFailureScenario),
                         KeyCode::KeyE => Some(InputEvent::PlayEffect),
                         KeyCode::KeyM => Some(InputEvent::ToggleMusic),
                         _ => None,

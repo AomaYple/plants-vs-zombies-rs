@@ -3,6 +3,8 @@ use std::{error::Error, fmt};
 
 pub(crate) const DEFAULT_DAY_JSON: &str =
     include_str!("../../../content/levels/development-day.json");
+pub(crate) const FAILURE_DAY_JSON: &str =
+    include_str!("../../../content/levels/development-failure.json");
 pub(crate) const MAX_DAY_CONTENT_BYTES: usize = 1_048_576;
 
 /// 白天内容在输入大小、JSON 解析或纯规则装配边界失败。

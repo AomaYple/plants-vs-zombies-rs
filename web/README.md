@@ -12,7 +12,7 @@ wasm-bindgen --target web --out-name pvz_app --out-dir target/web-probe target/w
 python -m http.server 8000 --bind 127.0.0.1
 ```
 
-打开 `http://127.0.0.1:8000/web/`；无资源探针使用 `http://127.0.0.1:8000/web/?probe=1`。服务从仓库根目录提供资源与忽略的构建产物，仅监听本机回环地址；结束后关闭本次服务。代理验证优先使用隐藏浏览器，不切换维护者的前台窗口。
+打开 `http://127.0.0.1:8000/web/`；无资源探针使用 `http://127.0.0.1:8000/web/?probe=1`。启动后按 `F` 进入明确开发失败场景，按 `R` 重开；该入口与默认关卡共享同一 WASM 和版本化内容装配。服务从仓库根目录提供资源与忽略的构建产物，仅监听本机回环地址；结束后关闭本次服务。代理验证优先使用隐藏浏览器，不切换维护者的前台窗口。
 
 `wasm-bindgen-cli` 不是 Cargo 内建命令；安装版本必须与 `Cargo.lock` 中的 `wasm-bindgen` 精确匹配。生成的 JS/WASM 放在被忽略的 `target/`，不在源码中手写引擎 loader。升级依赖时重新生成并验证导入、音频及输入行为。
 

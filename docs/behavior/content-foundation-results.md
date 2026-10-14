@@ -99,6 +99,88 @@ Web 日志保留两个既有可选3D管线能力 WARN 与 CPU 预处理回退信
 
 本机 `web-defeat-exploration.json` 记录默认内容无种植时出现胜利；这个探索没有完成 Web 失败验收，也没有证明所有默认输入都不可能失败。后续先核对受控失败场景，再验证浏览器失败、终局冻结和重开；原创失败夹具与默认内容实跑分别记录。原版失焦推进、完整内容、动态表现和其他平台缺口继续保持未验证。
 
+## 2026-10-14 白天单关双终局闭环
+
+本节记录 S1 在 `a2f16c9` 起点工作区的新增验收，S1 尚未提交，不能引用历史 CI 作为本增量交付结果。失败场景为版本化原创内容 `content/levels/development-failure.json`，关卡 ID `development-failure-slice`、规则 2.0、依据 `development`，通过正常入口的 `F` 键进入；默认入口仍加载 `development-day.json`。默认内容无种植时可由割草机完成胜利，等待不能称作默认失败。开发关卡和实跑结果不代表原版规则事实。
+
+### 当前运行证据
+
+当前 Windows 源码的隐藏窗口命令如下，两条均退出 0：
+
+```sh
+cargo run -p pvz-app --locked -- --slice-smoke --smoke 600 --screenshot
+cargo run -p pvz-app --locked -- --failure-smoke --smoke 400 --screenshot
+```
+
+默认成功冒烟记录向日葵/豌豆射手种植、暂停/恢复、阳光生成与收集、豌豆命中和僵尸死亡、割草机清理，于 tick 5767 产生 `Victory`。失败冒烟使用与 F 键共用的入口，首只僵尸由割草机清除，第二只突破，于 tick 4049 产生 `Defeat`。日志中的“帧末 tick”属于批次诊断，不把批内事件都当作发生于该 tick；终局 tick 单独核对。这是加速开发运行，独立于下面的正常输入实跑。
+
+| 平台与入口 | 本轮实际输入及观察 | 证据范围 |
+| --- | --- | --- |
+| Windows 默认 feature 的正常窗口 | F 进入开发防守关卡，无种植达到失败；持续观察失败冻结，R 重开；正常点击射手卡片和草坪，阳光 150→50、种植成功并实际获胜；持续观察胜利冻结，再 R 重开、正常卡片/草坪点击再次种植，阳光再由 150→50 | 双终局、正常输入、重开与再次种植均来自本轮实际窗口；`native-lost.png`、`native-replanted.png`、`native-won.png`、`native-won-restart-replant.png`，进程已关闭 |
+| 退出码修复前同轮 WASM 包的正常浏览器入口 | 启动及资源初始化通过；F 进入同一开发防守关卡并失败，两次失败截图逐字节相同；R 重开、P 暂停，正常点击射手与草坪，阳光 150→50；P 恢复后实际获胜；继续观察胜利视觉冻结，再 R 重开、正常点击再次种植成功，并以 P 暂停确认 | 失败逐字节一致与胜利视觉冻结分别记录，胜利截图字节不同；warn/error 查询为 `[]`；自有标签和回环服务已关闭 |
+| Windows 默认关卡与 Web 历史默认关卡 | 当前 Windows 默认成功为上述隐藏冒烟；Web 默认十波胜利、重开后种植沿用[切片历史结果](vertical-slice-results.md) | 本轮没有完整重跑 Web 默认十波胜利；当前 Web 双终局来自正常 F 开发防守关卡，不把历史默认成功改写为当前实跑 |
+
+core/app 回归验证失败内容的胜负、终局拒绝命令、状态/动画冻结与重开恢复合同；Windows GPU 和浏览器正常输入观察分别验证实际消费者。画面冻结不单独证明模拟摘要或音频游标冻结；设备音频本轮没有实听，不扩大历史音频验收范围。当前浏览器日志为空也不能证明历史间歇性 shader unresolved-import 诊断已根治。真实 DPR 2/4、触摸、更多浏览器、其他目标平台与原版一致性继续待验。
+
+### 本地检查与覆盖率
+
+退出码修复后，默认与 all-features workspace 各 194 项测试（含 doctest）通过，比修复前192项新增两条期限边界回归；fmt、两组合 all-targets check、Clippy `-D warnings`、doc、`cargo deny check`、actionlint 及 native 构建均退出 0，deny 仍保留重复传递依赖 WARN。实际命令和结果见 `exit-fix-commands.json`；干净覆盖率及新 WASM 实际回归如下单列，局部静态复核不替代实际运行。
+
+退出码修复后的正式 Windows native 纯测试覆盖率对默认及 all-features 分别先执行 `cargo llvm-cov clean --workspace --locked`，再运行对应 feature 的 `cargo llvm-cov --workspace --locked --no-report`，独立导出 JSON；八条命令全部退出0。两份报告均为3325/4134行，即80.4306%，全部源码路径属于当前 checkout；源码、锁文件、工具链与 CI 文件的 SHA 与 `exit-fix-source-state.json` 一致，未追加窗口 profile。分包读数如下：
+
+| 包 | 命中行/总行 |
+| --- | --- |
+| pvz-app | 1505/2192 |
+| pvz-core | 822/842 |
+| pvz-data | 148/173 |
+| pvz-assets | 676/745 |
+| pvz-asset-tool | 174/182 |
+
+本轮退出码修复后的第一批增量插桩报告曾出现 default-final 分母4231、all-final分母4134的不一致，归为探索，不作为正式验收；随后对两组合分别 clean 重测才取得上表一致分母。修复前3260/4089行也只保留为当时记录，不作为最终报告。没有通过过滤源码、修改分母或隐藏失败制造通过，分母变化不构成覆盖率改善、提速或内存改善证据。
+
+Web 条件代码、GPU 实际绘制和设备路径不在 native 分母；stable 插桩未统计 doctest，doctest 由常规测试单独验证，没有启用分支统计。早期 `coverage-commands.json` 最后一条 `cargo llvm-cov report --all-features --json ...` 因 report 子命令不支持该选项而退出1；去掉导出子命令的 `--all-features` 后成功导出对应插桩结果，原始失败与 `coverage-export-repair-0.log` 的成功记录同时保留。最终两组合 feature 参数仅传给插桩测试，报告导出分别消费其独立 profile；正式结果见 `coverage-clean-commands.json`、`coverage-clean-summary.json` 和两份 `coverage-clean-*.json`。
+
+### 受影响基准
+
+本轮独占运行 `cargo bench -p pvz-core --bench stepping --locked` 与 `cargo bench -p pvz-app --bench presentation --locked`，两条退出 0；本项目窗口、浏览器、服务、测试与其他构建已停止后计时，未控制维护者其他活动及 CPU 电源/温度。七个实际运行场景均为 3 秒预热、100 样本、约 5 秒采样，下表提取 Criterion `mean` 的点估计及 95% 置信区间：
+
+| 场景与完整计时工作量 | 均值 | 95% 置信区间 |
+| --- | --- | --- |
+| 规则1.0 空棋盘，1000 次 step/实际1000 tick，每 tick 0 命令，seed7 | 274.0954 µs | 272.0996–276.3963 µs |
+| 规则1.0 阳光命令，1000 次 step/实际1000 tick，每 tick 2 命令，seed7 | 93.1387 µs | 91.0806–95.9232 µs |
+| 规则2.0 五排，预热45植物（5向日葵/40射手）、波次总量100，1000 次 step/实际1000 tick，seed7 | 2.9891 ms | 2.9789–3.0000 ms |
+| schema1/规则2.0 开发白天 JSON，1241 字节，解析/校验/Runtime 装配，无文件 I/O | 2.3455 µs | 2.3326–2.3609 µs |
+| 800×600 逻辑视口，3840×2160 输入1点反变换 | 4.7915 ns | 4.7787–4.8052 ns |
+| 原创8轨道128帧、12fps 开发动画时基索引 | 7.4913 ns | 7.4776–7.5058 ns |
+| 双轴角度合同，1个100×90四边形与800×600裁剪 | 375.7892 ns | 371.2178–381.6209 ns |
+
+五排初始化/种植预热在计时外，预热后 tick45、余额5750、初始无僵尸；100是波次总量，非同时存活数量；计时后 tick1045 且仍 Running，不把终局冻结当完整更新。共享 Criterion 缓存比较把空棋盘判为回退、动画索引判为改善；这些诊断保留在日志，但未完成同条件前后对照及归因，不能据此声称已确认固定性能回退、优化收益或开发耗时改善。本轮没有内存/分配测量或内存改善主张。复制的 `criterion/` 包含旧缓存场景，本表只引用 `bench-0.log`、`bench-1.log` 本轮实际运行的七项；其他条目不算本轮重测。
+
+### 退出码缺陷修复与交付状态
+
+附加失败边界实跑 `target/debug/pvz-app.exe --failure-smoke --smoke 1` 被 Clap 参数范围拒绝、退出 2，只证明参数边界；合法的 `--smoke 2` 在预算内不能达到失败终局，日志显示“资源状态=失败”并产生内部错误 AppExit，OS 进程却退出 0。原因是 `main` 丢弃 `app.run()` 的返回值；`failure-bounded.json/log` 保留真实的预期非零与实际零。这说明成功冒烟退出 0 不能替代错误退出传播验收。
+
+修复直接让 `main` 返回 Bevy `app.run()` 的 `AppExit`，复用其标准 `Termination` 实现向 OS 传播错误；新增两条真实 Runtime/冒烟消费者期限边界测试。限定独立静态复核通过、未发现新增阻断，未更改 core/runtime、内容、规则版本或热路径。修复后真实进程 `--failure-smoke --smoke 400 --screenshot` 观察到 tick4049 `Defeat`、退出0；合法期限2负例退出1；`--slice-smoke --smoke 600 --screenshot` 观察到 tick5767 `Victory`、退出0。正例、负例与旧错误退出0分别保留，当前证据不再只依赖内部 AppExit。
+
+Windows CI 已在现有 probe30/slice30 之后配置失败400成功冒烟和期限2 OS 退出码回归：前者须观察到 `Lost` 且退出0，后者必须非零退出。actionlint 通过，本机上述实际进程正/负例通过；本增量远端 CI 尚未触发/核验，不写成 CI 已通过。修复后 WASM release 构建与 wasm-bindgen 生成也退出0（`exit-fix-15.log/16.log`）。新包随后在后台浏览器通过启动按钮加载默认登记画面，正常 F 输入进入失败，画面显示阳光150、2/2波次及僵尸突破防线；正常 R 重开恢复阳光150、1/2波次及守住草坪。warn/error 查询为 `[]`，截图 `web-exit-fix-failure.png` 已核对；自有 tab3 和服务 PID23732 已关闭。该新包未完整重跑胜利及再次种植，main 退出传播修复没有改变玩法、Runtime 或时钟，完整双终局/冻结/再种植合同沿用上表此前同轮正常输入证据，不能把它改写成新包全流程重测。观察和清理记录为 `web-exit-fix-observation.json`。
+
+S1 全部适用本地 L3 验收完成：双终局、冻结、重开/再种植证据、194项测试、七基准、实际进程0/1/0、actionlint、修复后两组合干净覆盖率和新 WASM 回归已齐；Git 与对应 CI 仍待交付，整个 S1 尚未标记完成。S2 源码尚未实施。原版行为测量仍为独立证据轨，不因 S1 工程进展变为已还原。
+
+### 本轮原始索引
+
+本轮新增证据在忽略目录 `artifacts/validation/s1-2026-10-14/`，与内容迁移及仓库质量复核历史分开；命令/日志、截图和设备观察分别解释，不进入 Git、CI 或发行包。
+
+| 证据 | 文件/目录 |
+| --- | --- |
+| Windows 正常输入与终局/再种植图像 | `native-interaction*.out.log/err.log`、`native-lost.png`、`native-replanted.png`、`native-won.png`、`native-won-restart-replant.png` |
+| 修复后质量门槛、原生进程及 WASM 构建生成 | `exit-fix-commands.json`、`exit-fix-00.log` 至 `exit-fix-16.log`；修复前 `remaining-gates.json` 与对应日志保留 |
+| 修复后正式干净覆盖率 | `coverage-clean-commands.json`、`coverage-clean-0.log` 至 `coverage-clean-7.log`、`coverage-clean-default.json`、`coverage-clean-all.json`、`coverage-clean-summary.json`、`exit-fix-source-state.json` |
+| 覆盖率历史/探索与失败导出修复 | 修复前 `coverage-commands.json` 与对应报告、分母不一致的 `coverage-default-final.json`/`coverage-all-final.json` 探索报告、`coverage-export-repair-0.log/1.log` |
+| 修复后新 WASM 回归 | `web-exit-fix-observation.json`、`web-exit-fix-failure.png` |
+| 基准命令与原始估计 | `bench-commands.json`、`bench-0.log`、`bench-1.log`、`criterion/*/new/estimates.json` 与 `benchmark.json`，只按本轮日志筛选 |
+| 失败边界探索 | `failure-bounded.json`、`failure-bounded.log` |
+| 结构检查快照 | `structure.json`；最终文档及交付检查由主代理继续核验 |
+
 ## 2026-10-13 仓库质量复核补充
 
 本次复核针对提交 `3bdf7b471baa3c399fdb8c32995a037745827921` 在 Windows 工作区重新执行了格式、workspace 检查、默认/all-features 测试、Clippy、文档、依赖审计、资源审计、Reanim 检查、编码与链接检查，以及无资源和登记资源后台冒烟；这些检查均以退出码 0 完成。对应远端 CI 运行 [38330592532](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38330592532) 的已有 8 个任务也全部成功。

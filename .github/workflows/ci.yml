@@ -225,6 +225,21 @@ jobs:
         if: runner.os == 'Windows'
         timeout-minutes: 10
         run: cargo run -p pvz-app --locked -- --smoke 30 --slice-smoke --screenshot
+      - name: 验证 Windows 失败冒烟的原生进程退出码
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          & ./target/debug/pvz-app.exe --failure-smoke --smoke 400 --screenshot
+          if ($LASTEXITCODE -ne 0) {
+            throw "失败冒烟应在期限内观察到开发关卡失败并成功退出"
+          }
+          & ./target/debug/pvz-app.exe --failure-smoke --smoke 2
+          if ($LASTEXITCODE -eq 0) {
+            throw "失败冒烟期限过短时必须以非零进程退出码报告错误"
+          }
+          exit 0
       - name: 检查探针 feature
         run: cargo clippy -p pvz-app --all-targets --features probe --locked -- -D warnings
       - name: 验证全部兼容 feature

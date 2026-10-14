@@ -941,6 +941,7 @@ fn 暂停与空格独立切换并过滤重复释放异窗和失焦控制键() {
         KeyCode::KeyP,
         KeyCode::Space,
         KeyCode::KeyR,
+        KeyCode::KeyF,
         KeyCode::KeyE,
         KeyCode::KeyM,
     ] {
@@ -956,6 +957,7 @@ fn 暂停与空格独立切换并过滤重复释放异窗和失焦控制键() {
         KeyCode::KeyP,
         KeyCode::Space,
         KeyCode::KeyR,
+        KeyCode::KeyF,
         KeyCode::KeyE,
         KeyCode::KeyM,
     ] {
@@ -973,6 +975,16 @@ fn 暂停与空格独立切换并过滤重复释放异窗和失焦控制键() {
             InputEvent::TogglePause,
             InputEvent::Restart
         ]
+    );
+}
+
+#[test]
+fn f键从正常输入入口选择明确开发失败场景() {
+    let mut harness = Harness::new();
+    let window = harness.window;
+    assert_eq!(
+        harness.batch([key(window, KeyCode::KeyF, ButtonState::Pressed, false)]),
+        [InputEvent::LoadFailureScenario]
     );
 }
 

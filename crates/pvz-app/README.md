@@ -2,7 +2,7 @@
 
 Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片采用六类对象的登记静态构图，尚未接入完整动作混合与原版粒子。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
 
-正常入口 `Runtime::day()` 消费编译时嵌入的原创 [development-day.json](../../content/levels/development-day.json)，native/Web 使用相同字节，schema 1、规则 2.0、依据 `development`、seed 7、初始阳光 150 和有序波次均由内容定义。`Runtime::from_day_json(&str)` 在解析前按 UTF-8 字节数拒绝超过 1048576 字节的输入，再复用 serde_json 和 core 纯类型装配；损坏 JSON、未知/遗漏/重复字段、未知版本和非法参数明确返回中文包装错误，保留原始原因，不回退默认规则。项目自带内容无效时正常入口明确失败；独立 `Runtime::default()` 继续用于原创空棋盘 probe，没有运行时文件配置、热重载或选关 UI。
+正常入口 `Runtime::day()` 消费编译时嵌入的原创 [development-day.json](../../content/levels/development-day.json)，native/Web 使用相同字节，schema 1、规则 2.0、依据 `development`、seed 7、初始阳光 150 和有序波次均由内容定义。默认波次无操作会由割草机完成胜利。按 `F` 可从同一正常入口进入明确标记的 [development-failure.json](../../content/levels/development-failure.json) 开发失败场景；该场景放任第二只僵尸会失败，种植豌豆射手仍可获胜。`F` 是当前阶段的单一开发入口，不是通用选关系统。`Runtime::from_day_json(&str)` 在解析前按 UTF-8 字节数拒绝超过 1048576 字节的输入，再复用 serde_json 和 core 纯类型装配；损坏 JSON、未知/遗漏/重复字段、未知版本和非法参数明确返回中文包装错误，保留原始原因，不回退默认规则。项目自带内容无效时正常入口明确失败；独立 `Runtime::default()` 继续用于原创空棋盘 probe。
 
 帧推进读取 `game.clock().ticks_per_second()`，支持 schema 1 的 1..=1000 Hz，默认仍为 60 Hz。每帧最多消费 250ms，余量只来自运行中的有效帧；暂停和终局冻结模拟/动画且丢弃追赶时间，恢复不补停顿，重开保留内容时钟并清空动画及旧帧余量。频率只改变现实耗时对应的 tick 数，内容间隔与速度仍以 tick 为单位，不自动换算平衡参数。
 
@@ -18,11 +18,11 @@ cargo run -p pvz-app --locked -- --smoke 160 --audio-smoke --screenshot
 cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot
 ```
 
-`--probe` 只显示原创背景、网格与仿射夹具，不读取原版素材或音频。`--smoke` 创建不可见且不请求焦点的窗口，持续更新，在指定真实绘制帧数后进入退出流程。`--slice-smoke` 用正常游戏命令驱动切片，每帧推进 15 个开发模拟 tick。`--screenshot` 等 GPU 回调完成后退出，probe 写入 `artifacts/viewport/probe.png`，登记切片写入 `artifacts/vertical-slice/registered.png`；两者均被忽略，保存或资源失败返回错误。资源加载等待上限为 30 秒，截图请求后的最终等待上限为 30 秒，使用 `Time<Real>` 的真实时钟截止时间；回调完成、保存失败和缺失回调分别产生一次成功或非零退出，不依赖模拟 tick、暂停状态或帧数。后台运行与截图验收统一协调。切片冒烟事件日志中的“帧末tick”是消费该帧全部事件后的模拟 tick，保留事件相对顺序，但不是逐事件发生时刻。
+`--probe` 只显示原创背景、网格与仿射夹具，不读取原版素材或音频。`--smoke` 创建不可见且不请求焦点的窗口，持续更新，在指定真实绘制帧数后进入退出流程。`--slice-smoke` 用正常游戏命令驱动默认切片，每帧推进 15 个开发模拟 tick；`--failure-smoke` 通过与 F 键相同的正常场景入口进入开发失败场景，在指定帧数结束时必须观察到 `Defeat`。`--screenshot` 等 GPU 回调完成后退出，probe 写入 `artifacts/viewport/probe.png`，登记默认切片写入 `artifacts/vertical-slice/registered.png`，失败场景写入 `artifacts/vertical-slice/failure.png`；这些文件均被忽略，保存或资源失败返回错误。资源加载等待上限为 30 秒，截图请求后的最终等待上限为 30 秒，使用 `Time<Real>` 的真实时钟截止时间；回调完成、保存失败和缺失回调分别产生一次成功或非零退出，不依赖模拟 tick、暂停状态或帧数。后台运行与截图验收统一协调。冒烟事件日志中的“帧末tick”是消费该帧全部事件后的模拟 tick，保留事件相对顺序，但不是逐事件发生时刻。
 
 鼠标、触摸和 P/空格/R/E/M 控制按键通过同一 Bevy 有序 `WindowEvent` 适配，只消费主窗口并完整保留同批开始、移动、结束、取消及尺寸/DPI 变化的顺序。坐标先乘当时的窗口 DPI，再逆变换到逻辑点。视口外按下不产生游戏命令；捕获的指针越界、取消、失焦或视口变化会取消，多个指针状态相互独立。控制键只接收当前有焦点窗口的非 repeat 按下，释放不产生操作，同批多次按压及与指针的交错保留顺序；暂停切换考虑此前排队的暂停、恢复与重开意图。重开只清空其前面的铲除选择，其后的选择继续有效；重开后的草坪命令不会命中重开前的旧阳光实体。
 
-正常切片将 UI/草坪按下映射为选卡、种植、收集、铲除、暂停或重开；P/空格暂停与恢复，R 重开。伤害、阳光、冷却和胜负由 core 决定，表现只消费状态与事件。只有原创 probe 的空棋盘路径保留开发 `AddSun`；正常切片拒绝该命令。暂停冻结模拟与可冻结表现时钟，渲染帧计数继续推进，控制因果见 [开发切片合同](../../docs/behavior/development-slice.md)。
+正常切片将 UI/草坪按下映射为选卡、种植、收集、铲除、暂停或重开；P/空格暂停与恢复，R 重开，F 进入明确开发失败场景。伤害、阳光、冷却和胜负由 core 决定，表现只消费状态与事件。只有原创 probe 的空棋盘路径保留开发 `AddSun`；正常切片拒绝该命令。暂停冻结模拟与可冻结表现时钟，渲染帧计数继续推进，控制因果见 [开发切片合同](../../docs/behavior/development-slice.md)。
 
 M 启停已加载的开发循环音乐；E 音效键仅在 probe/音频冒烟路径启用，原创 probe 没有加载音频。每帧按模拟执行后的最终暂停状态更新音乐的 `PlaybackSettings.paused`，尚未建立的 sink 因而按正确状态开始；现成 sink 通过 Bevy `AudioSink::pause/play` 保留实际游标。暂停、恢复与重开传播不依赖 sink 创建时机或单次事件，同批 P→M、M→P 均服从 core 的执行结果，终局拒绝暂停不会提前改变音乐。`--audio-smoke` 要求登记资源模式且至少 120 帧：提交一次音效和循环音乐，比较暂停期间两次游标，再确认恢复推进并停止。这个探针不等于人工听辨或完整曲尾循环验收。浏览器须通过用户手势解锁音频，并用实际游标验证，不能由 Web 构建替代。
 
