@@ -42,12 +42,12 @@
 在 `tools/README.md` 中先记录两个可重复验收命令：一个调用 `cargo.exe --version` 验证成功退出码和输出，另一个调用 PowerShell 生成退出码 7 的短命令，验证脚本保留非零退出码并仍写出 JSON。命令必须使用参数数组，不能把整个命令拼接成一个可执行文件名。
 
 ```powershell
-pwsh -NoProfile -File tools/measure-cargo.ps1 `
+& ./tools/measure-cargo.ps1 `
   -OutputLog artifacts/validation/test-optimization-2026-10-15/measure-version `
   -Executable cargo.exe `
   -ArgumentList @('--version')
 
-pwsh -NoProfile -File tools/measure-cargo.ps1 `
+& ./tools/measure-cargo.ps1 `
   -OutputLog artifacts/validation/test-optimization-2026-10-15/measure-failure `
   -Executable pwsh `
   -ArgumentList @('-NoProfile', '-Command', 'exit 7')
@@ -334,7 +334,7 @@ $measure = @{
   ArgumentList = [string[]]@('test', '--workspace', '--locked', '--no-fail-fast')
   WorkingDirectory = (Get-Location).Path
 }
-& pwsh -NoProfile -File tools/measure-cargo.ps1 @measure
+& ./tools/measure-cargo.ps1 @measure
 ```
 
 本轮已完成串行的覆盖率、默认/all-features 测试入口、三次实际 workspace benchmark 测量和默认 jobs/`--jobs 1` 各三次热 `--no-run` 比较，并保留原始日志与 JSON；当前 benchmark 的冷/热样本及限制见性能记录。完整测试以正确性门槛执行，未为没有候选收益的路径重复三次冷/热全量测试。没有同提交的优化前三次基线，也没有把旧的无效进程树读数纳入比较，因此此步骤完成的是可追溯测量，不产生速度或内存收益结论。
@@ -420,6 +420,16 @@ git diff --cached --check
 - 默认与 all-features workspace 正确性检查、独立覆盖率、三次 benchmark、默认 jobs/`--jobs 1` 各三次比较、Windows 三条冒烟、默认/probe WASM 绑定、资源审计、编码检查和 actionlint 均已执行；所有纳入统计的样本真实退出码为 0，测量错误样本保留但作废。
 - 当前没有同条件优化前的三次基线，也没有远端 CI 的新提交耗时、缓存命中和排队记录；因此不把本轮读数写成速度或内存收益，不改变默认 Cargo jobs、测试线程数或覆盖率分母。
 - 当前分支已推送，PR #5 已创建并合并；cef4754 的 push 与 pull_request 两轮共 16 个检查均成功，合入提交为 `6082b2c8a1fd3e1d4f41b0c964c19687965f9034`。本地 `main` 已快进到 `origin/main`，任务分支待删除。
+
+### Task 7: 收口复核发现的进程身份精度回归
+
+2026-10-16 收口复核发现：WMI `CreationDate` 以微秒表示，`.NET Process.StartTime` 保留更细精度；直接比较 ticks 会把同一个仍运行的子进程误判为 PID 已重用。本机只读检查已观察到两者相差 5 ticks。此前没有捕获该问题的测量不得继续作为可靠进程树峰值证据。
+
+- [x] 用根进程先退出、子进程继续存活的独立夹具复现提前收口，并保留失败输出；夹具进程由测试按 PID 和创建时间清理。
+- [x] 在微秒精度下统一比较创建时间；不以新快照覆盖根句柄确定的身份，清理前再次核对实际句柄身份。
+- [x] 补充成功等待、树收口超时、非零退出、启动失败和根运行超时的自动回归，接入 Windows CI；不引入额外测试依赖，本地五项已通过，远端结果按最终提交核对。
+- [ ] 重测受影响的 benchmark 和 jobs 样本，旧样本保留但降为探索记录；同步性能记录、设计和计划的实际证据边界。
+- [ ] 核对脚本语法、工作流、编码与文档，完成复核、PR、远端 CI、合并和主线/分支清理；既有游戏实现未变时复用其适用验证记录。
 
 ## 计划自审
 
