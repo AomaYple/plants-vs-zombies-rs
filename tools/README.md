@@ -34,9 +34,15 @@ pwsh -NoProfile -File tools/tests/measure-cargo.ps1
 
 该回归同时在 Windows implementation job 中执行，不创建可见窗口，不依赖额外测试框架。
 
+JSON 字段 `peak_working_set_mb` 沿用既有命名，数值实际按 `1 MiB = 2^20` 字节计算；测量结果文档使用 MiB，避免与十进制 MB 混淆。
+
+`-SampleMilliseconds` 是每轮查询后的等待时间，实际采样周期还包括 WMI 查询等开销；默认 100 ms 不保证每秒恰好采样十次。
+
 ## 分层本地测试反馈
 
 `test-feedback.ps1` 只选择既有 Cargo 命令、透传 Cargo 输出和退出码，不改变测试线程数或隐式删减门槛。`package` 模式恰好接受一个 package；`-TargetDirectory` 不存在时会创建，并只对子进程设置当前调用的 `CARGO_TARGET_DIR`。`-DryRun` 只打印结构化参数，不启动 Cargo。
+
+调用者启用 `$PSNativeCommandUseErrorActionPreference` 时，脚本仍通过自己的作用域保留 Cargo 原始退出码，不把 101 转成脚本异常退出 1，也不改变调用者偏好。`tools/tests/test-feedback.ps1` 以不存在的 package 检查失败透传，验证 target 环境变量在已有和未定义两种情况下恢复，并确认 `full -NoRun` 仍运行完整测试；该回归在三 OS CI 执行。
 
 | 模式 | Cargo 参数 |
 | --- | --- |
