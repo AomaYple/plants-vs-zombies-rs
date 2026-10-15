@@ -37,7 +37,7 @@ function Get-ComparableCreationTime {
 
 function Get-Snapshot {
     # 查询失败必须上抛，不能静默把整棵树缩成根进程。
-    @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CreationDate, WorkingSetSize)
+    @(Get-CimInstance Win32_Process -Property Name, ProcessId, ParentProcessId, CreationDate, WorkingSetSize)
 }
 
 function Update-Tree {
@@ -178,7 +178,12 @@ try {
             if ($null -eq $drainStarted) { $drainStarted = $watch.Elapsed.TotalSeconds }
             if ($active -eq 0) { break }
             if ($watch.Elapsed.TotalSeconds - $drainStarted -ge $TreeTimeoutSeconds) {
-                throw '根进程退出后后代进程收口超时'
+                $remaining = foreach ($processId in $tracked.Keys) {
+                    if (-not $tracked[$processId].Exited -and $lastSnapshot.ContainsKey($processId)) {
+                        "$($lastSnapshot[$processId].Name) ($processId)"
+                    }
+                }
+                throw "根进程退出后后代进程收口超时：$($remaining -join ', ')"
             }
         }
         if ($watch.Elapsed.TotalSeconds -ge $RunTimeoutSeconds) { throw '被测命令运行超时' }
