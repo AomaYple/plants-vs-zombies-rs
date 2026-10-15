@@ -32,7 +32,9 @@ rustup component add llvm-tools-preview
 
 Web 包生成额外使用 `wasm-bindgen-cli 0.2.129`，对应当前锁文件中的 wasm-bindgen；安装后读取 `wasm-bindgen --version` 核对。生成命令和后台开发入口见 [Web 说明](web/README.md)，工具本身的安装日志与项目依赖审计分开记录。
 
-覆盖率 CI 分别执行默认和 all-features 测试，生成独立 LCOV/JSON 报告并保存为工作流产物；这些是 Linux 纯测试统计，不包含本机追加的 Windows 窗口运行。基准入口在 CI 默认组合编译验证，本机在没有并发测试竞争时执行实际计时。报告与构建产物位于忽略的 `target/`。
+覆盖率 CI 分别执行默认和 all-features 测试，生成独立 LCOV/JSON 报告并保存为工作流产物；coverage 使用 `$RUNNER_TEMP` 下按组合隔离且运行前清空的插桩 target，不缓存插桩对象、`profraw` 或 `profdata`；这些是 Linux 纯测试统计，不包含本机追加的 Windows 窗口运行。基准入口在 CI 默认组合编译验证，本机在没有并发测试竞争时执行实际计时。报告与构建产物位于忽略的 `target/`。
+
+CI implementation 保留 `Rust 实现检查` 状态检查名和三个 OS matrix。每个 OS 都执行默认 workspace check、测试（含 doctest）、Clippy 和 doc，Windows 继续执行三条后台冒烟；唯一的 `probe` feature 由 Ubuntu 条件步骤执行一次 all-features check/test/Clippy/doc 覆盖。这个调度减少跨 OS 的重复 feature 验证，但不提供 Windows/macOS 的独立 all-features 编译证据；需要该平台证据时应恢复对应步骤。CI 目前只缓存按 OS、架构、工具链、锁文件和角色隔离的 Cargo registry/git 下载，不缓存 target 或 coverage 插桩产物；缓存命中不能替代完整命令。
 
 Windows 实现检查复用该 job 的编译产物运行隐藏窗口 `--probe --smoke 30 --screenshot` 与 `--smoke 30 --slice-smoke --screenshot`，每步限制 10 分钟。S1 的 CI 增量还配置 `--failure-smoke --smoke 400 --screenshot` 成功场景与 `--failure-smoke --smoke 2` 期限回归：完整失败场景须观察到 `Lost` 并退出 0，期限内未观察到 `Lost` 必须非零退出，不能只检查应用内部错误事件。冒烟采用引擎同步管线编译；无资源截图须实际包含原创红蓝夹具，保存失败或夹具缺失返回非零退出。该运行只验证 runner 上的最小绘制、登记资源入口和 OS 退出码，不包含真实音频设备、人工交互或原版行为比对；每次增量是否通过仍核对对应远端 CI。
 
@@ -72,6 +74,8 @@ Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principl
 | L3 | 一个完整目的交付 | 全部适用 L0/L1/L2；Rust/依赖/构建变更执行 workspace、兼容 feature、文档和依赖审计；按影响追加平台/窗口验收，再核对 Git 与远端 CI |
 
 不同 package 的纯测试和静态检查默认并行；原版窗口启动、输入、捕获和共享用户状态保持局部串行；已产生的证据文件可以并行整理。较低层级不能替代更高层级的必要验收，具体命令和未执行项必须在提交或结果文档中说明。
+
+本地反馈可使用 `tools/test-feedback.ps1` 选择 `package`、`workspace`、`probe` 或 `full` 模式；它只复用既有 Cargo 参数，保留 Cargo 的输出和退出码，不设置全局 `--test-threads=1` 或未经测量的 `--jobs`。局部模式只用于开发反馈，提交仍须完成全部适用的 L0–L3；覆盖率、基准、窗口和 Web 检查不能由脚本隐式替代。跨 package 改动优先用一次 workspace 调用，避免多个进程争抢共享 `target/`；需要并发时为每个调用设置独立 `CARGO_TARGET_DIR`。`tools/measure-cargo.ps1` 的超时、输出收口、PID 身份校验或进程清理失败会使样本作废，并返回非零；不得把不完整测量写成性能结论。
 
 原版观察阻塞只暂停依赖其证据的工作；有明确开发合同的独立任务按当前实现验证。检查发现失败后先处理原因，只在输入、工具、环境或实现条件发生相关变化时重试，避免重复执行同一失败路径。
 

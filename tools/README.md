@@ -1,3 +1,39 @@
 # 宿主工具
 
 [`pvz-asset-tool`](pvz-asset-tool/README.md) 已实现仓库清单审计和 Reanim 概要命令，输入保持只读，不进入 Web 应用依赖图。当前没有转换或打包命令；以后按实际需求引入，可重建输出写入被忽略的 `target/`，不修改来源资源。
+
+## Cargo 进程测量
+
+`measure-cargo.ps1` 用逐项 argv 启动一个 Cargo 或其他宿主进程，采样根进程和后代进程的工作集，并等待整棵进程树收口。它不会把 PowerShell 的参数数组重新拼接成命令字符串，因此可用于含空格路径、引号和嵌套 `-Command` 的自检。
+
+```powershell
+pwsh -NoProfile -File tools/measure-cargo.ps1 `
+  -OutputLog artifacts/validation/test-optimization-2026-10-15/measure-version `
+  -Executable cargo.exe `
+  -ArgumentList @('--version')
+
+pwsh -NoProfile -File tools/measure-cargo.ps1 `
+  -OutputLog artifacts/validation/test-optimization-2026-10-15/measure-failure `
+  -Executable pwsh `
+  -ArgumentList @('-NoProfile', '-Command', 'exit 7')
+```
+
+标准输出和 `<OutputLog>.json` 都保存一个紧凑 JSON 摘要；原始 stdout/stderr 分别流式写入 `<OutputLog>.out` 和 `<OutputLog>.err`，不会在测量脚本进程中无界积累。摘要至少包含 `command`、`exit_code`、`elapsed_seconds`、`peak_working_set_mb`、`samples`、`process_count_peak`、`stdout`、`stderr` 和 `measurement_error`。`exit_code` 是被测根进程真实退出码；启动失败返回 125，采样失败、输出收口失败、`-RunTimeoutSeconds` 运行超时或根进程退出后整棵已观察进程树超过 `-TreeTimeoutSeconds` 未收口时返回 124，`measurement_error` 非空，样本不得进入性能统计。脚本记录 PID 的创建时间以防止重用，并在超时或异常时按身份清理已观察进程。正式测量前应把 `-WorkingDirectory` 解析为绝对路径，并为每个场景使用独立 `CARGO_TARGET_DIR`。
+
+## 分层本地测试反馈
+
+`test-feedback.ps1` 只选择既有 Cargo 命令、透传 Cargo 输出和退出码，不改变测试线程数或隐式删减门槛。`package` 模式恰好接受一个 package；`-TargetDirectory` 不存在时会创建，并只对子进程设置当前调用的 `CARGO_TARGET_DIR`。`-DryRun` 只打印结构化参数，不启动 Cargo。
+
+| 模式 | Cargo 参数 |
+| --- | --- |
+| `package -Package pvz-core` | `cargo test -p pvz-core --locked` |
+| `workspace` | `cargo test --workspace --locked` |
+| `probe` | `cargo test -p pvz-app --features probe --locked` |
+| `full` | `cargo test --workspace --locked --no-fail-fast` |
+
+需要只验证编译时，在前三个模式追加 `-NoRun`；`full` 始终运行完整测试并保留 doctest。快速反馈不能替代提交前的 workspace、feature、覆盖率、基准、窗口和 Web 验收；共享 target 下不要并发运行多个反馈脚本实例。
+
+```powershell
+pwsh -NoProfile -File tools/test-feedback.ps1 -Mode package -Package pvz-core -NoRun -DryRun
+pwsh -NoProfile -File tools/test-feedback.ps1 -Mode workspace -NoRun -TargetDirectory artifacts/validation/test-optimization-2026-10-15/local-target
+```
