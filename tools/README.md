@@ -12,10 +12,23 @@ pwsh -NoProfile -File tools/measure-cargo.ps1 `
   -Executable cargo.exe `
   -ArgumentList @('--version')
 
-pwsh -NoProfile -File tools/measure-cargo.ps1 `
-  -OutputLog artifacts/validation/test-optimization-2026-10-15/measure-failure `
-  -Executable pwsh `
-  -ArgumentList @('-NoProfile', '-Command', 'exit 7')
+$measure = @{
+  OutputLog = 'artifacts/validation/test-optimization-2026-10-15/measure-failure'
+  Executable = 'pwsh'
+  ArgumentList = [string[]]@('-NoProfile', '-Command', 'exit 7')
+}
+& pwsh -NoProfile -File tools/measure-cargo.ps1 @measure
+```
+
+从 PowerShell 调用时，若被测 argv 含 `-Command`、`--workspace` 等看起来像参数的项，使用参数 splatting 保留逐项边界，避免宿主 PowerShell 把它们误绑定到测量脚本：
+
+```powershell
+$measure = @{
+  OutputLog = 'artifacts/validation/test-optimization-2026-10-15/measure-failure-again'
+  Executable = 'pwsh'
+  ArgumentList = [string[]]@('-NoProfile', '-Command', 'exit 7')
+}
+& pwsh -NoProfile -File tools/measure-cargo.ps1 @measure
 ```
 
 标准输出和 `<OutputLog>.json` 都保存一个紧凑 JSON 摘要；原始 stdout/stderr 分别流式写入 `<OutputLog>.out` 和 `<OutputLog>.err`，不会在测量脚本进程中无界积累。摘要至少包含 `command`、`exit_code`、`elapsed_seconds`、`peak_working_set_mb`、`samples`、`process_count_peak`、`stdout`、`stderr` 和 `measurement_error`。`exit_code` 是被测根进程真实退出码；启动失败返回 125，采样失败、输出收口失败、`-RunTimeoutSeconds` 运行超时或根进程退出后整棵已观察进程树超过 `-TreeTimeoutSeconds` 未收口时返回 124，`measurement_error` 非空，样本不得进入性能统计。脚本记录 PID 的创建时间以防止重用，并在超时或异常时按身份清理已观察进程。正式测量前应把 `-WorkingDirectory` 解析为绝对路径，并为每个场景使用独立 `CARGO_TARGET_DIR`。

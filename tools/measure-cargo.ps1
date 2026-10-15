@@ -98,6 +98,34 @@ function Stop-Tree {
     }
 }
 
+function Confirm-TrackedExit {
+    # WMI 进程快照可能在根进程退出后短暂滞后；用句柄再次确认，避免把已经退出的成员判成树未收口。
+    foreach ($processId in @($tracked.Keys)) {
+        $record = $tracked[$processId]
+        if ($record.Exited) { continue }
+        $process = $null
+        try {
+            $process = [Diagnostics.Process]::GetProcessById($processId)
+            $process.Refresh()
+            if ($process.StartTime.ToUniversalTime().Ticks -ne $record.Created.Ticks -or $process.HasExited) {
+                $record.Exited = $true
+                $record.WorkingSet = [int64]0
+            }
+        } catch [ArgumentException] {
+            $record.Exited = $true
+            $record.WorkingSet = [int64]0
+        } catch [InvalidOperationException] {
+            # 进程在刷新期间退出。
+            $record.Exited = $true
+            $record.WorkingSet = [int64]0
+        } catch {
+            [void]$measurementErrors.Add("确认进程退出失败：$processId：$($_.Exception.Message)")
+        } finally {
+            if ($process) { $process.Dispose() }
+        }
+    }
+}
+
 try {
     if (-not $IsWindows) { throw '进程树工作集采样目前只支持 Windows' }
     $directory = (Resolve-Path -LiteralPath $WorkingDirectory).Path
@@ -131,6 +159,7 @@ try {
     }
     while ($true) {
         Update-Tree -Snapshot @(Get-Snapshot)
+        if ($root.HasExited) { Confirm-TrackedExit }
         $usage = [int64]0
         $active = 0
         foreach ($record in $tracked.Values) {

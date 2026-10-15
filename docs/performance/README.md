@@ -30,6 +30,26 @@ cargo bench --workspace --locked
 
 计划中的双轨调度、检查复用和缓存隔离是减少等待与返工的设计，目前没有同条件开发耗时对照，不宣称具体速度改善。本节维护统计方法，具体执行读数进入相应任务结果和忽略的原始日志。
 
+## 2026-10-15 测试反馈优化执行结果
+
+本轮执行对应提交 `238b08a5da3c7a3a66e3ee1928b7a1d21b5c9e6a`，环境为 Windows `x86_64-pc-windows-msvc`、Rust/Cargo `1.99.0`、`cargo-llvm-cov 0.9.1`、`wasm-bindgen 0.2.129`。Cargo 命令均在仓库根目录串行执行；普通 benchmark 使用共享的默认 `target/` 热身，覆盖率使用独立的 `artifacts/validation/test-optimization-2026-10-15/coverage-target-all-run-2` 插桩 target。原始 stdout、stderr、JSON 和报告索引均保存在同一被忽略目录。
+
+all-features 覆盖率已单独完成：`cargo llvm-cov clean --workspace --locked` 后运行 `cargo llvm-cov --workspace --all-features --locked --no-report`，分别导出 LCOV 和 JSON。默认报告与 all-features 报告各包含当前 checkout 的 28 个源文件，路径校验没有发现 checkout 外源码；两份报告的行、函数和区域百分比分别为 `89.2944%`、`86.9637%`、`90.1977%`。插桩构建约 8 分 31 秒，这个耗时只描述覆盖率 profile，不能与普通测试反馈或 benchmark 直接比较。报告位于 `coverage-default-run/` 和 `coverage-all-run-2/`。
+
+实际 `cargo bench --workspace --locked` 使用 `tools/measure-cargo.ps1` 做进程树测量，三次均退出码为 0，`measurement_error` 为空，采样间隔 100 ms，树收口超时 60 s：
+
+| 样本 | 缓存状态 | 墙钟 | 进程树峰值工作集 | 进程数峰值 |
+| --- | --- | ---: | ---: | ---: |
+| `bench-workspace-01` | 冷的 benchmark target | 345.760 s | 4748.27 MB | 11 |
+| `bench-workspace-02` | 热的 benchmark target | 181.949 s | 165.82 MB | 5 |
+| `bench-workspace-03` | 热的 benchmark target | 182.133 s | 166.30 MB | 5 |
+
+热样本墙钟中位数为 `182.041 s`，峰值工作集中位数为 `166.06 MB`。冷样本包含编译和链接，不能与热样本合并统计；进程树工作集包含 Cargo、编译器、链接器、Criterion 和测试宿主，不能称为游戏运行时堆内存。当前没有本轮优化前、同提交、同工具链、同 target、同缓存状态和同 jobs 的三次基线，因此这些读数只作为可追溯的当前测量，不宣称速度或内存收益，也没有据此设置 `--jobs` 或测试线程门槛。
+
+额外的热 `cargo test --workspace --locked --no-run` jobs 比较各重复三次：默认 jobs 墙钟中位数约 `0.740 s`、峰值工作集中位数约 `123.07 MB`；`--jobs 1` 约 `0.712 s`、`122.75 MB`。该场景已经命中 target，样本差异不足以代表冷编译、完整测试或 CI runner，因此保留 Cargo 默认调度。测量脚本曾将一个根进程退出但 WMI 快照滞后的样本标记为树未收口并作废；随后增加进程句柄确认并重新取得六个有效样本，体现了超时/收口失败不进入统计的合同。
+
+平台和组合验证同时完成了默认/probe WebAssembly release 构建、两次 `wasm-bindgen --target web`、Windows 三条后台冒烟以及默认/all-features workspace 测试和覆盖率。实际 Web 输入文件名为 `target/wasm32-unknown-unknown/release/pvz-app.wasm`，绑定输出使用独立的 `pvz_app.js` 与 `pvz_app_bg.wasm` 目录。浏览器用户手势、真实设备音频、Android/iOS 构建和原版行为重复测量不在本机证据范围内。
+
 ## 基线状态
 
 普通僵尸 walk 增量新增原创42轨道×504帧、19身体/47帧/12fps完整借用采样及1/10只仿射裁剪，计时输出分别76/760顶点；构造、prepare、marker/索引选择与断言在计时外，几何输出分配在计时内，映射/上传、Bevy池与GPU不在计时内。登记缓存另统计21,168展开帧、名称/图像字符串有效字节及Vec长度/容量，不等于堆分配次数、峰值或显存。三场景均值、95%区间及缓存代价集中在[普通僵尸增量结果](../behavior/content-foundation-results.md#2026-10-14-普通僵尸动态行走增量)；没有同条件旧动态基线，不宣称时间、内存或开发耗时改善，其他未修改场景没有本轮重测。
