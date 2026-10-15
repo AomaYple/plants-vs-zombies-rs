@@ -38,6 +38,8 @@ CI implementation 保留 `Rust 实现检查` 状态检查名和三个 OS matrix�
 
 Windows 实现检查复用该 job 的编译产物运行隐藏窗口 `--probe --smoke 30 --screenshot` 与 `--smoke 30 --slice-smoke --screenshot`，每步限制 10 分钟。S1 的 CI 增量还配置 `--failure-smoke --smoke 400 --screenshot` 成功场景与 `--failure-smoke --smoke 2` 期限回归：完整失败场景须观察到 `Lost` 并退出 0，期限内未观察到 `Lost` 必须非零退出，不能只检查应用内部错误事件。冒烟采用引擎同步管线编译；无资源截图须实际包含原创红蓝夹具，保存失败或夹具缺失返回非零退出。该运行只验证 runner 上的最小绘制、登记资源入口和 OS 退出码，不包含真实音频设备、人工交互或原版行为比对；每次增量是否通过仍核对对应远端 CI。
 
+Windows implementation 同时运行 `tools/tests/measure-cargo.ps1`，验证进程树测量的成功等待、树收口超时、根运行超时、非零退出和启动失败；该检查后台执行，限时 2 分钟，不需要额外测试框架。测量脚本按 WMI 微秒精度核对创建时间，清理前再次核对实际句柄；进程树峰值仍是定期采样下界，不能称为精确堆内存。三 OS implementation 均运行 `tools/tests/test-feedback.ps1`，验证 Cargo 失败退出码、调用者原生错误偏好、target 环境变量恢复和完整测试模式。
+
 ## 编码、命名与 Rust 风格
 
 Rust 命名、API 与错误处理见 [现代 Rust 与仓库结构](docs/principles/engineering.md#现代-rust-与仓库结构)，文件格式与无死代码要求见 [代码与仓库卫生](docs/principles/engineering.md#代码与仓库卫生)。提交前：

@@ -14,6 +14,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+# 只在脚本作用域关闭原生失败转异常，显式保留 Cargo 的真实退出码。
+$PSNativeCommandUseErrorActionPreference = $false
 $previousTargetDirectory = $env:CARGO_TARGET_DIR
 $targetDirectoryWasDefined = Test-Path Env:CARGO_TARGET_DIR
 $targetDirectoryChanged = $false

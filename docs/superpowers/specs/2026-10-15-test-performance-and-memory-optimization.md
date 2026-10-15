@@ -1,7 +1,7 @@
 # 测试速度与内存优化设计
 
 日期：2026-10-15
-状态：已实施；本地正确性、覆盖率、benchmark、Windows 冒烟与 Web 构建已验证，远端 CI/合并状态待交付阶段核对
+状态：首轮工程交付已随 PR #5 合并；2026-10-16 补充进程身份精度修复与自动回归。工程验证和性能收益验收分别记录，当前没有同条件前后基线，不宣称提速或内存改善；远端交付结果以对应 PR 和 CI 为准。
 
 ## 目标和边界
 
@@ -13,15 +13,15 @@
 2. 在相同提交、工具链、目标平台、feature、缓存冷热状态和负载下，本地相关反馈或 CI 关键路径有可复核的墙钟改善；没有把减少检查、删测试或隐藏失败计入速度收益。
 3. 需要声称内存改善的路径提供根进程与后代进程树峰值工作集或适用的分配统计，并说明测量范围、采样间隔、预热和限制。启动失败、超时、树未收口或采样中断的结果作废；Criterion 时间结果不能单独作为内存证据。
 
-本轮不预设自动性能门槛。只有在同一提交、工具链、runner、target、feature、缓存状态和 jobs 下完成至少三次有效重复，且墙钟中位数不高于基线加 10% 容差时，才可把结果写成速度收益；内存收益还须有可重复的峰值下降。否则只记录测量结果，不据此改变默认调度。
+本轮不预设自动性能门槛。只有在同一提交、工具链、runner、target、feature、缓存状态和 jobs 下完成至少三次有效重复，且墙钟有超出实测噪声的可重复下降时，才可把结果写成速度收益；内存收益还须有可重复的峰值下降并证明速度没有实质退化。原定 10% 容差只作探索性警戒线，不能把容差内的实际降速称为提速或自动接受为内存收益。没有噪声范围和同条件对照时，只记录测量结果，不据此改变默认调度。
 
-本地实施结果已写入[性能测量记录](../performance/README.md#2026-10-15-测试反馈优化执行结果)。默认与 all-features 覆盖率均使用独立插桩 target 并完成 JSON/LCOV 路径核对；实际 workspace benchmark 完成三次有效测量，冷 target 与热 target 分开记录。热 benchmark 墙钟中位数约 182.041 秒、进程树峰值工作集中位数约 166.06 MB，但本轮没有同条件的优化前三次基线，因此不把它们写成速度或内存收益。Windows 冒烟和默认/probe WebAssembly 绑定已完成；浏览器手势、设备音频、Android/iOS 和原版行为仍按正确性边界单独保留为未验证项。
+本地实施结果已写入[性能测量记录](../../performance/README.md#2026-10-16-进程树复核与重测)。默认与 all-features 覆盖率均使用独立插桩 target 并完成 JSON/LCOV 路径核对；2026-10-15 的 benchmark/jobs 进程树样本因创建时间精度缺陷撤销正式测量资格，原始输出保留为历史探索记录。2026-10-16 修复统一时间精度、根身份和清理前句柄核对，并补充五项实际进程回归；后续测量按修复版本重新记录。没有同条件优化前基线时，工程交付不等于上述第 2 项速度收益已验收。Windows 冒烟和默认/probe WebAssembly 绑定的既有结果继续有效；浏览器手势、设备音频、Android/iOS 和原版行为仍单独保留为未验证项。
 
 不在本轮目标中的内容包括：改写核心模拟、改变事件顺序或确定性、引入无必要的测试框架、把所有测试强制串行、删除有效的兼容性组合、把 CI 通过扩展为平台玩家验收，或把开发参数扩展为原版行为结论。
 
-## 当前基线和证据边界
+## 实施前基线和证据边界
 
-当前主线提交为 `63572b8 chore: 合并仓库阶段性维护收尾 (#4)`，五个 workspace package 为 `pvz-data`、`pvz-core`、`pvz-assets`、`pvz-app` 和 `pvz-asset-tool`。本设计所在分支从与 `origin/main` 同步的 `main` 创建。`docs/handoff.md` 已按此前任务删除，不恢复。
+实施前主线提交为 `63572b8 chore: 合并仓库阶段性维护收尾 (#4)`，五个 workspace package 为 `pvz-data`、`pvz-core`、`pvz-assets`、`pvz-app` 和 `pvz-asset-tool`。以下基线和 CI 描述保留当时快照，不代表交付后的实时配置。`docs/handoff.md` 已按此前任务删除，不恢复。
 
 首轮本地基线使用同一 Windows checkout、stable 1.99.0、锁定依赖和共享默认 `target/`，结果如下：
 
@@ -92,7 +92,7 @@
 
 ## 方案四：CI 缓存和调度
 
-CI 缓存使用 `actions/cache@v4` 的显式 key，至少包含 runner OS、Rust 1.99.0、`Cargo.lock` 哈希、命令角色、target/架构、profile 和 feature 集；默认、all-features、覆盖率插桩和 Web target 不共用可执行构建产物。registry/git 依赖缓存可跨同一 OS 和锁文件复用，`target` 缓存按 job 角色隔离。缓存命中只减少编译等待，仍执行完整命令；缓存恢复失败自动视为冷缓存继续运行。
+CI 最终只缓存 registry/git 下载，使用 `actions/cache@v4` 的显式 key，包含 runner OS、架构、`rust-toolchain.toml` 和 `Cargo.lock` 哈希以及命令角色；coverage default/all 进一步分角色隔离。不缓存 target、插桩对象、profraw 或 profdata。下载缓存命中不能替代完整命令，实际墙钟收益仍须同条件比较；覆盖率使用干净的独立 target，Web 绑定输出按默认/probe 分目录。
 
 CI 任务安排按依赖关系保持最大安全并行：结构检查结束后，依赖审计、覆盖率矩阵和 Web 构建继续独立运行；implementation 保留三个 OS 和原状态检查名，三个 OS 都执行默认门槛，all-features check/test/Clippy/doc 只在 Ubuntu 条件执行一次，除非分支保护明确要求各 OS 重复状态。每个 runner 内仍按单一 target 顺序运行 Cargo 命令，Windows GPU/截图/失败冒烟继续局部顺序，并复用同一默认构建产物。不得未经同 SHA 冷热测量把 OS × feature 六 runner 当作已证实优化。
 
@@ -104,6 +104,8 @@ CI 速度比较至少记录：提交 SHA、runner image、工具链、缓存命�
 
 正式内存结果分为编译验证和测试运行两类。编译验证记录 Cargo 进程树中所有相关进程的峰值工作集，测试运行至少记录测试二进制及其子进程峰值；若无法可靠区分系统共享页，明确标记为 OS 工作集而非 Rust 堆。测量脚本必须输出真实退出码，出现采样中断或树未收口时结果作废。
 
+WMI 创建时间与句柄时间统一到微秒比较；根身份不被后续快照覆盖，清理前再次核对实际句柄。周期采样仍可能漏掉两个快照之间启动并退出的短命后代，因此只报告已观察进程树的采样峰值下界，不称为完整进程树的精确峰值。后台回归覆盖子进程晚于根退出、树收口超时清理、退出码 7、启动失败和根运行超时，并在 Windows CI 执行。
+
 每个候选方案在冷缓存和热缓存各重复至少三次，使用同一输入、同一 `target` 隔离方式和同一 jobs 参数，报告中位数及离散范围。冷缓存清空场景 target 但保留 registry/git，热缓存使用同一场景连续第二次运行；启动失败、超时、树未收口或退出码缺失的样本不得进入统计。只有峰值下降且墙钟中位数不超过基线 10% 容差时才接受内存取舍；核心结构或分配策略改变时追加分配次数/字节数，GPU 资源另行记录，不能用进程工作集替代显存。
 
 ## 验收矩阵
@@ -114,7 +116,7 @@ CI 速度比较至少记录：提交 SHA、runner image、工具链、缓存命�
 | --- | --- | --- | --- |
 | 格式/结构 | `cargo fmt --all -- --check`、`cargo metadata --no-deps --locked --format-version 1`、`git diff --check`、资源/编码检查、actionlint | 入口和跟踪内容符合仓库合同 | 不代表游戏可玩或原版一致 |
 | 默认正确性 | `cargo check --workspace --all-targets --locked`、`cargo test --workspace --locked`、Clippy、doc | 默认代码、doctest、lint、文档通过 | 不代表 all-features 或其他平台运行 |
-| feature 正确性 | all-features check/Clippy/doc；默认 workspace 测试及专门 `probe` 测试（或审计未通过时全 workspace all-features 测试） | feature 条件有明确覆盖 | 不代表窗口、音频或 Web 手势验收 |
+| feature 正确性 | all-features workspace check/test/Clippy/doc，另有默认与 probe 的纯回归；CI all-features 在 Ubuntu 执行，本机 Windows 另验 | feature 条件有明确覆盖 | 不代表 macOS 远端 all-features、窗口、音频或 Web 手势验收 |
 | 行为保护 | 确定性回放摘要、事件序列、暂停/终局/重开和资源错误回归 | 优化未改可观察核心行为 | 不代表与原版行为相同 |
 | 覆盖率 | 默认/all-features 独立干净插桩，JSON/LCOV 路径和分母核对 | 覆盖率范围可追溯 | 不代表分支完整或平台运行 |
 | 性能/内存 | 受影响 Criterion、基准 `--no-run`、三次以上时间/工作集测量 | 同条件下速度与内存结论有证据 | 不能把不同机器绝对时间互比 |
@@ -125,6 +127,10 @@ CI 速度比较至少记录：提交 SHA、runner image、工具链、缓存命�
 出现以下任一情况，撤销对应优化并保留失败证据：缓存命中后出现与冷构建不同的编译/测试结果；feature 收窄后专门回归不能覆盖实际 `cfg` 行为；覆盖率分母或源路径漂移；默认或 all-features 任何门槛被跳过；进程树退出码、artifact 或截图回调无法可靠判断；墙钟改善来自降低 jobs、测试线程或检查范围而没有等价正确性证明；峰值工作集下降伴随速度退化、测试隔离变差或 CI 资源耗尽。
 
 主要风险是 CI 缓存 key 过宽导致跨 feature 污染、矩阵拆分增加 runner 排队、独立 target 缓存占用磁盘、测量脚本把子进程漏算，或“重复测试”判断遗漏未来新增 feature。缓解办法是 key 显式隔离、保留完整状态检查、每次提交重新执行适用门槛、源码 feature 审计与回归测试并行维护。
+
+## 收口复核补充
+
+2026-10-16 的进程树创建时间精度修复、有效样本与 MSVC 后台任务限制见[性能记录](../../performance/README.md#2026-10-16-进程树复核与重测)。本地反馈脚本另补充调用者开启 PowerShell 原生错误偏好时仍保留 Cargo 101 的回归；脚本作用域处理退出码，`finally` 恢复 target 环境变量，不修改调用者偏好。该回归在三 OS implementation 执行，进程树回归在 Windows 执行，均不依赖额外测试框架。
 
 ## 交付顺序
 

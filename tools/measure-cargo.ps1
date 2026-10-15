@@ -28,9 +28,16 @@ $startedUtc = [datetime]::UtcNow
 $stdoutPath = [IO.Path]::GetFullPath("$OutputLog.out")
 $stderrPath = [IO.Path]::GetFullPath("$OutputLog.err")
 
+function Get-ComparableCreationTime {
+    param([datetime]$Time)
+    # WMI CreationDate 只有微秒精度，句柄 StartTime 还包含 100 ns 位；统一截断后比较身份。
+    $utc = $Time.ToUniversalTime()
+    [datetime]::new($utc.Ticks - ($utc.Ticks % 10), [DateTimeKind]::Utc)
+}
+
 function Get-Snapshot {
     # 查询失败必须上抛，不能静默把整棵树缩成根进程。
-    @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CreationDate, WorkingSetSize)
+    @(Get-CimInstance Win32_Process -Property Name, ProcessId, ParentProcessId, CreationDate, WorkingSetSize)
 }
 
 function Update-Tree {
@@ -38,9 +45,6 @@ function Update-Tree {
     $current = @{}
     foreach ($item in $Snapshot) { $current[[int]$item.ProcessId] = $item }
     $script:lastSnapshot = $current
-    if ($current.ContainsKey($root.Id) -and $tracked.ContainsKey($root.Id)) {
-        $tracked[$root.Id].Created = ([datetime]$current[$root.Id].CreationDate).ToUniversalTime()
-    }
     $changed = $true
     while ($changed) {
         $changed = $false
@@ -80,7 +84,8 @@ function Stop-Tree {
             if (-not $lastSnapshot.ContainsKey($processId)) { continue }
             if (([datetime]$lastSnapshot[$processId].CreationDate).ToUniversalTime().Ticks -ne $tracked[$processId].Created.Ticks) { continue }
             $process = [Diagnostics.Process]::GetProcessById($processId)
-            if (-not $process.HasExited) {
+            if (-not $process.HasExited -and
+                (Get-ComparableCreationTime $process.StartTime).Ticks -eq $tracked[$processId].Created.Ticks) {
                 $process.Kill($true)
                 [void]$process.WaitForExit(5000)
             }
@@ -107,7 +112,7 @@ function Confirm-TrackedExit {
         try {
             $process = [Diagnostics.Process]::GetProcessById($processId)
             $process.Refresh()
-            if ($process.StartTime.ToUniversalTime().Ticks -ne $record.Created.Ticks -or $process.HasExited) {
+            if ($process.HasExited -or (Get-ComparableCreationTime $process.StartTime).Ticks -ne $record.Created.Ticks) {
                 $record.Exited = $true
                 $record.WorkingSet = [int64]0
             }
@@ -148,7 +153,7 @@ try {
         $root.StandardError.BaseStream.CopyToAsync($outputStreams[1])
     )
     $tracked[$root.Id] = [pscustomobject]@{
-        Created = $root.StartTime.ToUniversalTime(); Exited = $false; WorkingSet = [int64]0
+        Created = Get-ComparableCreationTime $root.StartTime; Exited = $false; WorkingSet = [int64]0
     }
     try {
         $root.Refresh()
@@ -173,7 +178,12 @@ try {
             if ($null -eq $drainStarted) { $drainStarted = $watch.Elapsed.TotalSeconds }
             if ($active -eq 0) { break }
             if ($watch.Elapsed.TotalSeconds - $drainStarted -ge $TreeTimeoutSeconds) {
-                throw '根进程退出后后代进程收口超时'
+                $remaining = foreach ($processId in $tracked.Keys) {
+                    if (-not $tracked[$processId].Exited -and $lastSnapshot.ContainsKey($processId)) {
+                        "$($lastSnapshot[$processId].Name) ($processId)"
+                    }
+                }
+                throw "根进程退出后后代进程收口超时：$($remaining -join ', ')"
             }
         }
         if ($watch.Elapsed.TotalSeconds -ge $RunTimeoutSeconds) { throw '被测命令运行超时' }

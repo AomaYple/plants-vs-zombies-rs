@@ -30,7 +30,36 @@ cargo bench --workspace --locked
 
 计划中的双轨调度、检查复用和缓存隔离是减少等待与返工的设计，目前没有同条件开发耗时对照，不宣称具体速度改善。本节维护统计方法，具体执行读数进入相应任务结果和忽略的原始日志。
 
+## 2026-10-16 进程树复核与重测
+
+本次工具实现对应 `95ef0b9`，游戏 Rust 源码、依赖和资源保持首轮交付状态；Windows `x86_64-pc-windows-msvc`、Rust/Cargo `1.99.0`，普通 Cargo `target/` 顺序执行，未设置全局 jobs 或测试线程数。脚本版本的 SHA-256、命令 argv、缓存说明和工具链记录于被忽略的 `artifacts/validation/test-optimization-2026-10-16/verified/metadata.json`。内存数值按 `2^20` 字节计，表中统一写作 MiB；JSON 字段继续沿用 `peak_working_set_mb`，不改变已有接口。
+
+`tools/tests/measure-cargo.ps1` 使用实际后台父子进程验证等待、子树收口超时与清理、退出码 7、启动失败和根运行超时。旧实现的定向夹具错误落入输出流收口超时，修复后五项回归全部通过；红测和绿测的输出位于 `artifacts/validation/measure-cargo-tests/` 的独立运行目录。WMI 与句柄创建时间统一到微秒，根身份由启动句柄确定，清理前再次核对实际句柄；进程树峰值仍只是已观察进程的周期采样下界，不是精确堆分配或显存。
+
+完整 workspace 测试的根 Cargo 退出 0，相关断言和 doctest 正常完成，但 MSVC `vctip.exe` 未在树收口期限内结束，因此 `test-default-1`、`diagnose-test` 和 `diagnose-test-telemetry-opt-out` 的进程树样本作废。仅在诊断调用中尝试 `VCToolsTelemetryOptOut=1` 也未消除残留，没有把该设置写入默认配置。首轮实际 benchmark 重新编译并启动相同后台进程，`verified/bench-workspace-1` 同样作废；不通过按名称忽略后代取得成功样本，原始日志和 JSON 均保留。
+
+热 `cargo test --workspace --locked --no-run` 和增加 `--jobs 1` 的同条件场景各完成三次有效重复，六次退出码均为 0，`measurement_error` 为空：
+
+| 场景 | 墙钟中位数 | 墙钟范围 | 峰值工作集中位数 | 峰值范围 |
+| --- | ---: | ---: | ---: | ---: |
+| Cargo 默认 jobs | 0.710 s | 0.698–0.754 s | 122.84 MiB | 121.32–123.39 MiB |
+| `--jobs 1` | 0.747 s | 0.702–0.754 s | 123.57 MiB | 123.08–123.61 MiB |
+
+该短缓存场景没有显示降低 jobs 的速度或内存优势，继续保留默认调度；不能外推为冷构建、完整测试或 CI runner 的内存结论。当前仍没有同条件优化前基线，也未证明完整开发反馈或 CI 关键路径的墙钟收益，工程实施不等于性能收益验收完成。
+
+在首轮重新编译结束后，同一工具版本、target、输入和默认 jobs 连续完成三次热 `cargo bench --workspace --locked`，三次退出码均为 0、`measurement_error` 为空，进程数峰值均为 5：
+
+| 样本 | 墙钟 | 已观察进程树的采样峰值 |
+| --- | ---: | ---: |
+| `verified/bench-hot-1` | 176.897 s | 159.39 MiB |
+| `verified/bench-hot-2` | 181.476 s | 175.08 MiB |
+| `verified/bench-hot-3` | 181.145 s | 169.56 MiB |
+
+墙钟中位数 `181.145 s`，范围 `176.897–181.476 s`；峰值工作集中位数 `169.56 MiB`，范围 `159.39–175.08 MiB`。脚本的查询后等待参数为 100 ms，WMI 开销使实际采样周期更长；完整墙钟包括采样与收口开销。Criterion 输出中的历史 change 比较仍受旧 profile、主机状态和采样条件影响，不能称为本轮优化收益。本轮没有重新取得三次冷构建或默认/all-features 完整测试的有效进程树样本，其正确性结果单列保留。
+
 ## 2026-10-15 测试反馈优化执行结果
+
+2026-10-16 复核发现，该批测量脚本将 WMI 微秒创建时间与句柄的更细时间直接比较，根进程退出后可能提前漏掉仍存活的后代。以下 benchmark 和 jobs 的时间/进程树峰值只保留为历史探索记录，已撤销正式测量资格；不再使用其 JSON 中 `measurement_error` 为空作为采样正确的充分依据。独立覆盖率和游戏正确性验证不依赖这个采样器，其结果继续有效。修复后的新测量与方法另记在 2026-10-16 收口记录中。
 
 本轮执行对应提交 `238b08a5da3c7a3a66e3ee1928b7a1d21b5c9e6a`，环境为 Windows `x86_64-pc-windows-msvc`、Rust/Cargo `1.99.0`、`cargo-llvm-cov 0.9.1`、`wasm-bindgen 0.2.129`。Cargo 命令均在仓库根目录串行执行；普通 benchmark 使用共享的默认 `target/` 热身，覆盖率使用独立的 `artifacts/validation/test-optimization-2026-10-15/coverage-target-all-run-2` 插桩 target。原始 stdout、stderr、JSON 和报告索引均保存在同一被忽略目录。
 

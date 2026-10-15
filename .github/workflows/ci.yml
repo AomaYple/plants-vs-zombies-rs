@@ -225,6 +225,14 @@ jobs:
         run: cargo check --workspace --all-targets --locked
       - name: 检查格式
         run: cargo fmt --all -- --check
+      - name: 验证 Windows 进程树测量工具
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: pwsh
+        run: ./tools/tests/measure-cargo.ps1
+      - name: 验证本地测试反馈工具
+        shell: pwsh
+        run: ./tools/tests/test-feedback.ps1
       - name: 运行测试
         run: cargo test --workspace --locked
       - name: 运行 Clippy 检查
