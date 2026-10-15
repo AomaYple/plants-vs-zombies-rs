@@ -4,7 +4,7 @@
 
 **Goal:** 在保留全部正确性门槛的前提下，缩短本地测试反馈和 CI 关键路径，并用可重复的进程树测量评估峰值内存。
 
-**Architecture:** 先建立可追溯的 Cargo 命令包装和 Windows 进程树测量入口，再用 `pvz-app` 的纯 feature 回归确认 `probe` 行为，最后隔离 CI cache key 并拆分互不依赖的 feature job。默认 workspace 测试、all-features 的 check/Clippy/doc、覆盖率、基准编译和平台冒烟继续由明确 job 覆盖；只有 feature 审计和回归通过后才收窄重复测试。
+**Architecture:** 先建立可追溯的 Cargo 命令包装和 Windows 进程树测量入口，再用 `pvz-app` 的纯 feature 回归确认 `probe` 行为，最后加入按角色隔离的 CI 依赖缓存并消除已证明重复的步骤。默认 workspace 测试、all-features 的 check/test/Clippy/doc、覆盖率、基准编译和平台冒烟继续由明确门槛覆盖；不把 OS × feature 扩成六个 runner，也不在没有同条件测量前收窄 all-features 测试。
 
 **Tech Stack:** stable Rust 1.99.0、Cargo、PowerShell 7、GitHub Actions、`actions/cache@v4`、`cargo llvm-cov` 0.9.1、Criterion 0.5、现有 Bevy 0.20.0 workspace。
 
@@ -13,14 +13,16 @@
 ## Global Constraints
 
 - 正确性第一、速度第二、内存第三；不得通过删除有效测试、降低覆盖范围、关闭 lint 或隐藏失败制造速度结果。
-- 保留 `cargo test --workspace --locked` 的 doctest；默认与有效 feature 组合的构建、测试、Clippy、doc、覆盖率、基准和平台门槛分别报告。
+- 保留 `cargo test --workspace --locked` 的 doctest；默认与有效 feature 组合的 check、test、Clippy、doc、覆盖率、基准和平台门槛分别报告。all-features workspace test 在证据证明等价替代前不得删除。
 - 共享 checkout 中的 Cargo 构建、测试和基准不得并发争抢同一个 `target/`；需要并发时使用不同 `CARGO_TARGET_DIR`。
 - 测试默认并行；只对真实窗口、GPU、音频或无法隔离的外部状态局部串行，不设置全 workspace 的 `--test-threads=1`。
-- 覆盖率使用独立、干净的插桩 profile，默认与 all-features 的路径和分母分别核对；doctest 由常规 workspace 测试验证。
+- 覆盖率使用独立、干净且不恢复旧插桩对象的 profile；default/all-features 的路径和分母分别核对，插桩 `target`、`profraw` 和 `profdata` 不进入缓存；doctest 由常规 workspace 测试验证，不把 llvm-cov 分母误称为 doctest 覆盖率。
 - 不改变核心规则、事件顺序、确定性回放、资源合同、回放格式、平台支持声明或原版行为证据边界。
-- 正式内存结果必须记录进程树峰值工作集或适用分配统计、真实退出码、采样范围、预热和重复次数；Criterion 计时不能替代内存证据。
+- 正式内存结果必须记录根进程与后代进程树的峰值工作集或适用分配统计、真实退出码、采样范围、预热和重复次数；启动失败、超时、树未收口或采样中断的结果作废，Criterion 计时不能替代内存证据。
+- 性能比较至少使用同一提交、工具链、runner、target、feature、缓存状态和 jobs；默认只报告中位数与离散范围，不设置未经噪声测量验证的自动门槛。若要宣称收益，至少三次有效重复且墙钟中位数不高于基线加 10% 容差；内存改进还须有可重复下降。
 - 文本文件使用 UTF-8、LF、无 BOM、末尾换行；项目自写说明和诊断使用中文，技术标识符及标准命令保持原写法。
-- 每个独立目的使用 `type(scope): 中文说明` 提交；只在所有适用验证完成后推送、创建 PR、合并和清理分支。
+- 子代理在本计划中只做只读规则、CI/feature 审计和最终复核，不修改源码、脚本、CI、Cargo 配置或项目文档；所有实施、Cargo 调度和整合由主代理完成。若以后授权子代理实施，必须使用隔离 worktree 并明确文件归属。
+- 每个独立目的使用 `type(scope): 中文说明` 提交。本地提交只是可回退的审计节点；推送、创建 PR、合并和删除远端分支只有在用户明确或持续授权覆盖时才执行。
 
 ---
 
@@ -32,8 +34,8 @@
 - Test: `tools/measure-cargo.ps1`（通过 PowerShell 自检命令验证）
 
 **Interfaces:**
-- Consumes: `-OutputLog` 输出前缀、`-Executable` 可执行文件路径、`-ArgumentList` 字符串数组、可选 `-WorkingDirectory` 和 `-SampleMilliseconds`。
-- Produces: JSON stdout 摘要和 `<OutputLog>.out`、`<OutputLog>.err`；摘要字段固定为 `command`、`exit_code`、`elapsed_seconds`、`peak_working_set_mb`、`samples`、`stdout`、`stderr`。
+- Consumes: `-OutputLog` 输出前缀、`-Executable` 可执行文件路径、`-ArgumentList` 字符串数组、可选 `-WorkingDirectory`、`-SampleMilliseconds` 和 `-TreeTimeoutSeconds`（默认 30）。
+- Produces: JSON stdout 摘要和 `<OutputLog>.out`、`<OutputLog>.err`；摘要字段固定为 `command`、`exit_code`、`elapsed_seconds`、`peak_working_set_mb`、`samples`、`process_count_peak`、`stdout`、`stderr`、`measurement_error`。`command` 为结构化 executable/argv，输出文件保存原始流。
 
 - [ ] **Step 1: 写进程树采样的失败自检场景**
 
@@ -53,24 +55,28 @@ pwsh -NoProfile -File tools/measure-cargo.ps1 `
 
 - [ ] **Step 2: 实现安全的进程启动和退出采样**
 
-使用 `Start-Process -PassThru -WindowStyle Hidden` 启动根进程，将 `-ArgumentList` 原样传给 PowerShell 的数组参数；每个采样周期用 `Win32_Process.ParentProcessId` 递归发现子进程，再对去重后的 PID 求 `WorkingSet64` 总和。进程树发现和进程读取失败只跳过已经退出的 PID；根进程退出后继续刷新并等待子进程全部退出，超过明确的收口期限则返回非零并在 JSON 中说明测量失败。stdout/stderr 重定向文件的父目录由脚本创建。
+使用 `.NET System.Diagnostics.ProcessStartInfo`，逐项调用 `ArgumentList.Add()` 传递 argv，避免 `Start-Process -ArgumentList` 的 Windows quoting 歧义；`-WorkingDirectory` 先解析为绝对 `.Path`。每个采样周期用 `Win32_Process.ParentProcessId` 递归发现子进程，将根 PID 与去重后的后代 PID 一并求 `WorkingSet64` 总和。只忽略已经退出或 PID 重用的进程读取错误；根进程退出后继续刷新并等待树收口，超过 `-TreeTimeoutSeconds` 返回专用非零退出码并在 JSON 写入 `measurement_error`。stdout/stderr 重定向文件的父目录由脚本创建，启动失败也必须产出合法 JSON。
 
 ```powershell
-$root = Start-Process -FilePath $Executable -ArgumentList $ArgumentList `
-  -WorkingDirectory $WorkingDirectory -RedirectStandardOutput "$OutputLog.out" `
-  -RedirectStandardError "$OutputLog.err" -PassThru -WindowStyle Hidden
+$startInfo = [Diagnostics.ProcessStartInfo]::new()
+$startInfo.FileName = $Executable
+$startInfo.WorkingDirectory = (Resolve-Path $WorkingDirectory).Path
+$startInfo.RedirectStandardOutput = $true
+$startInfo.RedirectStandardError = $true
+$startInfo.UseShellExecute = $false
+foreach ($argument in $ArgumentList) { [void]$startInfo.ArgumentList.Add($argument) }
+$root = [Diagnostics.Process]::Start($startInfo)
 while ($true) {
-  $ids = @(Get-DescendantProcessIds -RootId $root.Id)
-  $current = ($ids | ForEach-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue } |
-    Measure-Object -Property WorkingSet64 -Sum).Sum
-  $peak = [Math]::Max($peak, [int64]$current)
+  $ids = @(Get-ProcessTreeIds -RootId $root.Id)
+  $current = Get-ProcessTreeWorkingSet -Ids $ids
+  $peak = [Math]::Max($peak, $current.Sum)
+  $samples++
   if ($root.HasExited -and (Test-ProcessTreeExited -Ids $ids)) { break }
+  if ((Get-Date) - $started -gt [TimeSpan]::FromSeconds($TreeTimeoutSeconds)) { $measurementError = 'tree_timeout'; break }
   Start-Sleep -Milliseconds $SampleMilliseconds
 }
-$root.Refresh()
-$summary = [ordered]@{ exit_code = $root.ExitCode; peak_working_set_mb = [Math]::Round($peak / 1MB, 2) }
+$summary = [ordered]@{ command = [ordered]@{ executable = $Executable; argv = @($ArgumentList) }; exit_code = $root.ExitCode; elapsed_seconds = ...; peak_working_set_mb = ...; samples = $samples; process_count_peak = ...; stdout = ...; stderr = ...; measurement_error = $measurementError }
 $summary | ConvertTo-Json -Compress
-if ($root.ExitCode -ne 0) { exit $root.ExitCode }
 ```
 
 实现时将示例中的 `Get-DescendantProcessIds` 和 `Test-ProcessTreeExited` 写成同文件内的私有函数，处理 PID 重用和已退出进程；不能依赖 `$LASTEXITCODE` 读取 Cargo 子进程结果。
@@ -96,12 +102,12 @@ git commit -m "perf(tool): 建立可复现的 Cargo 进程测量"
 - Test: `tools/test-feedback.ps1`（命令分派和退出码自检）
 
 **Interfaces:**
-- Consumes: `-Mode`（`package`、`workspace`、`probe`、`full`）、`-Package` 可重复参数、`-NoRun` 和可选 `-TargetDirectory`。
+- Consumes: `-Mode`（`package`、`workspace`、`probe`、`full`）、`-Package`（`package` 模式恰好一个）、`-NoRun`、`-DryRun` 和可选 `-TargetDirectory`。
 - Produces: 透传 Cargo stdout/stderr，失败时返回 Cargo 的真实退出码；不改变测试线程数，不在同一调用中启动并行 Cargo 进程。
 
 - [ ] **Step 1: 固定模式到 Cargo 参数的测试表**
 
-在 `tools/README.md` 中写出脚本的参数映射，并用 `-WhatIf` 或等价的 dry-run 输出检查参数，不实际启动第二个 Cargo 进程。映射必须明确如下：
+在 `tools/README.md` 中写出脚本的参数映射，并用 `-DryRun` 输出结构化参数检查，不实际启动 Cargo。映射必须明确如下：
 
 ```text
 package   -> cargo test -p <Package> --locked [--no-run]
@@ -110,7 +116,7 @@ probe     -> cargo test -p pvz-app --features probe --locked [--no-run]
 full      -> cargo test --workspace --locked --no-fail-fast
 ```
 
-`-Package` 为空时，`package` 模式直接以参数错误退出；`-TargetDirectory` 只设置当前进程的 `CARGO_TARGET_DIR`，不写入全局配置。
+`-Package` 为空或多于一个时，`package` 模式直接以参数错误退出；`-TargetDirectory` 不存在时创建并转为绝对路径，只设置当前进程的 `CARGO_TARGET_DIR`，不写入全局配置；`full` 忽略 `-NoRun` 并始终运行完整测试。
 
 - [ ] **Step 2: 实现参数校验和单一 Cargo 调用**
 
@@ -119,12 +125,13 @@ full      -> cargo test --workspace --locked --no-fail-fast
 ```powershell
 $cargoArgs = @('test', '--locked')
 switch ($Mode) {
-  'package'   { $cargoArgs += @('-p', $Package); if ($NoRun) { $cargoArgs += '--no-run' } }
+  'package'   { if ($Package.Count -ne 1) { throw 'package 模式必须恰好提供一个 -Package' }; $cargoArgs += @('-p', $Package[0]); if ($NoRun) { $cargoArgs += '--no-run' } }
   'workspace' { $cargoArgs += '--workspace'; if ($NoRun) { $cargoArgs += '--no-run' } }
   'probe'     { $cargoArgs += @('-p', 'pvz-app', '--features', 'probe'); if ($NoRun) { $cargoArgs += '--no-run' } }
   'full'      { $cargoArgs += @('--workspace', '--no-fail-fast') }
 }
-if ($TargetDirectory) { $env:CARGO_TARGET_DIR = (Resolve-Path $TargetDirectory).Path }
+if ($TargetDirectory) { $null = New-Item -ItemType Directory -Force -Path $TargetDirectory; $env:CARGO_TARGET_DIR = (Resolve-Path $TargetDirectory).Path }
+if ($DryRun) { [ordered]@{ command = 'cargo'; argv = $cargoArgs; target_directory = $env:CARGO_TARGET_DIR } | ConvertTo-Json -Compress; exit 0 }
 & cargo @cargoArgs
 exit $LASTEXITCODE
 ```
@@ -223,11 +230,12 @@ cargo test -p pvz-app --features probe --locked
 再执行：
 
 ```powershell
-rg -n "cfg\s*!?\(.*feature|\[features\]|build\.rs|\[build-dependencies\]" crates tools Cargo.toml
+rg -n "cfg\s*!?\(.*feature|\[features\]|build\.rs|\[build-dependencies\]" crates tests benches tools Cargo.toml
 cargo metadata --no-deps --locked --format-version 1
+cargo test -p pvz-app --features probe --locked --no-run
 ```
 
-审计结果必须记录只有 `pvz-app/probe` 一个项目 feature、没有 build script 或隐藏 feature 条件；若结果不同，保留 workspace all-features 测试，不执行后续收窄。
+审计结果必须记录 metadata 中的 feature 成员、全仓 `cfg(feature)`（含 tests/benches/doctest/build.rs）及依赖 feature 传播；只有确认 `pvz-app/probe` 一个项目 feature 且没有隐藏条件时，才允许消除重复的 probe Clippy。workspace all-features test 仍保留，除非另有同等测试证据并单独记录。
 
 - [ ] **Step 5: 提交 feature 回归**
 
@@ -267,25 +275,24 @@ git commit -m "test(app): 锁定 probe feature 默认模式"
 
 - [ ] **Step 2: 将实现 job 扩展为 OS × feature_set 矩阵**
 
-把现有 `implementation` matrix 扩展为 `os: [ubuntu-latest, windows-latest, macos-latest]` 和 `feature_set: [default, all]`，job 名称包含 feature 集。默认分支保留 check、fmt、workspace test、Clippy、doc 和 Windows 三条冒烟；all 分支执行 workspace `--all-features` 的 check、test、Clippy、doc。每个 runner 内仍按顺序执行 Cargo 命令，Windows 冒烟只使用默认分支已生成的 `target/debug/pvz-app.exe`。
+保留现有三个 OS 的 `implementation` job 和状态检查名，不直接扩成 OS × feature 六个 runner。三个 OS 都执行默认 check、fmt、workspace test、Clippy、doc；Windows 默认路径继续执行三条冒烟。仅 Ubuntu 条件执行一次 all-features check/test/Clippy/doc，以消除已证明的跨 OS 重复；若分支保护要求每个 OS 的 all-features 状态，先保持旧步骤并把缓存优化单独落地。每个 runner 内仍按顺序运行 Cargo 命令，避免共享 `target/` 争抢。
 
 ```yaml
 strategy:
   matrix:
     os: [ubuntu-latest, windows-latest, macos-latest]
-    feature_set: [default, all]
-name: Rust 实现检查 (${{ matrix.feature_set }})
+name: Rust 实现检查
 ```
 
 在 feature 审计未证明测试等价前，all 分支保留 `cargo test --workspace --all-features --locked`。审计通过后才改为默认 workspace 测试加 `cargo test -p pvz-app --features probe --locked`，并继续保留 all-features check/Clippy/doc；这一步单独提交并记录测试数量和覆盖率分母未被错误替换。
 
 - [ ] **Step 3: 消除已证明的重复 probe Clippy 调用**
 
-all 分支的 workspace `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` 已覆盖 `pvz-app/probe`，因此在 feature 审计通过后删除单独的 `cargo clippy -p pvz-app --features probe` 步骤；若审计或 CI 日志显示覆盖条件不等价，恢复该步骤。默认分支不运行需要 probe feature 的冒烟。
+Ubuntu 的 workspace `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` 已覆盖 `pvz-app/probe`，因此删除单独的 `cargo clippy -p pvz-app --features probe` 步骤；若审计或 CI 日志显示覆盖条件不等价，恢复该步骤。默认分支不运行需要 probe feature 的冒烟。
 
 - [ ] **Step 4: 给 coverage 和 Web job 加上角色隔离缓存**
 
-coverage 的 default/all 矩阵保留独立 LCOV/JSON artifact 名称，并用各自的 target 目录或 key；默认基准 `cargo bench --workspace --locked --no-run` 继续只执行一次。Web job 的 native release target、`wasm32-unknown-unknown` target 和 `web`/`web-probe` 输出使用 web 角色缓存，不与 native test 角色共用。
+coverage 的 default/all 矩阵保留独立 LCOV/JSON artifact 名称，设置独立 `CARGO_TARGET_DIR`，运行前清理插桩目录和 profraw/profdata，且不缓存插桩 target；默认基准 `cargo bench --workspace --locked --no-run` 继续只执行一次。Web job 的 native release target、`wasm32-unknown-unknown` target 和 `web`/`web-probe` 输出使用 web 角色缓存，不与 native test 角色共用。每个 cache key 至少包含 OS、架构、Rust 工具链、`rust-toolchain.toml`、Cargo.lock、job 角色、target/profile/feature；target cache 可用 SHA 精确 key 加不含 SHA 的 restore prefix，不能把 immutable 旧快照当作最新构建。
 
 - [ ] **Step 5: 静态检查并提交 CI 重排**
 
@@ -318,7 +325,7 @@ git commit -m "ci: 并行隔离默认与全 feature 验证"
 
 - [ ] **Step 1: 串行取得优化前后同条件本地基线**
 
-停止其他 Cargo、测试、基准、窗口和 Web 服务；使用独立 target 目录分别运行默认 workspace 测试、`--no-run`、all-features 测试和基准 `--no-run`。冷缓存和热缓存各重复三次，保留 stdout/stderr，不把已有有缺陷脚本的 122–124 MB 读数作为基线。
+停止其他 Cargo、测试、基准、窗口和 Web 服务；使用独立 target 目录分别运行默认 workspace 测试、`--no-run`、all-features 测试和实际 `cargo bench --workspace --locked`。冷缓存定义为清空场景 target、保留 registry/git 下载缓存；热缓存定义为同一场景连续第二次运行。冷、热各重复三次，保留 stdout/stderr 和 sidecar 元数据，不把已有有缺陷脚本的 122–124 MB 读数作为基线。启动失败、超时、树未收口或退出码缺失的样本从统计中剔除并单独报告。
 
 ```powershell
 pwsh -NoProfile -File tools/measure-cargo.ps1 `
@@ -334,7 +341,7 @@ pwsh -NoProfile -File tools/measure-cargo.ps1 `
 
 - [ ] **Step 3: 比较 Cargo jobs 和 cache 方案**
 
-在相同输入下比较 Cargo 默认 jobs 与一个受控较低值的 elapsed 和峰值工作集；只有速度不退化且峰值下降时才保留受控 jobs。对 CI 运行记录 cache hit/miss、每个 job 的步骤耗时、排队和总墙钟；不要用不同 runner 或删减检查的结果作前后结论。
+在相同输入下比较 Cargo 默认 jobs 与一个受控较低值的 elapsed 和峰值工作集；仅当三次有效重复的墙钟中位数不超过基线 10% 且峰值工作集下降时才保留受控 jobs，否则回退默认 jobs。对 CI 运行记录 cache hit/miss、每个 job 的步骤耗时、排队和总墙钟；不要用不同 runner 或删减检查的结果作前后结论。
 
 - [ ] **Step 4: 仅在有证据时记录内存优化**
 
@@ -375,6 +382,7 @@ cargo test --workspace --locked --no-fail-fast
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo doc --workspace --no-deps --locked
 cargo check --workspace --all-targets --all-features --locked
+cargo test --workspace --all-features --locked --no-fail-fast
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo doc --workspace --all-features --no-deps --locked
 cargo deny check
@@ -394,11 +402,11 @@ git diff --cached --check
 
 - [ ] **Step 4: 按授权推送、创建 PR、等待 CI 并合并**
 
-推送当前短期分支，创建 PR，等待所有必需 job 完成；核对 default/all-features、coverage、Web、Windows/macOS/Linux 和依赖审计都对应新提交。用户已授权的外部 Git 操作按仓库贡献流程执行；若授权范围只覆盖本地，则停在可审阅分支并报告待执行动作。
+只有用户明确或持续授权覆盖外部 Git 操作时，才推送当前短期分支、创建 PR、等待所有必需 job 并合并；核对 default/all-features、coverage、Web、Windows/macOS/Linux 和依赖审计都对应新提交。没有该授权时停在本地可审阅分支，本地提交不等于推送或合并授权。
 
 - [ ] **Step 5: 核验主线并清理分支**
 
-合并后更新本地 `main`，确认合入提交与远端 CI 一致，再按授权删除已完成的本地/远端任务分支。最后报告本地验证、远端 CI、合并状态、缓存/内存测量、未验证平台和原版行为边界。
+仅在合并已获授权且完成后更新本地 `main`，确认合入提交与远端 CI 一致，再按同一授权删除已完成的本地/远端任务分支。否则保留短期分支，最后报告本地验证、远端 CI、合并状态、缓存/内存测量、未验证平台和原版行为边界。
 
 ## 计划自审
 

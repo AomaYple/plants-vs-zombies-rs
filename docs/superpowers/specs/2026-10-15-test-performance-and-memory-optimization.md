@@ -11,7 +11,9 @@
 
 1. 默认 workspace 测试、`probe` feature 测试、doctest、Clippy、文档生成、覆盖率、基准编译、资源审计和适用平台冒烟仍有明确且可重复的门槛。
 2. 在相同提交、工具链、目标平台、feature、缓存冷热状态和负载下，本地相关反馈或 CI 关键路径有可复核的墙钟改善；没有把减少检查、删测试或隐藏失败计入速度收益。
-3. 需要声称内存改善的路径提供进程树峰值工作集或适用的分配统计，并说明测量范围、采样间隔、预热和限制。Criterion 时间结果不能单独作为内存证据。
+3. 需要声称内存改善的路径提供根进程与后代进程树峰值工作集或适用的分配统计，并说明测量范围、采样间隔、预热和限制。启动失败、超时、树未收口或采样中断的结果作废；Criterion 时间结果不能单独作为内存证据。
+
+本轮不预设自动性能门槛。只有在同一提交、工具链、runner、target、feature、缓存状态和 jobs 下完成至少三次有效重复，且墙钟中位数不高于基线加 10% 容差时，才可把结果写成速度收益；内存收益还须有可重复的峰值下降。否则只记录测量结果，不据此改变默认调度。
 
 不在本轮目标中的内容包括：改写核心模拟、改变事件顺序或确定性、引入无必要的测试框架、把所有测试强制串行、删除有效的兼容性组合、把 CI 通过扩展为平台玩家验收，或把开发参数扩展为原版行为结论。
 
@@ -48,6 +50,7 @@
 - Windows、macOS、Linux、Web、Android、iOS 的支持状态仍按各自实际构建或运行证据报告。CPU/CI/CLI 结果不升级为窗口、设备音频或原版行为验收。
 - 测试默认并行；真实窗口、GPU、音频或共享外部状态只在最小范围串行。不能用整个 workspace 的 `--test-threads=1` 掩盖隔离问题。
 - 任一测试失败都以非零结果暴露；超时、进程未收口、缓存损坏和工具缺失分别报告，不通过重试次数或忽略失败制造通过。
+- 子代理只做只读审计和复核，主代理负责源码、脚本、CI、Cargo 配置和文档修改；任何授权实施的子代理都必须使用隔离 worktree 并明确文件归属。
 
 ## 方案一：先固定可重复的测量和本地反馈层级
 
@@ -68,7 +71,7 @@
 
 在 `pvz-app` 增加一个不依赖窗口的纯 feature 回归，直接锁定编译期默认模式：默认构建的 `Options` 不自动进入 probe，`--features probe` 构建自动进入 probe；同时保留现有运行时参数冲突和截图/资源测试。这样 feature 行为有独立断言，不再依赖“all-features 全 workspace 测试碰巧经过了 `cfg!`”。
 
-实施时先做源码和 metadata 审计：确认项目 feature 只有 `pvz-app/probe`，确认没有隐藏的 `cfg(feature = ...)`、build script 或 feature 专属测试。审计通过后，测试矩阵可以采用“默认 workspace 测试 + `pvz-app --features probe` 专门测试”，同时继续保留 workspace `--all-features` 的 check、Clippy 和 doc。这样不会丢掉 feature 编译、lint 或文档门槛，只避免对没有 feature 条件的 package 重新执行相同测试。
+实施时先做源码和 metadata 审计：确认项目 feature 只有 `pvz-app/probe`，确认没有隐藏的 `cfg(feature = ...)`、build script 或 feature 专属测试。首轮只删除可证明重复的 probe Clippy；workspace `--all-features` test 仍保留。未来若要收窄测试矩阵，必须补充同等测试数量、行为和覆盖率分母证据，并同步更新 CI 说明和本设计对应的验收矩阵。
 
 如果审计发现新的 feature 条件、依赖 feature 传播或平台差异，立即恢复 workspace all-features 测试作为该组合的门槛，并把新组合加入矩阵；在此之前不以测试时间减少宣称收益。
 
@@ -89,9 +92,9 @@
 
 CI 缓存使用 `actions/cache@v4` 的显式 key，至少包含 runner OS、Rust 1.99.0、`Cargo.lock` 哈希、命令角色、target/架构、profile 和 feature 集；默认、all-features、覆盖率插桩和 Web target 不共用可执行构建产物。registry/git 依赖缓存可跨同一 OS 和锁文件复用，`target` 缓存按 job 角色隔离。缓存命中只减少编译等待，仍执行完整命令；缓存恢复失败自动视为冷缓存继续运行。
 
-CI 任务安排按依赖关系保持最大安全并行：结构检查结束后，依赖审计、覆盖率矩阵和 Web 构建继续独立运行；实现检查按操作系统和 feature 模式拆分为独立 runner，使默认检查与 all-features 检查不在同一 runner 上串行等待。每个 runner 内仍按单一 target 顺序运行 Cargo 命令，Windows GPU/截图/失败冒烟继续局部顺序，并复用同一默认构建产物。拆分后的 job 必须保留状态检查和 artifact 名称，避免只改变显示层而漏掉门槛。
+CI 任务安排按依赖关系保持最大安全并行：结构检查结束后，依赖审计、覆盖率矩阵和 Web 构建继续独立运行；implementation 保留三个 OS 和原状态检查名，三个 OS 都执行默认门槛，all-features check/test/Clippy/doc 只在 Ubuntu 条件执行一次，除非分支保护明确要求各 OS 重复状态。每个 runner 内仍按单一 target 顺序运行 Cargo 命令，Windows GPU/截图/失败冒烟继续局部顺序，并复用同一默认构建产物。不得未经同 SHA 冷热测量把 OS × feature 六 runner 当作已证实优化。
 
-在 all-features 测试收窄前，矩阵保留现有 workspace all-features 测试；确认 `probe` 审计和专门回归后，才将测试项替换为默认 workspace 测试加 `pvz-app --features probe`，而 all-features check、Clippy、doc 仍保留。任何矩阵变更都同时更新 CI 说明和本设计对应的验收矩阵。
+在 all-features 测试收窄前，矩阵保留现有 workspace all-features 测试；确认 `probe` 审计和专门回归只作为补充证据，不自动替代 workspace all-features test。任何未来矩阵变更都同时更新 CI 说明和本设计对应的验收矩阵。
 
 CI 速度比较至少记录：提交 SHA、runner image、工具链、缓存命中/未命中、job 阶段、每步墙钟、失败重试和总墙钟。不同 runner、不同缓存状态或删减检查不能直接作前后优化结论。若缓存命中率低、key 造成磁盘超限或构建产物出现跨 feature 污染，立即回退到依赖缓存或旧调度。
 
@@ -99,7 +102,7 @@ CI 速度比较至少记录：提交 SHA、runner image、工具链、缓存命�
 
 正式内存结果分为编译验证和测试运行两类。编译验证记录 Cargo 进程树中所有相关进程的峰值工作集，测试运行至少记录测试二进制及其子进程峰值；若无法可靠区分系统共享页，明确标记为 OS 工作集而非 Rust 堆。测量脚本必须输出真实退出码，出现采样中断或树未收口时结果作废。
 
-每个候选方案在冷缓存和热缓存各重复至少三次，使用同一输入、同一 `target` 隔离方式和同一 jobs 参数，报告中位数及离散范围。只有峰值下降且墙钟不超过事先记录的可接受波动时才接受内存取舍；核心结构或分配策略改变时追加分配次数/字节数，GPU 资源另行记录，不能用进程工作集替代显存。
+每个候选方案在冷缓存和热缓存各重复至少三次，使用同一输入、同一 `target` 隔离方式和同一 jobs 参数，报告中位数及离散范围。冷缓存清空场景 target 但保留 registry/git，热缓存使用同一场景连续第二次运行；启动失败、超时、树未收口或退出码缺失的样本不得进入统计。只有峰值下降且墙钟中位数不超过基线 10% 容差时才接受内存取舍；核心结构或分配策略改变时追加分配次数/字节数，GPU 资源另行记录，不能用进程工作集替代显存。
 
 ## 验收矩阵
 
