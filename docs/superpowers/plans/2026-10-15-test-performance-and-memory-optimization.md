@@ -19,7 +19,8 @@
 - 覆盖率使用独立、干净且不恢复旧插桩对象的 profile；default/all-features 的路径和分母分别核对，插桩 `target`、`profraw` 和 `profdata` 不进入缓存；doctest 由常规 workspace 测试验证，不把 llvm-cov 分母误称为 doctest 覆盖率。
 - 不改变核心规则、事件顺序、确定性回放、资源合同、回放格式、平台支持声明或原版行为证据边界。
 - 正式内存结果必须记录根进程与后代进程树的峰值工作集或适用分配统计、真实退出码、采样范围、预热和重复次数；启动失败、超时、树未收口或采样中断的结果作废，Criterion 计时不能替代内存证据。
-- 性能比较至少使用同一提交、工具链、runner、target、feature、缓存状态和 jobs；默认只报告中位数与离散范围，不设置未经噪声测量验证的自动门槛。若要宣称收益，至少三次有效重复且墙钟中位数不高于基线加 10% 容差；内存改进还须有可重复下降。
+- 性能比较至少使用同一提交、工具链、runner、target、feature、缓存状态和 jobs；默认只报告中位数与离散范围，不设置未经噪声测量验证的自动门槛。收益至少有三次有效重复；速度收益须有超出实测噪声的可重复墙钟下降，内存收益还须有可重复峰值下降并证明速度没有实质退化。
+- 原定 10% 容差仅作为探索时的警戒线，不能把容差内的实际降速写成提速或自动接受为内存收益。
 - 文本文件使用 UTF-8、LF、无 BOM、末尾换行；项目自写说明和诊断使用中文，技术标识符及标准命令保持原写法。
 - 子代理在本计划中只做只读规则、CI/feature 审计和最终复核，不修改源码、脚本、CI、Cargo 配置或项目文档；所有实施、Cargo 调度和整合由主代理完成。若以后授权子代理实施，必须使用隔离 worktree 并明确文件归属。
 - 每个独立目的使用 `type(scope): 中文说明` 提交。本地提交只是可回退的审计节点；推送、创建 PR、合并和删除远端分支只有在用户明确或持续授权覆盖时才执行。
@@ -254,26 +255,25 @@ git commit -m "test(app): 锁定 probe feature 默认模式"
 
 **Interfaces:**
 - Consumes: structure job 的 package/app outputs、matrix OS、feature 审计结论和既有 Windows/Web/coverage 命令。
-- Produces: 默认和 all-features 独立 runner、显式 Cargo cache key、原有状态检查名/coverage artifact 名称和所有适用平台门槛。
+- Produces: 保留三 OS runner、Ubuntu 条件 all-features 步骤、按角色隔离的 registry/git cache key、原有状态检查名/coverage artifact 名称和所有适用平台门槛。
 
 - [x] **Step 1: 为 cache key 写出隔离矩阵**
 
-在 CI 变更前在 `CONTRIBUTING.md` 记录 key 的组成：`${{ runner.os }}`、Rust `1.99.0`、job 角色、target/架构、profile、feature 集和 `hashFiles('**/Cargo.lock')`。默认、all-features、coverage 和 Web 不得共用 target artifact；registry/git 缓存可以在同一 OS、toolchain 和 lockfile 下复用。
+在 `CONTRIBUTING.md` 记录最终 key 的组成：`${{ runner.os }}`、`${{ runner.arch }}`、`rust-toolchain.toml` 和 `Cargo.lock` 哈希以及 job 角色。只缓存 registry/git 下载；不缓存 target、覆盖率插桩对象、profraw 或 profdata。coverage default/all 分角色隔离。
 
 ```yaml
-- name: 缓存 Cargo registry、Git checkout 和构建产物
+- name: 缓存 Cargo registry 与 Git checkout
   uses: actions/cache@v4
   with:
     path: |
       ~/.cargo/registry
       ~/.cargo/git
-      target
-    key: ${{ runner.os }}-rust-1.99.0-implementation-${{ matrix.feature_set }}-${{ hashFiles('**/Cargo.lock') }}
+    key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-implementation-registry-v1
 ```
 
-对没有 `matrix.feature_set` 的 job 使用固定角色字符串；coverage 采用独立 `CARGO_TARGET_DIR` 或独立角色 key，避免复用插桩对象。
+coverage 使用独立 `CARGO_TARGET_DIR`，运行前清理对应插桩目录；Web 使用独立绑定输出目录，避免不同组合互相覆盖。
 
-- [x] **Step 2: 将实现 job 扩展为 OS × feature_set 矩阵**
+- [x] **Step 2: 保留三 OS，并在 Ubuntu 执行 all-features 检查**
 
 保留现有三个 OS 的 `implementation` job 和状态检查名，不直接扩成 OS × feature 六个 runner。三个 OS 都执行默认 check、fmt、workspace test、Clippy、doc；Windows 默认路径继续执行三条冒烟。仅 Ubuntu 条件执行一次 all-features check/test/Clippy/doc，以消除已证明的跨 OS 重复；若分支保护要求每个 OS 的 all-features 状态，先保持旧步骤并把缓存优化单独落地。每个 runner 内仍按顺序运行 Cargo 命令，避免共享 `target/` 争抢。
 
@@ -284,7 +284,7 @@ strategy:
 name: Rust 实现检查
 ```
 
-在 feature 审计未证明测试等价前，all 分支保留 `cargo test --workspace --all-features --locked`。审计通过后才改为默认 workspace 测试加 `cargo test -p pvz-app --features probe --locked`，并继续保留 all-features check/Clippy/doc；这一步单独提交并记录测试数量和覆盖率分母未被错误替换。
+最终实现保留 `cargo test --workspace --all-features --locked`，不以专门的 probe 回归替换它。Windows/macOS 远端执行默认组合，all-features 的跨 OS 重复步骤未保留，因此不能声称有这两个 OS 的远端独立 all-features 证据；本机 Windows 的 all-features 结果另行记录。
 
 - [x] **Step 3: 消除已证明的重复 probe Clippy 调用**
 
@@ -292,7 +292,7 @@ Ubuntu 的 workspace `cargo clippy --workspace --all-targets --all-features --lo
 
 - [x] **Step 4: 给 coverage 和 Web job 加上角色隔离缓存**
 
-coverage 的 default/all 矩阵保留独立 LCOV/JSON artifact 名称，设置独立 `CARGO_TARGET_DIR`，运行前清理插桩目录和 profraw/profdata，且不缓存插桩 target；默认基准 `cargo bench --workspace --locked --no-run` 继续只执行一次。Web job 的 native release target、`wasm32-unknown-unknown` target 和 `web`/`web-probe` 输出使用 web 角色缓存，不与 native test 角色共用。每个 cache key 至少包含 OS、架构、Rust 工具链、`rust-toolchain.toml`、Cargo.lock、job 角色、target/profile/feature；target cache 可用 SHA 精确 key 加不含 SHA 的 restore prefix，不能把 immutable 旧快照当作最新构建。
+coverage 的 default/all 矩阵保留独立 LCOV/JSON artifact 名称，设置独立 `CARGO_TARGET_DIR`，运行前清理插桩目录和 profraw/profdata，且不缓存插桩 target；默认基准 `cargo bench --workspace --locked --no-run` 继续只执行一次。Web job 缓存 registry/git 下载，默认与 probe 的构建仍顺序执行，绑定输出分别位于 `target/web` 和 `target/web-probe`。最终方案不缓存任何 target；registry/git key 只包含与下载缓存相关的 OS、架构、工具链、锁文件和角色，不伪称保存了可执行构建产物。
 
 - [x] **Step 5: 静态检查并提交 CI 重排**
 
@@ -308,7 +308,7 @@ git diff --check
 ```powershell
 git add .github/workflows/ci.yml CONTRIBUTING.md
 git diff --cached --check
-git commit -m "ci: 并行隔离默认与全 feature 验证"
+git commit -m "ci: 调整 feature 调度并隔离依赖缓存"
 ```
 
 ### Task 5: 建立同条件性能和内存证据
@@ -321,11 +321,11 @@ git commit -m "ci: 并行隔离默认与全 feature 验证"
 
 **Interfaces:**
 - Consumes: Task 1 的 JSON 摘要、Task 2 的反馈模式、Task 3 的 feature 结果和 Task 4 的 CI job 日志。
-- Produces: 冷/热、默认/all-features、`--no-run`、coverage 和基准入口的可比较结果；每个场景至少三次重复，包含提交 SHA、工具链、target、feature、缓存状态、jobs、elapsed、exit code 和峰值工作集。
+- Produces: 当前样本及其提交 SHA、工具链、target、feature、缓存状态、jobs、elapsed、exit code 和峰值工作集，并单列缺少的同条件前后对照；只有达到至少三次有效重复的同条件样本才汇总比较，不把一次冷样本与热样本合并。
 
-- [x] **Step 1: 串行取得优化前后同条件本地基线**
+- [x] **Step 1: 串行建立当前测量并单列缺少的前后对照**
 
-停止其他 Cargo、测试、基准、窗口和 Web 服务；使用独立 target 目录分别运行默认 workspace 测试、`--no-run`、all-features 测试和实际 `cargo bench --workspace --locked`。冷缓存定义为清空场景 target、保留 registry/git 下载缓存；热缓存定义为同一场景连续第二次运行。冷、热各重复三次，保留 stdout/stderr 和 sidecar 元数据，不把已有有缺陷脚本的 122–124 MB 读数作为基线。启动失败、超时、树未收口或退出码缺失的样本从统计中剔除并单独报告。
+正式的前后比较须停止并发构建、测试、基准和本项目窗口/服务，按相同 target 隔离方式执行候选场景。冷缓存清空场景 target、保留 registry/git；热缓存复用同场景 target。每组冷/热样本各取得三次有效重复，保留 stdout/stderr 和 sidecar 元数据；启动失败、超时、树未收口或退出码缺失的样本作废。首轮并未取得完整冷/热前后对照，这一收益验收条件仍未满足，不能因本步骤的测量入口和当前样本已交付而改写成性能目标已达成。
 
 ```powershell
 $measure = @{
@@ -337,7 +337,7 @@ $measure = @{
 & ./tools/measure-cargo.ps1 @measure
 ```
 
-本轮已完成串行的覆盖率、默认/all-features 测试入口、三次实际 workspace benchmark 测量和默认 jobs/`--jobs 1` 各三次热 `--no-run` 比较，并保留原始日志与 JSON；当前 benchmark 的冷/热样本及限制见性能记录。完整测试以正确性门槛执行，未为没有候选收益的路径重复三次冷/热全量测试。没有同提交的优化前三次基线，也没有把旧的无效进程树读数纳入比较，因此此步骤完成的是可追溯测量，不产生速度或内存收益结论。
+首轮完成覆盖率、默认/all-features 正确性检查和测量入口，但 2026-10-16 复核撤销了旧 benchmark/jobs 进程树样本的正式资格，原始证据保留。Task 7 使用修复后的工具重测能正常收口的场景；Windows 完整测试根 Cargo 退出 0 后仍可能遗留 MSVC `vctip.exe`，这样的进程树测量继续作废，不按进程名排除以制造成功。没有候选收益的路径不反复进行冷构建，收益验收保持未满足。
 
 - [x] **Step 2: 验证正确性和行为不变**
 
@@ -347,7 +347,7 @@ $measure = @{
 
 在相同输入下比较 Cargo 默认 jobs 与一个受控较低值的 elapsed 和峰值工作集；仅当三次有效重复的墙钟中位数不超过基线 10% 且峰值工作集下降时才保留受控 jobs，否则回退默认 jobs。对 CI 运行记录 cache hit/miss、每个 job 的步骤耗时、排队和总墙钟；不要用不同 runner 或删减检查的结果作前后结论。
 
-本机热的 `cargo test --workspace --locked --no-run` 比较已各完成三次有效重复：默认 jobs 墙钟中位数约 `0.740 s`、峰值工作集中位数约 `123.07 MB`；`--jobs 1` 约 `0.712 s`、`122.75 MB`。这是已缓存的短编译场景，差异不足以代表冷构建、完整测试或 CI runner；没有为默认反馈或 CI 强制 `--jobs 1`。CI registry/git cache 已按 OS、架构、工具链、锁文件和角色隔离，target 与 coverage 插桩产物未缓存；本地没有远端 cache hit/miss 和排队时序，不能把缓存设计写成实测墙钟收益。
+2026-10-16 修复后的热 `cargo test --workspace --locked --no-run` 比较各完成三次有效重复：默认 jobs 墙钟中位数 `0.710 s`、峰值工作集中位数 `122.84 MB`；`--jobs 1` 为 `0.747 s`、`123.57 MB`。该缓存场景没有显示降低 jobs 的速度或内存优势，不代表冷构建、完整测试或 CI runner，因此保留默认调度。旧的 `.740/.712 s` 读数仅留在历史探索记录。CI registry/git cache 按 OS、架构、工具链、锁文件和角色隔离，target 与 coverage 插桩产物未缓存；缺少同条件远端 cache hit/miss 和排队时序，不能把缓存设计写成实测墙钟收益。
 
 - [x] **Step 4: 仅在有证据时记录内存优化**
 
@@ -414,12 +414,13 @@ git diff --cached --check
 
 仅在合并已获授权且完成后更新本地 `main`，确认合入提交与远端 CI 一致，再按同一授权删除已完成的本地/远端任务分支。否则保留短期分支，最后报告本地验证、远端 CI、合并状态、缓存/内存测量、未验证平台和原版行为边界。
 
-### 本轮执行收口记录
+### 首轮执行收口快照（2026-10-15）
 
 - 本地实现提交为 `238b08a`；随后补充的收口修复和结果文档尚未提交时，工作区只包含本计划、设计、性能记录、工具说明和测量脚本的预期改动。
 - 默认与 all-features workspace 正确性检查、独立覆盖率、三次 benchmark、默认 jobs/`--jobs 1` 各三次比较、Windows 三条冒烟、默认/probe WASM 绑定、资源审计、编码检查和 actionlint 均已执行；所有纳入统计的样本真实退出码为 0，测量错误样本保留但作废。
 - 当前没有同条件优化前的三次基线，也没有远端 CI 的新提交耗时、缓存命中和排队记录；因此不把本轮读数写成速度或内存收益，不改变默认 Cargo jobs、测试线程数或覆盖率分母。
-- 当前分支已推送，PR #5 已创建并合并；cef4754 的 push 与 pull_request 两轮共 16 个检查均成功，合入提交为 `6082b2c8a1fd3e1d4f41b0c964c19687965f9034`。本地 `main` 已快进到 `origin/main`，任务分支待删除。
+- 上述测量结论随后在 Task 7 复核：旧 benchmark/jobs 进程树样本已撤销正式资格，原始记录保留，正确性检查和独立覆盖率不受采样器缺陷影响。
+- 首轮 PR #5 已合并；`cef4754` 的 push 与 pull_request 两轮共 16 个检查均成功，合入提交为 `6082b2c8a1fd3e1d4f41b0c964c19687965f9034`。随后主线 `326e0f4` 的 8 个检查均成功，原任务的本地/远端分支已删除。本节是首轮交付快照，本次测量精度修复见 Task 7；后续 PR、主线和分支的实时状态以 GitHub 与最终 Git 核验为准。
 
 ### Task 7: 收口复核发现的进程身份精度回归
 
@@ -428,8 +429,11 @@ git diff --cached --check
 - [x] 用根进程先退出、子进程继续存活的独立夹具复现提前收口，并保留失败输出；夹具进程由测试按 PID 和创建时间清理。
 - [x] 在微秒精度下统一比较创建时间；不以新快照覆盖根句柄确定的身份，清理前再次核对实际句柄身份。
 - [x] 补充成功等待、树收口超时、非零退出、启动失败和根运行超时的自动回归，接入 Windows CI；不引入额外测试依赖，本地五项已通过，远端结果按最终提交核对。
-- [ ] 重测受影响的 benchmark 和 jobs 样本，旧样本保留但降为探索记录；同步性能记录、设计和计划的实际证据边界。
-- [ ] 核对脚本语法、工作流、编码与文档，完成复核、PR、远端 CI、合并和主线/分支清理；既有游戏实现未变时复用其适用验证记录。
+- [x] 重测受影响的 benchmark 和 jobs 样本，旧样本保留但降为探索记录；三次热 benchmark 和默认 jobs/`--jobs 1` 各三次样本正常收口，结果见[性能记录](../../performance/README.md#2026-10-16-进程树复核与重测)。完整测试和首轮编译因 `vctip.exe` 未收口作废，不计收益。
+- [x] 用不存在的 package 复现调用者开启原生错误偏好时，Cargo 101 被转为脚本退出 1；在脚本作用域显式处理原生退出码，补充已有/未定义 target 环境恢复和 full 模式回归，并接入三 OS CI。
+- [x] 核对脚本语法、工作流、编码、文档和适用本地验收，准备同一 PR 的修复与证据说明；默认/all-features 测试、doctest、两类工具回归、actionlint 和跟踪文件/资源检查均通过。既有游戏实现未变，复用其覆盖率、平台和依赖审计记录。
+
+Task 7 的远端交付门槛仍为：对应 PR 的所有必要 CI 成功后合并，核验主线 CI 和提交一致性，再清理任务分支。这个静态计划不追写每个远端中间状态；最终结果以 PR/主线 CI 与会话交付核验为准，不把上面的本地勾选当作远端已完成。性能收益验收继续保持未满足，不以工程交付完成替代。
 
 ## 计划自审
 
