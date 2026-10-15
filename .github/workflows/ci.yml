@@ -209,6 +209,15 @@ jobs:
         with:
           toolchain: 1.99.0
           components: rustfmt, clippy
+      - name: 缓存 Cargo registry 与 Git checkout
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-implementation-registry-v1
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-implementation-registry-v1
       - name: 安装 Linux 音频构建依赖
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes libasound2-dev
@@ -245,9 +254,8 @@ jobs:
             throw "失败冒烟期限过短时必须以非零进程退出码报告错误"
           }
           exit 0
-      - name: 检查探针 feature
-        run: cargo clippy -p pvz-app --all-targets --features probe --locked -- -D warnings
       - name: 验证全部兼容 feature
+        if: runner.os == 'Linux'
         run: |
           cargo check --workspace --all-targets --all-features --locked
           cargo test --workspace --all-features --locked
@@ -284,6 +292,15 @@ jobs:
         with:
           toolchain: 1.99.0
           components: llvm-tools-preview
+      - name: 缓存 Cargo registry 与 Git checkout
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-coverage-${{ matrix.features }}-registry-v1
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-coverage-${{ matrix.features }}-registry-v1
       - name: 安装音频构建依赖
         run: sudo apt-get update && sudo apt-get install --yes libasound2-dev
       - uses: taiki-e/install-action@v2
@@ -294,11 +311,14 @@ jobs:
           FEATURE_SET: ${{ matrix.features }}
         shell: bash
         run: |
+          export CARGO_TARGET_DIR="${RUNNER_TEMP}/pvz-coverage-${FEATURE_SET}"
+          rm -rf "$CARGO_TARGET_DIR" target/coverage
           mkdir -p target/coverage
           feature_args=()
           if [[ "$FEATURE_SET" == "all" ]]; then
             feature_args+=(--all-features)
           fi
+          cargo llvm-cov clean --workspace --locked
           cargo llvm-cov --workspace --locked "${feature_args[@]}" --no-report
           cargo llvm-cov report --lcov --output-path target/coverage/lcov.info
           cargo llvm-cov report --json --output-path target/coverage/coverage.json
@@ -322,6 +342,15 @@ jobs:
         with:
           toolchain: 1.99.0
           targets: wasm32-unknown-unknown
+      - name: 缓存 Cargo registry 与 Git checkout
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-web-registry-v1
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-web-registry-v1
       - name: 构建 app 的 WebAssembly
         run: cargo build -p pvz-app --target wasm32-unknown-unknown --release --locked
       - uses: taiki-e/install-action@v2

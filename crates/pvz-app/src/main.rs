@@ -40,6 +40,24 @@ struct Options {
     #[arg(long, requires = "smoke", conflicts_with_all = ["probe", "slice_smoke", "audio_smoke"])]
     failure_smoke: bool,
 }
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn default_options() -> Options {
+    Options {
+        probe: false,
+        smoke: None,
+        screenshot: false,
+        audio_smoke: false,
+        slice_smoke: false,
+        failure_smoke: false,
+    }
+}
+
+fn apply_compile_time_options(mut options: Options) -> Options {
+    options.probe |= cfg!(feature = "probe");
+    options
+}
+
 #[derive(Resource)]
 struct AppState {
     options: Options,
@@ -70,15 +88,8 @@ fn main() -> AppExit {
     #[cfg(not(target_arch = "wasm32"))]
     let mut options = <Options as clap::Parser>::parse();
     #[cfg(target_arch = "wasm32")]
-    let mut options = Options {
-        probe: false,
-        smoke: None,
-        screenshot: false,
-        audio_smoke: false,
-        slice_smoke: false,
-        failure_smoke: false,
-    };
-    options.probe |= cfg!(feature = "probe");
+    let mut options = default_options();
+    options = apply_compile_time_options(options);
     if options.audio_smoke && (options.probe || options.smoke.is_none_or(|frames| frames < 120)) {
         <Options as clap::CommandFactory>::command()
             .error(
@@ -664,6 +675,19 @@ mod tests {
         touch::{TouchInput, TouchPhase},
     };
     use std::time::Duration;
+
+    #[test]
+    fn 编译期_probe_默认值与feature一致() {
+        let options = apply_compile_time_options(default_options());
+        assert_eq!(options.probe, cfg!(feature = "probe"));
+    }
+
+    #[test]
+    fn 显式_probe不会被编译期默认值关闭() {
+        let mut options = default_options();
+        options.probe = true;
+        assert!(apply_compile_time_options(options).probe);
+    }
 
     fn harness() -> World {
         let mut world = World::new();
