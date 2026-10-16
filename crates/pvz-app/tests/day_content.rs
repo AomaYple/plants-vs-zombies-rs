@@ -1,12 +1,15 @@
 use pvz_app::{content::DayContentError, runtime::Runtime};
 use pvz_core::{Cell, Command, Event, GameState, GameStatus, InitialState, PlantKind, SliceRules};
 use pvz_data::LevelId;
-use std::error::Error;
+use std::{error::Error, sync::OnceLock};
 
 const DAY_JSON: &str = include_str!("../../../content/levels/development-day.json");
+static DAY_VALUE: OnceLock<serde_json::Value> = OnceLock::new();
 
 fn content_value() -> serde_json::Value {
-    serde_json::from_str(DAY_JSON).unwrap()
+    DAY_VALUE
+        .get_or_init(|| serde_json::from_str(DAY_JSON).unwrap())
+        .clone()
 }
 
 fn with_frequency(frequency: u32) -> Runtime {

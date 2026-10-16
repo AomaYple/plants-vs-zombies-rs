@@ -573,6 +573,33 @@ impl GameState {
             board: self.board.clone(),
         }
     }
+
+    /// 判断两个游戏状态是否具有完全相同的摘要，而不创建深拷贝。
+    ///
+    /// 该比较逐项覆盖 [`state_digest`](Self::state_digest) 的全部字段，适合
+    /// 高频确定性回放和表现层不可变性检查。需要保存摘要供后续使用时，仍应
+    /// 调用 [`state_digest`](Self::state_digest)。
+    pub fn state_digest_matches(&self, other: &Self) -> bool {
+        let self_rules_version = if self.board.is_some() {
+            RulesVersion::current()
+        } else {
+            RulesVersion::new(1, 0).expect("空棋盘规则版本有效")
+        };
+        let other_rules_version = if other.board.is_some() {
+            RulesVersion::current()
+        } else {
+            RulesVersion::new(1, 0).expect("空棋盘规则版本有效")
+        };
+        self.clock == other.clock
+            && self.level == other.level
+            && self.sun == other.sun
+            && self.rng.state() == other.rng.state()
+            && self_rules_version == other_rules_version
+            && self.initial_seed == other.initial_seed
+            && self.initial_state == other.initial_state
+            && self.initial_clock == other.initial_clock
+            && self.board == other.board
+    }
 }
 
 #[cfg(test)]
@@ -608,6 +635,7 @@ mod slice_tests {
             let mut other = base.clone();
             change(&mut other);
             assert_ne!(base.state_digest(), other.state_digest());
+            assert!(!base.state_digest_matches(&other));
         }
         let mut base = game();
         base.step(&[
@@ -621,6 +649,8 @@ mod slice_tests {
         let mut other = base.clone();
         other.board.as_mut().unwrap().plants[0].action_at += 1;
         assert_ne!(base.state_digest(), other.state_digest());
+        assert!(!base.state_digest_matches(&other));
+        assert!(base.state_digest_matches(&base));
     }
     #[test]
     fn 切片时钟上限拒绝整批但允许暂停和重开() {
