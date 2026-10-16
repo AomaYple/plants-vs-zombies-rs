@@ -255,7 +255,7 @@ Web 无遮挡 Lost 截对始于 UTC07:54:45.442 与07:55:50.220；最终无光�
 | Windows最终无遮挡双终局 | `windows-unoccluded-lost-a/b.jpg`、`windows-unoccluded-won-a/b.jpg`、`windows-unoccluded-captures.jsonl`、`windows-process-control.jsonl`；旧暂停/重开/再植图单列补充 |
 | Web暂停/终局/重开再植 | `web-paused-a/b.png`、`web-unoccluded-lost-a/b.png`、`web-won-nocursor-a/b.png`、`web-replant-dynamic-a/b.png`、`web-won-replant-dynamic-a/b.png`、`web-captures.jsonl`、`web-final-logs.json` |
 | 图像比较、操作与清理 | `final-pixel-comparison.json`、`platform-observation-index.json` |
-| 独立复核与执行账本 | `.superpowers/sdd/2026-10-14-sunflower-idle/` 内任务报告、限定复核和progress；Git/对应CI收口后另追加交付记录 |
+| 独立复核与执行账本 | 本批公开结果、计划和忽略目录 `artifacts/validation/s2-a-2026-10-14/` 的原始索引；历史工作区账本不作为仓库公开依赖 |
 
 最终限定独立复核在本地交付范围内规格与质量通过，无新的实质阻塞；核查源码/日志与图像，没有重跑 Cargo/UI。原 Windows 遮挡、操作索引及 Web/覆盖率/文档缺口均已关闭。主线程核对 73 个源码/配置和 5 个程序包指纹一致，L0 检查 3353 个文件、3229 条原版资源、328 条本地文档链接和 5 个 workspace 成员，均通过；目的提交与 CI 交付详情如下，不借用 S1 或旧计划提交的 CI。
 
@@ -294,7 +294,7 @@ S2-A 目的提交 `3e6634e5103de15b3f8f8ffe5d6c363895e47a3b` 已直接推送 `ma
 | Web观察、页面与日志 | `web-observation.json`、`web-*.jpg`、`web-default-logs.json`、`web-probe-logs.json`、`web-server.json/log` |
 | 原版身份与窗口资格 | `reference-audit.md`、`reference-process.json`、`reference-capture-observation.json`、`reference-*.png` |
 | 内容/结构/元数据检查 | `content-audit.md`、`structure.json`、`metadata.json`；root 最终检查通过，3348 文件、3229 资源、228 本地链接、5 个成员；限定文档修复复核已通过 |
-| 各任务实施、独立复核与裁决 | 当前 `.superpowers/sdd/2026-10-12-versioned-day-content/` 账本，清理工作区前由主代理保存到本批 `reviews/` |
+| 各任务实施、独立复核与裁决 | 本页对应的历史计划、结果节和忽略目录 `artifacts/validation/content-foundation-2026-10-12/`；清理后的工作区草稿不作为公开证据 |
 
 文档中的“已通过”仅覆盖本页明确列出的本地或对应提交的 CI 证据，两者范围分别记录。整体静态复核、root 最终结构检查、限定文档修复复核和本批 Git 交付已完成；后续实现仍按路线图的独立任务和平台验收推进。
 

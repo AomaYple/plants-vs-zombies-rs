@@ -22,6 +22,12 @@
 
 平台契约与运行验收覆盖 Windows、macOS、Linux、Web、Android 和 iOS 六个支持目标。桌面与 Web 先行，移动端随后接入；分别记录待实现、待验证和已验证状态。
 
+## 当前验证基线
+
+主线当前为测试资源复用与反馈调度优化合并后的状态。默认与 all-features workspace 测试、doctest、Clippy、文档、依赖审计、工具回归、资源/编码检查和 Web/Windows 适用检查均保持为提交门槛；具体命令由 [CONTRIBUTING.md](../../CONTRIBUTING.md) 维护，CI 实际矩阵由 [.github/workflows/ci.yml](../../.github/workflows/ci.yml) 维护。
+
+测试优化取得了 `pvz-app` 局部三次同条件前后样本，但 workspace 总体没有足够的三次纯热对照，因此不把局部结果扩展为全仓收益。进程树工作集只是周期采样下界，不能替代精确堆分配、显存或玩家平台内存验收；详细读数和限制见[性能策略](../performance/README.md)。
+
 核心测试不需要窗口或原版资源。公开夹具使用原创的最小数据并记录来源；资源集成测试可读取清单登记的 `assets/original/`，无需再复制资源到夹具目录。CI 检查完整清单、文件指纹、路径大小写和文本格式；原版 EXE、截图、录像和存档的行为比对另在本机记录。
 
 尽可能提高有效测试覆盖率。实现后使用 `cargo llvm-cov` 报告测量范围与遗漏，持续补齐核心规则、边界条件、资源错误分支和跨平台契约；暂未覆盖的关键路径记录原因与补测安排。依据真实基线制定适用门槛，不能用无意义断言、排除关键代码或降低门槛制造通过。覆盖率不替代测试设计、性能基准和目标平台实际运行验收。
@@ -44,6 +50,6 @@ Windows CI 在现有实现检查 job 中顺序运行隐藏窗口的无资源/登
 
 纯测试覆盖率与追加 native 窗口运行的覆盖率分别记录；追加 profile 必须来自同一次 instrumented 构建，并核对日志与实际画面。Web 条件代码不在 native 分母内，默认与 all-features 也不能互相代替。stable 行覆盖率没有启用分支统计时，不把 branch count 0 当作 100%。
 
-版本化内容批次已取得默认和 all-features 的干净纯测试报告，没有追加窗口 profile；共享缓存混入旧 worktree 对象的探索报告保留，完整清理后重测，分母变化不作为覆盖率改善证据。此前切片的纯测试及同次 Windows 运行追加报告保留在[切片验收结果](../behavior/vertical-slice-results.md)。CLI stderr 闭管道、XML 显式空/缺省/CDATA/重复顺序、截图 30 秒最终退出和延迟音乐请求已有回归保护；新增内容严格失败、迁移回放和实际频率有独立回归。截图 observer/设备丢失、Web 条件路径、真实 DPR 2/4、触摸和未运行平台仍需针对性验收。自动测试保持并行，因共享 GPU/音频设备的窗口检查局部顺序执行。
+版本化内容批次已取得默认和 all-features 的干净纯测试报告，没有追加窗口 profile；共享缓存混入旧 worktree 对象的探索报告保留，完整清理后重测，分母变化不作为覆盖率改善证据。此前切片的纯测试及同次 Windows 运行追加报告保留在[切片验收结果](../behavior/vertical-slice-results.md)。CLI stderr 闭管道、XML 显式空/缺省/CDATA/重复顺序、截图 30 秒最终退出和延迟音乐请求已有回归保护；新增内容严格失败、迁移回放和实际频率有独立回归。截图 observer/设备丢失、Web 条件路径、真实 DPR 2/4、触摸和未运行平台仍需针对性验收。自动测试保持并行，因共享 GPU/音频设备的窗口检查局部顺序执行。历史工作区账本不作为公开依赖，公开结论只引用跟踪结果页和忽略目录中的原始证据索引。
 
 覆盖率 CI 将默认和 all-features 拆为独立 job，各自生成 JSON/LCOV；这些 Linux 纯测试产物不包含本机 Windows 运行。cargo-llvm-cov 0.9.1 的 `report` 子命令实测拒绝 `--all-features`，feature 参数只传给插桩测试/运行命令，导出消费对应隔离 profile。stable 插桩本轮未统计 doctest，doctest 由常规 workspace 测试单独验证。尚未建立任意百分比硬门槛；后续补测继续以实际关键缺口为依据，不能把已有行覆盖率当作原版一致性或分支覆盖率。
