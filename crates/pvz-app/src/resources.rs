@@ -772,6 +772,19 @@ impl LoadedResources {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+    use std::sync::OnceLock;
+
+    static REPOSITORY_RESOURCES: OnceLock<LoadedResources> = OnceLock::new();
+
+    fn repository_resources() -> &'static LoadedResources {
+        REPOSITORY_RESOURCES.get_or_init(|| {
+            bevy::tasks::futures::now_or_never(
+                LoadedResources::from_provider(repository_provider()),
+            )
+            .expect("native读取无需异步等待")
+            .unwrap()
+        })
+    }
     #[test]
     fn 缺失登记文件不泄露临时绝对路径() {
         let temp = tempfile::tempdir().unwrap();
@@ -805,11 +818,7 @@ mod tests {
     }
     #[test]
     fn 登记资源完整加载切片构图背景与ogg() {
-        let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
-            repository_provider(),
-        ))
-        .expect("native读取无需异步等待")
-        .unwrap();
+        let resources = repository_resources();
         assert_eq!(resources.images.len(), IMAGE_MAPPING.len() + 1);
         assert_eq!(
             resources.poses.keys().copied().collect::<Vec<_>>(),
@@ -854,11 +863,7 @@ mod tests {
     }
     #[test]
     fn 登记向日葵缓存结构统计() {
-        let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
-            repository_provider(),
-        ))
-        .expect("native读取无需异步等待")
-        .unwrap();
+        let resources = repository_resources();
         let idle = &resources.sunflower_idle;
         let animation = &idle.animation;
         assert_eq!(animation.fps, 12.0);
@@ -950,11 +955,7 @@ mod tests {
     }
     #[test]
     fn 登记普通僵尸walk缓存结构统计() {
-        let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
-            repository_provider(),
-        ))
-        .expect("native读取无需异步等待")
-        .unwrap();
+        let resources = repository_resources();
         let idle = &resources.zombie_walk;
         let animation = &idle.animation;
         assert_eq!(animation.fps, 12.0);
@@ -1231,11 +1232,7 @@ mod tests {
 
     #[test]
     fn 登记普通僵尸walk整段选择身体排除附件并借用源帧() {
-        let resources = bevy::tasks::futures::now_or_never(LoadedResources::from_provider(
-            repository_provider(),
-        ))
-        .unwrap()
-        .unwrap();
+        let resources = repository_resources();
         let walk = &resources.zombie_walk;
         let layers = [
             12, 13, 14, 17, 18, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 35, 36, 38, 39,

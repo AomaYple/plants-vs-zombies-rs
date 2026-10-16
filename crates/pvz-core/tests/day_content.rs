@@ -124,9 +124,8 @@ fn 默认定义六千次调用逐步事件摘要兼容并实测推进() {
         let new_events = new.step(&commands);
         let old_events = old.step(&commands);
         assert_eq!(new_events, old_events, "{phase}：第 {call} 次调用的事件");
-        assert_eq!(
-            new.state_digest(),
-            old.state_digest(),
+        assert!(
+            new.state_digest_matches(&old),
             "{phase}：第 {call} 次调用的摘要"
         );
         if call == 3000 {

@@ -23,10 +23,13 @@ try {
     if (-not $PSNativeCommandUseErrorActionPreference) { throw '测试反馈回归失败：改变了调用者的原生错误偏好' }
 
     Remove-Item Env:CARGO_TARGET_DIR
+    $dryRunTarget = Join-Path $runDirectory 'dry run target'
     $dryRun = & $feedbackScript -Mode full -NoRun -DryRun `
-        -TargetDirectory (Join-Path $runDirectory 'dry run target') | ConvertFrom-Json
+        -TargetDirectory $dryRunTarget | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or $dryRun.argv -contains '--no-run' -or
-        $dryRun.argv -notcontains '--no-fail-fast' -or $dryRun.argv -notcontains '--workspace') {
+        $dryRun.argv -notcontains '--no-fail-fast' -or $dryRun.argv -notcontains '--workspace' -or
+        $dryRun.target_directory -ne [IO.Path]::GetFullPath($dryRunTarget) -or
+        (Test-Path -LiteralPath $dryRunTarget)) {
         throw '测试反馈回归失败：full 模式必须保留完整 workspace 测试'
     }
     if (Test-Path Env:CARGO_TARGET_DIR) { throw '测试反馈回归失败：没有恢复原先未定义的 target 环境变量' }

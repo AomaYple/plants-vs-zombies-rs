@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   structure:
     name: 仓库结构检查
@@ -221,10 +225,10 @@ jobs:
       - name: 安装 Linux 音频构建依赖
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes libasound2-dev
-      - name: 检查代码
-        run: cargo check --workspace --all-targets --locked
       - name: 检查格式
         run: cargo fmt --all -- --check
+      - name: 检查代码
+        run: cargo check --workspace --all-targets --locked
       - name: 验证 Windows 进程树测量工具
         if: runner.os == 'Windows'
         timeout-minutes: 2
@@ -280,6 +284,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.0
+      - name: 缓存 Cargo registry 与 Git checkout
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-dependency-audit-registry-v1
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-rust-${{ hashFiles('rust-toolchain.toml') }}-${{ hashFiles('**/Cargo.lock') }}-dependency-audit-registry-v1
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny@0.20.2

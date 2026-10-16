@@ -19,6 +19,7 @@ $PSNativeCommandUseErrorActionPreference = $false
 $previousTargetDirectory = $env:CARGO_TARGET_DIR
 $targetDirectoryWasDefined = Test-Path Env:CARGO_TARGET_DIR
 $targetDirectoryChanged = $false
+$dryRunTargetDirectory = $null
 
 $cargoArgs = [Collections.Generic.List[string]]::new()
 [void]$cargoArgs.Add('test')
@@ -55,7 +56,13 @@ $result = $null
 $cargoExitCode = 0
 $dryRunResult = $false
 try {
-    if ($TargetDirectory) {
+    if ($DryRun) {
+        if ($TargetDirectory) {
+            $dryRunTargetDirectory = [IO.Path]::GetFullPath($TargetDirectory)
+        } elseif ($targetDirectoryWasDefined) {
+            $dryRunTargetDirectory = $env:CARGO_TARGET_DIR
+        }
+    } elseif ($TargetDirectory) {
         $null = New-Item -ItemType Directory -Force -Path $TargetDirectory
         $env:CARGO_TARGET_DIR = (Resolve-Path -LiteralPath $TargetDirectory).Path
         $targetDirectoryChanged = $true
@@ -64,7 +71,13 @@ try {
     $result = [ordered]@{
         command = 'cargo'
         argv = @($cargoArgs)
-        target_directory = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { $null }
+        target_directory = if ($DryRun) {
+            $dryRunTargetDirectory
+        } elseif ($env:CARGO_TARGET_DIR) {
+            $env:CARGO_TARGET_DIR
+        } else {
+            $null
+        }
     }
     if ($DryRun) {
         $result | ConvertTo-Json -Compress -Depth 4
