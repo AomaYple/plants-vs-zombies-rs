@@ -1,90 +1,83 @@
 # Plants vs. Zombies — Rust 重写
 
-**plants-vs-zombies-rs** 是使用 Rust 与 Bevy 实现的非官方跨平台重写项目。
-
-2026-10-15 已完成全仓审计、维护和工程验证；S2-B1 实现已冻结并纳入维护提交，完整平台验收仍待完成。
-目标是以版本化的原版参考资源和可观察行为为参考，重新编写游戏逻辑、动画播放器、渲染、音频接线、关卡系统与工具。
+**plants-vs-zombies-rs** 是使用 Rust 与 Bevy 实现的非官方跨平台重写项目。项目以版本化的原版参考资源和可观察行为为参考，重新实现游戏逻辑、动画播放器、渲染、音频接线、关卡系统和工具。
 
 ## 当前状态
 
-仓库已完成 **首个白天开发切片及现有白天内容数据化的本地实现验收**：`pvz-data`、`pvz-core`、`pvz-assets`、`pvz-asset-tool` 和 `pvz-app` 已注册，提供确定性模拟、资源清单/XML 审计、宿主 CLI、Bevy 视口/音频探针，以及 5×9 棋盘、两种植物、普通僵尸、阳光、豌豆和割草机的可玩流程。默认切片现由严格版本化原创 JSON 驱动，core 纯装配保留默认逐 tick 摘要和事件，app 消费实际模拟频率。内容批次的任务独立复核、默认/all-features 门槛、覆盖率、七个受影响基准、Windows 隐藏胜利冒烟及 Web 指定交互已通过；整体静态复核与最终结构检查已完成，未发现生产代码缺陷，文档修复限定复核已通过。Git 交付仍按实际 PR 和 CI 记录核验，证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
+截至 2026-10-16：
 
-此前切片输入、截图退出、音乐生命周期及整分支复核已通过，历史 Web 胜利与 DPR 1 下 2K/4K 输入映射、Windows 音频范围见 [切片验收结果](docs/behavior/vertical-slice-results.md)。版本化内容批次没有重复全部历史平台检查。S1 已在 Windows/Web 正常入口完成开发防守关卡的失败、胜利、终局冻结、重开与再次种植，当前源码的 Windows 默认成功/失败隐藏冒烟也通过；本轮没有重跑 Web 默认十波完整胜利，也没有实听设备音频。S1 已完成开发闭环交付：双终局、错误退出码修复、两组合各 194 项测试、干净覆盖率、七基准及最终独立复核通过，修复后的 WASM 包完成启动/F失败/R重开回归；目的提交 `f1850b1ce5bad82b91338867c3f4cca8387410fc` 已推送 `main`，对应 [CI 运行 38502468453](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/38502468453) 八个 job 全部成功，详细范围见[本轮双终局结果](docs/behavior/content-foundation-results.md#2026-10-14-白天单关双终局闭环)。原版窗口曾通过资格观察，当前三次教程重复及窗口控制恢复见[参考基线](docs/behavior/reference-baseline.md#2026-10-13-首个端到端案例登记)；原版时基/规则、完整动态表现和其余平台运行继续待验收。
+- S1 白天单关开发闭环已完成；S2-A 向日葵 idle 已完成独立可玩交付。
+- S2-B1 普通僵尸 walk 已完成源码、测试、工程门槛和 Web 功能证据，但 Windows 正常窗口动态图、Web 诊断、完整平台运行和原版行为重复测量仍待完成；S2-B2 啃食/死亡反馈尚未开始。
+- 原版有效重复仍为 `0/3`。当前内容和规则中的开发参数不等于原版规格。
+- 最新主线已合入测试资源复用、无分配状态比较、DryRun 副作用修复、CI 并发/下载缓存和测试反馈调度优化。局部 `pvz-app` 测试取得同条件三次前后样本；workspace 整体没有足够的三次纯热样本，因此没有宣称全仓总体提速。
+- 当前主线为合并提交 `c958d08`；工程检查和 CI 通过不等于六平台玩家验收或原版行为还原完成。
 
-当前[总计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)按阶段性最小可玩垂直切片推进：已有切片是 S0 历史起点，S1 已完成开发闭环，S2-A 向日葵动态 idle 已完成独立可玩交付，提交 `3e6634e` 的八项 CI 全部成功；当前 [S2-B1 普通僵尸 walk](docs/superpowers/plans/2026-10-14-zombie-walk.md)已完成缓存、真实 Scene 接入、原创测试、两组合 workspace 检查、覆盖率与基准；源码已纳入维护提交 `fd8254b`，交付与对应检查见 [PR #4](https://github.com/AomaYple/plants-vs-zombies-rs/pull/4)；Windows 正常窗口缺项、Web 诊断和平台最终复核仍待验，不能标记独立可玩交付完成，随后逐对象接入动态表现、增加策略与两关进度，再逐关完善地形、冒险和模式。每个阶段保留一个完整可玩版本，六平台适配随阶段推进。[原版行为测量专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)作为横向证据轨逐参数采纳；窗口阻塞只影响直接依赖它的任务，开发参数和工程验证继续与原版一致性证据分开记录。
-本地 B1 工作区已显示普通僵尸持续 walk，并保留向日葵 idle；碰到植物时仍使用 walk，没有可靠啃食/死亡动作接口。原版动作选择、出生相位、插值/混合和切换时机仍未知，具体工程、平台证据和未完成项见[普通僵尸增量结果](docs/behavior/content-foundation-results.md#2026-10-14-普通僵尸动态行走增量)。
+## 能运行什么
 
-`pvz-data`、`pvz-core` 和 `pvz-assets` 都不依赖游戏引擎；数据层不读取文件，核心层不访问资源和平台 API，资源层只在显式资源根目录审计时读取清单登记输入。
+从仓库根目录启动开发切片：
 
-## 已确定的路线
+```powershell
+cargo run -p pvz-app --locked
+```
 
-- 引擎：Bevy；模拟内核保持纯 Rust，与引擎分离。
-- 命名：GitHub 仓库 plants-vs-zombies-rs；crate 前缀 pvz-。
-- Git：`main` 是唯一长期分支，独立任务使用短期分支，经验证和评审后通过 PR 合入并清理；提交使用中文 Conventional Commits，流程见 [贡献指南](CONTRIBUTING.md#提交推送与评审)。
-- 许可证：原创代码、文档和自制测试数据使用 MIT。
-- 平台：支持目标为 Windows、macOS、Linux、Web、Android 和 iOS；桌面与 Web 先行，移动端随后接入，实际支持状态以各平台构建与运行验收为准。
-- 资源：版本化资源位于 `assets/original/`，先读取已解包目录，再按需求增加转换；`main.pak` 读取不是初期功能。
-- 还原：以记录了文件指纹的 EXE 与资源包为参考，以测量和回放验证行为。
-- 原则：正确性第一、速度第二、内存第三；速度包括运行速度与游戏开发、验证和迭代效率。长期约束与取舍规则见 [项目原则](docs/principles/README.md)，测试、格式、中文提交和验收流程见 [贡献指南](CONTRIBUTING.md)。
+当前切片包含 5×9 草坪、阳光、向日葵、豌豆射手、普通僵尸 walk、基础战斗、割草机、胜利/失败、终局冻结、暂停/恢复和重开。运行后可使用：
 
-## 文档入口
+- `F`：进入无防守失败场景。
+- `R`：重开当前关卡。
+- `P` 或空格：暂停/恢复。
 
-- [完整设计](docs/superpowers/specs/2026-10-07-repository-and-runtime-design.md)
-- [原版行为基线测量设计](docs/superpowers/specs/2026-10-12-reference-behavior-measurement.md)
-- [当前总计划：阶段性最小可玩垂直切片](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)
-- [当前细化计划：普通僵尸 walk（S2-B1）](docs/superpowers/plans/2026-10-14-zombie-walk.md)
-- [已完成增量：向日葵 idle（S2-A）](docs/superpowers/plans/2026-10-14-sunflower-idle.md)
-- [横向专题计划：原版行为测量与并行开发](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)
-- [已完成：版本化白天内容计划](docs/superpowers/plans/2026-10-12-versioned-day-content.md)
-- [已完成：基础与切片历史计划](docs/superpowers/plans/2026-10-07-foundation-and-asset-audit.md)
-- [项目原则](docs/principles/README.md)
-- [工程原则](docs/principles/engineering.md)
-- [游戏开发原则](docs/principles/game-development.md)
-- [全项目路线图](docs/roadmap.md)
-- [模块与依赖边界](docs/architecture/README.md)
-- [参考版本核对记录](docs/behavior/reference-baseline.md)
-- [版本化白天内容结果](docs/behavior/content-foundation-results.md)
-- [切片验收结果](docs/behavior/vertical-slice-results.md)
-- [资源说明与清单](assets/README.md)
-- [贡献与验证](CONTRIBUTING.md)
+后台工程冒烟：
+
+```powershell
+cargo run -p pvz-app --locked -- --probe --smoke 30 --screenshot
+cargo run -p pvz-app --locked -- --smoke 30 --slice-smoke --screenshot
+```
+
+这些命令只验证对应的本地入口、最小绘制或开发合同；真实浏览器手势、设备音频、移动端实机、完整平台安装包和原版行为仍按结果页单独验收。
+
+## 路线和文档入口
+
+- [路线图](docs/roadmap.md)：阶段顺序、当前平台门槛和下一项产品工作。
+- [当前规则与卫生整合计划](docs/superpowers/plans/2026-10-16-repository-rules-and-hygiene.md)：本轮文档、目录和交付收口。
+- [阶段性最小可玩垂直切片总计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)：S1–S9 阶段合同。
+- [S2-B1 普通僵尸 walk 计划](docs/superpowers/plans/2026-10-14-zombie-walk.md)：当前未闭合的平台验收边界。
+- [原版行为测量专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)：原版证据和规则采纳。
+- [项目原则](docs/principles/README.md)：长期工程和游戏开发规则。
+- [架构](docs/architecture/README.md)：crate、模块、数据流和依赖方向。
+- [测试策略](docs/testing/README.md)：测试类型、覆盖率和平台边界。
+- [性能策略](docs/performance/README.md)：基准、内存口径和优化结果。
+- [行为结果](docs/behavior/README.md)：可核查的事实、命令、环境和限制。
+- [资源说明](assets/README.md)：参考资源、清单、许可和公开边界。
+- [贡献指南](CONTRIBUTING.md)：工具链、验证、提交、PR 和交付。
 
 ## 目录
 
 ```text
-crates/            pvz-core、pvz-data、pvz-assets、pvz-app
-tools/             pvz-asset-tool 资源审计 CLI
-assets/            版本化的原版参考资源与清单
+crates/            pvz-data、pvz-core、pvz-assets、pvz-app
+tools/             pvz-asset-tool 和宿主测试/测量工具
+assets/            版本化原版参考资源、第三方资源和清单
 content/           本项目原创的版本化关卡与开发参数
-tests/             自制测试夹具与回放的约定
-docs/              设计、计划、行为证据和技术决策
-.github/           结构、实现与平台构建检查 CI，Issue/PR 模板
+tests/             跨 package 的原创测试夹具和回放约定
+docs/              设计、原则、计划、行为证据和技术决策
+.github/           结构、实现、覆盖率、依赖和 Web CI
+web/               Web 入口和启动回归
 ```
 
-## 工具链与当前验证
+## 工具链与基本验证
 
-使用 Rust 2024 Edition、Cargo resolver 3，工具链固定为 1.99.0，包含 rustfmt 与 Clippy。
-项目尚未宣布支持更早的最低 Rust 版本。
+仓库使用 Rust 2024 Edition、Cargo resolver 3 和 `rust-toolchain.toml` 固定的 Rust 1.99.0，包含 rustfmt 与 Clippy。项目不声明更早 Rust 版本兼容性。常用完整检查见 [CONTRIBUTING.md](CONTRIBUTING.md)：
 
-当前可以验证 workspace、基础 crate、资源工具和开发切片：
-
-```sh
+```powershell
 cargo metadata --no-deps --locked --format-version 1
-cargo test --workspace --locked
-cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo fmt --all -- --check
-git diff --check
-cargo run -p pvz-asset-tool --locked -- audit --format json
-cargo run -p pvz-asset-tool --locked -- inspect-reanim PeaShooter
-cargo run -p pvz-app --locked -- --probe --smoke 120 --screenshot
+cargo test --workspace --locked --no-fail-fast
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo doc --workspace --no-deps --locked
+cargo deny check
 ```
 
-已生成并提交 `Cargo.lock`，CI 已启用格式、检查、测试、Clippy、文档构建及依赖审计。
+需要兼容 feature 时追加 `--all-features` 的 check、test、Clippy 和 doc。Web 构建和 Node 启动回归见 [web/README.md](web/README.md)。
 
-Windows CI 还复用实现检查的编译产物执行隐藏窗口截图冒烟，探针拒绝缺少原创红蓝夹具的画面；最近的修复、覆盖率及诊断范围见[仓库质量复核补充](docs/behavior/content-foundation-results.md#2026-10-13-仓库质量复核补充)。
-当前具体任务见[阶段性最小可玩垂直切片计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)，原版测量任务见[横向专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)，完整验收命令见贡献指南。默认可玩切片使用 `cargo run -p pvz-app --locked`，此命令打开交互窗口；运行后按 `F` 进入明确开发失败场景，按 `R` 重开。后台验证使用 `cargo run -p pvz-app --locked -- --smoke 600 --slice-smoke --screenshot`。Web 构建及启动见 [Web 入口](web/README.md)，基础设施实测范围见 [平台探针结果](docs/behavior/platform-probe-results.md)，本批内容迁移与运行证据见 [版本化内容结果](docs/behavior/content-foundation-results.md)。
+## 资源与许可
 
-## 原版资源与许可
-
-仓库包含经过记录和校验的原版参考资源，位于 `assets/original/`，清单和导入规范见 [资源说明](assets/README.md)。原版可执行文件、截图、录像、存档和临时派生产物不进入仓库。
-原版参考资源保留独立的来源与许可边界；MIT 仅覆盖本项目原创代码、文档和明确原创的测试数据，不把原版资源重新声明为 MIT。资源导入时保留来源、原始指纹以及必要的格式规范化记录。
-本项目与原游戏权利方无关联，也不声称已完成经过正式隔离审查的 clean-room 开发流程。
+`assets/original/` 包含经过清单、来源和指纹记录的原版参考资源；原版程序、截图、录像、存档和临时派生产物不进入 Git、CI 或发行包。`assets/third-party/` 单独记录第三方许可和哈希。MIT 只覆盖本项目原创代码、文档和明确原创的测试数据，不重新声明原版资源、名称、商标或第三方依赖的许可。本项目与原游戏权利方无关联，也不声称已完成正式法律意义上的 clean-room 审查。

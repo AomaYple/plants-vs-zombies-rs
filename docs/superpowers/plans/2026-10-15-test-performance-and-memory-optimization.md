@@ -1,6 +1,6 @@
 # 测试速度与内存优化实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+本计划记录测试反馈、测量入口、CI 调度和局部测试实现优化；当前结果已随 PR #7 合入主线。步骤勾选只表示本地计划工作完成，远端状态以对应提交、PR 和主线 CI 核验为准。
 
 **Goal:** 在保留全部正确性门槛的前提下，缩短本地测试反馈和 CI 关键路径，并用可重复的进程树测量评估峰值内存。
 
@@ -433,7 +433,7 @@ git diff --cached --check
 - [x] 用不存在的 package 复现调用者开启原生错误偏好时，Cargo 101 被转为脚本退出 1；在脚本作用域显式处理原生退出码，补充已有/未定义 target 环境恢复和 full 模式回归，并接入三 OS CI。
 - [x] 核对脚本语法、工作流、编码、文档和适用本地验收，准备同一 PR 的修复与证据说明；默认/all-features 测试、doctest、两类工具回归、actionlint 和跟踪文件/资源检查均通过。既有游戏实现未变，复用其覆盖率、平台和依赖审计记录。
 
-Task 7 的远端交付门槛仍为：对应 PR 的所有必要 CI 成功后合并，核验主线 CI 和提交一致性，再清理任务分支。这个静态计划不追写每个远端中间状态；最终结果以 PR/主线 CI 与会话交付核验为准，不把上面的本地勾选当作远端已完成。workspace 总体和 CI 远端墙钟收益仍未完成验收，不以局部测试场景的实测下降替代。
+Task 7 的远端交付已完成：PR #7 的 16 个检查全部成功并以 squash 合并，合并提交为 `c958d08820b6e9b33c704e7f2b558e8d577941c6`；合并后的 `main` 8 个检查全部成功，短期分支已删除。workspace 总体和 CI 远端墙钟收益仍未完成验收，不以局部测试场景的实测下降替代。
 
 ### Task 8: 测试实现路径优化与最终复核（2026-10-16）
 
@@ -444,6 +444,13 @@ Task 7 的远端交付门槛仍为：对应 PR 的所有必要 CI 成功后合�
 - [x] 用同一工具链、target、feature、缓存状态和 jobs 完成三次关键场景前后测量；资源测试约下降 11.7% 墙钟和 5.7% 观察工作集，`pvz-app` 完整库测试约下降 10.0% 墙钟和 4.6% 观察工作集。
 - [x] 撤回没有稳定收益且会削弱断言或增加生产路径复杂度的表现层逐帧断言移除和核心旧位置按需快照；不改变规则、事件顺序和回放合同。
 - [x] 记录 workspace 全量测试和核心 Criterion 没有形成稳定收益结论，保留默认 Cargo jobs、测试线程和完整正确性门槛。
+
+### 交付收口（2026-10-16）
+
+- [x] 本地默认/all-features 正确性、覆盖率、基准、Web、工具、资源和结构检查完成；局部速度/观察工作集结果和 workspace 证据边界已写入性能记录。
+- [x] 提交 `9d2842a` 推送到 `codex/test-optimization-final`，PR #7 全部检查成功后 squash 合并为 `c958d08`。
+- [x] 合并提交的 `main` CI 8/8 成功；本地 `main` 与 `origin/main` 同步，短期分支和临时 worktree 已清理。
+- [x] Android/iOS、真实浏览器手势、设备音频、macOS/Linux 实机窗口和原版有效重复仍保持未验收状态。
 
 ## 计划自审
 
