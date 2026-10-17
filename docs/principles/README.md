@@ -22,7 +22,7 @@
 | [README](../../README.md)、[路线图](../roadmap.md) | 当前状态、阶段顺序和最短运行入口 |
 | [测试策略](../testing/README.md)、[性能策略](../performance/README.md) | 测试、覆盖率、基准、内存方法和结果索引 |
 | [行为目录](../behavior/README.md)、[ADR](../adr/README.md) | 已核对事实、证据范围和技术决策 |
-| [计划目录](../superpowers/plans/) | 当前及历史实施计划；当前任务以最新计划为准 |
+| [七阶段总计划](../superpowers/plans/2026-10-17-phased-development.md)及[计划目录](../superpowers/plans/) | 总计划维护阶段与依赖，当前阶段详案维护任务；历史计划保留来源和当时事实 |
 | [CI 工作流](../../.github/workflows/ci.yml) | 实际矩阵、命令和状态检查名 |
 
 同一条长期规则只在对应原则文档完整维护，入口和方法页保留必要摘要与链接。配置、CI 和脚本描述实际执行的工具与门槛；发现不一致时修正并验证，不能把配置缺项当作放宽原则的依据。

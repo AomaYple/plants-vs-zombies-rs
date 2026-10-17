@@ -246,7 +246,7 @@ black_box(count);
 
 **文件与产物：** 实施后同步 `docs/behavior/content-foundation-results.md` 的新 S2-A 结果节及总计划状态；这些文件由主线程指定负责人更新，不在规划分支抢占。原始产物放 `artifacts/validation/s2-a-2026-10-14/`。本任务由主线程统一执行，不预先勾选任何结果。
 
-- [x] S1 完成与本增量最终源码状态经主线程确认后，执行 [CONTRIBUTING](../../../CONTRIBUTING.md#rust依赖与构建配置变更) 的完整适用 L0/L1/L2/L3。最低命令如下，默认与 all-features 分别完成，doctest 保留：
+- [x] S1 完成与本增量最终源码状态经主线程确认后，执行 [CONTRIBUTING](../../../CONTRIBUTING.md#rust依赖和文档) 的完整适用 L0/L1/L2/L3。最低命令如下，默认与 all-features 分别完成，doctest 保留：
 
 ```sh
 cargo fmt --all -- --check

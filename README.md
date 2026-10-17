@@ -4,13 +4,14 @@
 
 ## 当前状态
 
-截至 2026-10-16：
+截至 2026-10-17：
 
+- 当前按[七阶段总计划](docs/superpowers/plans/2026-10-17-phased-development.md)推进：阶段内集中开发多项关联需求，持续自动化验证，整批具备后集中实机测试与调整。阶段 1“完整白天战斗体验”的计划已建立，游戏开发待启动。
 - S1 白天单关开发闭环已完成；S2-A 向日葵 idle 已完成独立可玩交付。
 - S2-B1 普通僵尸 walk 已完成源码、测试、工程门槛和 Web 功能证据，但 Windows 正常窗口动态图、Web 诊断、完整平台运行和原版行为重复测量仍待完成；S2-B2 啃食/死亡反馈尚未开始。
 - 原版有效重复仍为 `0/3`。当前内容和规则中的开发参数不等于原版规格。
 - 最新主线已合入测试资源复用、无分配状态比较、DryRun 副作用修复、CI 并发/下载缓存和测试反馈调度优化。局部 `pvz-app` 测试取得同条件三次前后样本；workspace 整体没有足够的三次纯热样本，因此没有宣称全仓总体提速。
-- 当前主线为合并提交 `c958d08`；工程检查和 CI 通过不等于六平台玩家验收或原版行为还原完成。
+- 测试优化与规则/仓库卫生整合已交付；B1 遗留平台验收及 B2 反馈需求由阶段 1 统一承接。工程检查和 CI 通过不等于六平台玩家验收或原版行为还原完成。
 
 ## 能运行什么
 
@@ -38,9 +39,9 @@ cargo run -p pvz-app --locked -- --smoke 30 --slice-smoke --screenshot
 ## 路线和文档入口
 
 - [路线图](docs/roadmap.md)：阶段顺序、当前平台门槛和下一项产品工作。
-- [当前规则与卫生整合计划](docs/superpowers/plans/2026-10-16-repository-rules-and-hygiene.md)：本轮文档、目录和交付收口。
-- [阶段性最小可玩垂直切片总计划](docs/superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)：S1–S9 阶段合同。
-- [S2-B1 普通僵尸 walk 计划](docs/superpowers/plans/2026-10-14-zombie-walk.md)：当前未闭合的平台验收边界。
+- [七阶段集中开发总计划](docs/superpowers/plans/2026-10-17-phased-development.md)：当前阶段、依赖、验收标准和历史承接。
+- [第一阶段：完整白天战斗体验](docs/superpowers/plans/2026-10-17-phase-1-day-combat.md)：集中开发任务与 Windows/Web 实机矩阵。
+- [阶段开发设计](docs/superpowers/specs/2026-10-17-phased-development-design.md)：阶段内开发、自动化与集中实机的组织依据。
 - [原版行为测量专题计划](docs/superpowers/plans/2026-10-12-reference-behavior-measurement.md)：原版证据和规则采纳。
 - [项目原则](docs/principles/README.md)：长期工程和游戏开发规则。
 - [架构](docs/architecture/README.md)：crate、模块、数据流和依赖方向。

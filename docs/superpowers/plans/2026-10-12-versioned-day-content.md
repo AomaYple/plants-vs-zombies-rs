@@ -1,6 +1,6 @@
 # 版本化白天内容实施计划
 
-> 状态：已完成，作为历史验收索引保留。阶段性开发计划见[最小可玩垂直切片总计划](2026-10-13-minimum-playable-vertical-slices.md)，原版证据计划见[行为测量专题计划](2026-10-12-reference-behavior-measurement.md)。
+> 状态：已完成，作为历史验收索引保留。阶段性开发计划见[七阶段集中开发总计划](2026-10-17-phased-development.md)，原版证据计划见[行为测量专题计划](2026-10-12-reference-behavior-measurement.md)。
 
 > 本文保留当批实现与复核顺序，所有勾选仅对应已记录的内容迁移验收；后续实施范围与授权以当次任务及现行计划为准。
 
@@ -73,4 +73,4 @@
 
 ## 后续入口
 
-内容数据化只提供参数替换和内容扩展入口，不能替代原版证据。后续可玩增量与平台任务统一由[总计划](2026-10-13-minimum-playable-vertical-slices.md)维护；原版受控测量和逐参数采纳由[专题计划](2026-10-12-reference-behavior-measurement.md)维护。Web 双终局、向日葵 idle 和本地普通僵尸 walk 的后续范围见[增量结果](../../behavior/content-foundation-results.md)，不改写为本批重测，也不再保留第二份活动待办。
+内容数据化只提供参数替换和内容扩展入口，不能替代原版证据。后续开发与平台任务统一由[总计划](2026-10-17-phased-development.md)维护；原版受控测量和逐参数采纳由[专题计划](2026-10-12-reference-behavior-measurement.md)维护。Web 双终局、向日葵 idle 和本地普通僵尸 walk 的后续范围见[增量结果](../../behavior/content-foundation-results.md)，不改写为本批重测，也不再保留第二份活动待办。

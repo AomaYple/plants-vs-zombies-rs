@@ -2,7 +2,7 @@
 
 ## 状态与目标
 
-本文维护当前架构与后续方向。基础设施、白天内容数据化与静态切片的工程验收和独立复核属于已记录的历史批次；S1 与 S2-A 已交付，本地 B1 已接入普通僵尸 walk，完整平台验收尚未闭合。B1 冻结源码的旧检查保留历史范围；维护后工程验证及 native/WASM 构建与绑定、CLI 冒烟已完成，源码已纳入维护提交，Git/CI 记录见[维护结果](../../behavior/content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)；原版规则、完整动态表现与其他平台运行继续待验。历史入口见[基础与切片计划](../plans/2026-10-07-foundation-and-asset-audit.md)，当前任务见[总计划](../plans/2026-10-13-minimum-playable-vertical-slices.md)，原版证据见[专题计划](../plans/2026-10-12-reference-behavior-measurement.md)，各批实测见[增量结果](../../behavior/content-foundation-results.md)与[静态切片历史](../../behavior/vertical-slice-results.md)，长期约束见[项目原则](../../principles/README.md)。
+本文维护当前架构与后续方向。基础设施、白天内容数据化与静态切片的工程验收和独立复核属于已记录的历史批次；S1 与 S2-A 已交付，本地 B1 已接入普通僵尸 walk，完整平台验收尚未闭合。B1 冻结源码的旧检查保留历史范围；维护后工程验证及 native/WASM 构建与绑定、CLI 冒烟已完成，源码已纳入维护提交，Git/CI 记录见[维护结果](../../behavior/content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)；原版规则、完整动态表现与其他平台运行继续待验。历史入口见[基础与切片计划](../plans/2026-10-07-foundation-and-asset-audit.md)，当前任务见[七阶段总计划](../plans/2026-10-17-phased-development.md)，原版证据见[专题计划](../plans/2026-10-12-reference-behavior-measurement.md)，各批实测见[增量结果](../../behavior/content-foundation-results.md)与[静态切片历史](../../behavior/vertical-slice-results.md)，长期约束见[项目原则](../../principles/README.md)。
 
 目标是建设包含版本化参考资源的 Cargo workspace，使用 Rust 全量重写游戏逻辑和运行系统，采用 Bevy 作为运行/绘制后端，优先覆盖 Windows、Linux、macOS 和 Web，并在后续接入 Android 与 iOS。
 
