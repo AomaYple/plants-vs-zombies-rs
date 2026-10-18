@@ -1,6 +1,6 @@
 # 白天开发切片验收结果
 
-2026-10-11 用户重新授权执行近期计划。本页保留当批开发切片的本地工程验收、局部与整分支独立复核、覆盖率和最终计时历史范围；Git 交付按对应 PR 和 CI 记录核验，不表示原版行为还原或六平台支持全部完成。当批任务见[历史实施计划](../superpowers/plans/2026-10-07-foundation-and-asset-audit.md#历史验收快照)，当前阶段见[总计划](../superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md)，后续内容与动态增量证据见[增量结果](content-foundation-results.md)。
+2026-10-11 用户重新授权执行近期计划。本页保留当批开发切片的本地工程验收、局部与整分支独立复核、覆盖率和最终计时历史范围；Git 交付按对应 PR 和 CI 记录核验，不表示原版行为还原或六平台支持全部完成。当批任务见[历史实施计划](../superpowers/plans/2026-10-07-foundation-and-asset-audit.md#历史验收快照)，当前阶段见[七阶段总计划](../superpowers/plans/2026-10-17-phased-development.md)，后续内容与动态增量证据见[增量结果](content-foundation-results.md)。
 
 ## 功能与合同
 
