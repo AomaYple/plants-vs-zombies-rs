@@ -1,7 +1,7 @@
 # 仓库整理与规则整合记录
 
 日期：2026-10-18
-状态：规则与导航整理、本地检查已完成；远端交付以 [PR #10](https://github.com/AomaYple/plants-vs-zombies-rs/pull/10) 的最终差异、检查与合并记录为准。
+状态：规则、导航与全仓审计已通过 [PR #10](https://github.com/AomaYple/plants-vs-zombies-rs/pull/10) 交付，合并提交和主线 CI 已核验；本页同时保存后续入口复核记录。
 
 ## 目的与边界
 
@@ -16,7 +16,22 @@
 - [x] 审计跟踪文件、源码与测试消费者、依赖/feature、CI、工具、内容和资源；检查重复文件、空文件、文本格式、本地链接及标题锚点。
 - [x] 执行适用本地验证，检查最终差异和跟踪集合；按已授权流程提交、推送并建立 PR。
 
-PR 检查、合并、主线 CI 和本地/远端短期分支清理分别核验；最终状态由 PR、主线和交付报告记录，不预先勾选远端操作。
+## 已核验的主线交付基线
+
+以下事实核对于 2026-10-18，只描述 PR #10 的固定提交；后续改动单独验证，不把本节视为最新工作区持续通过的证明。
+
+| 项目 | 已核验结果 |
+| --- | --- |
+| 候选与 PR | `c88a0ca2534dfad2fbdc30528e062073161aab11`；[PR #10](https://github.com/AomaYple/plants-vs-zombies-rs/pull/10) 已合并 |
+| 候选 CI | [push](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/39095728525) 与 [PR](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/39095730592) 各 8 项成功 |
+| 主线 | `b8daa2ae3c60c85dbc2b7fa14a95253a1541ef95`；文件树与候选一致，[主线 CI](https://github.com/AomaYple/plants-vs-zombies-rs/actions/runs/39097012809) 8 项成功 |
+| 分支与工作区 | 本批本地/远端 `codex/repository-cleanup-20261018` 已删除；收口时仅 `main`、一个主工作区，工作区干净且与远端同步 |
+
+### 合并后的入口复核
+
+从上述干净主线再次总览规则、当前计划、package 说明、源码/测试入口与目录消费者。清理 README 的重复性能结果，将已完成测试优化计划归入历史索引，修正 app/架构说明中的“本地 B1 工作区”及旧任务调度，补齐阶段 1 的启动基线与直接依赖。复核未发现需要删除的源码、测试、资源或目录；本次只更新相关文档，产品任务仍待启动。后续文档提交的本地验证、PR 和主线 CI 随其交付报告核验，不借用上表作为新提交的检查结果。
+
+本次入口复核重新通过 `cargo fmt --all -- --check`、`cargo test --workspace --locked --no-fail-fast`（含 doctest）、锁定元数据、完整结构 CI 资源检查、跟踪文本格式、本地路径/标题锚点和差异检查；源码、配置、依赖及资源相对该基线无变化。未新增性能计时、内存测量或玩家平台运行证据，当前提交的远端工程检查另行核验。
 
 ## 目录审计与处理依据
 
