@@ -32,6 +32,7 @@
 | [旧 S 系列总计划](superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md) | S0–S9 原规划、已交付 S1/S2-A 和当时执行记录；未完成项由七阶段计划承接 |
 | [S2-B1 普通僵尸 walk](superpowers/plans/2026-10-14-zombie-walk.md) | 行走实现与原始验收记录；平台缺项迁入阶段 1，保留原勾选 |
 | [规则与卫生整合](superpowers/plans/2026-10-16-repository-rules-and-hygiene.md) | 已交付工程维护的范围和验收记录 |
+| [2026-10-18 仓库整理](superpowers/plans/2026-10-18-repository-cleanup.md) | 本轮规则去重、元数据、导航修正与全仓审计范围；交付状态以 PR/CI 为准 |
 
 ## 文档维护规则
 
