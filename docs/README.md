@@ -12,7 +12,6 @@
 | [第一阶段：完整白天战斗体验](superpowers/plans/2026-10-17-phase-1-day-combat.md) | 当前集中开发任务与整批实机测试/调整 |
 | [阶段开发设计](superpowers/specs/2026-10-17-phased-development-design.md) | 经用户确认的阶段组织方式与迁移边界 |
 | [原版行为测量计划](superpowers/plans/2026-10-12-reference-behavior-measurement.md) | 原版证据、重复和规则采纳 |
-| [测试速度与内存优化计划](superpowers/plans/2026-10-15-test-performance-and-memory-optimization.md) | 已完成的测试反馈、测量和 CI 优化专题 |
 | [完整设计](superpowers/specs/2026-10-07-repository-and-runtime-design.md) | 当前架构与运行时设计基线 |
 | [版本化内容设计](superpowers/specs/2026-10-12-versioned-day-content.md) | 内容 schema、纯装配和时钟边界 |
 | [原版行为设计](superpowers/specs/2026-10-12-reference-behavior-measurement.md) | 行为证据分类和替换边界 |
@@ -31,8 +30,9 @@
 | --- | --- |
 | [旧 S 系列总计划](superpowers/plans/2026-10-13-minimum-playable-vertical-slices.md) | S0–S9 原规划、已交付 S1/S2-A 和当时执行记录；未完成项由七阶段计划承接 |
 | [S2-B1 普通僵尸 walk](superpowers/plans/2026-10-14-zombie-walk.md) | 行走实现与原始验收记录；平台缺项迁入阶段 1，保留原勾选 |
+| [测试速度与内存优化计划](superpowers/plans/2026-10-15-test-performance-and-memory-optimization.md) | 已交付的测试反馈、测量和 CI 优化专题；实际收益与限制见性能策略 |
 | [规则与卫生整合](superpowers/plans/2026-10-16-repository-rules-and-hygiene.md) | 已交付工程维护的范围和验收记录 |
-| [2026-10-18 仓库整理](superpowers/plans/2026-10-18-repository-cleanup.md) | 本轮规则去重、元数据、导航修正与全仓审计范围；交付状态以 PR/CI 为准 |
+| [2026-10-18 仓库整理](superpowers/plans/2026-10-18-repository-cleanup.md) | 规则去重、元数据、导航修正与全仓审计记录；含 PR #10 的主线交付基线 |
 
 ## 文档维护规则
 

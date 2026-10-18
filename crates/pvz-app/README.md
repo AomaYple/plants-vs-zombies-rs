@@ -1,6 +1,6 @@
 # pvz-app
 
-Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片使用登记资源，向日葵已接动态 idle，本地 B1 工作区已接普通僵尸开发 walk，其余对象继续静态构图；完整动作混合与原版粒子尚未接入。B1 平台完整验收尚未完成；源码已纳入维护提交，Git/CI 记录见[维护结果](../../docs/behavior/content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
+Bevy 0.20 应用，当前提供白天开发切片，以及纯视口/输入、资源装配、2D 仿射/裁剪和音频探针。默认切片使用登记资源，向日葵动态 idle 和普通僵尸开发 walk 已进入主线，其余对象继续静态构图；完整动作混合与原版粒子尚未接入。B1 遗留平台验收及啃食/死亡反馈由[第一阶段](../../docs/superpowers/plans/2026-10-17-phase-1-day-combat.md)承接；历史工程与运行证据见[维护结果](../../docs/behavior/content-foundation-results.md#2026-10-15-全仓审计与维护阶段性收尾)。800×600、模拟 60 tick/s、背景 x=220 裁剪和 marker 解释均为开发合同，不构成原版行为还原证据。
 
 正常入口 `Runtime::day()` 消费编译时嵌入的原创 [development-day.json](../../content/levels/development-day.json)，native/Web 使用相同字节，schema 1、规则 2.0、依据 `development`、seed 7、初始阳光 150 和有序波次均由内容定义。默认波次无操作会由割草机完成胜利。按 `F` 可从同一正常入口进入明确标记的 [development-failure.json](../../content/levels/development-failure.json) 开发失败场景；该场景放任第二只僵尸会失败，种植豌豆射手仍可获胜。`F` 是当前阶段的单一开发入口，不是通用选关系统。`Runtime::from_day_json(&str)` 在解析前按 UTF-8 字节数拒绝超过 1048576 字节的输入，再复用 serde_json 和 core 纯类型装配；损坏 JSON、未知/遗漏/重复字段、未知版本和非法参数明确返回中文包装错误，保留原始原因，不回退默认规则。项目自带内容无效时正常入口明确失败；独立 `Runtime::default()` 继续用于原创空棋盘 probe。
 
@@ -36,7 +36,7 @@ Bevy 世界坐标 Y 向上，纯逻辑坐标 Y 向下；适配层执行 `(x-400,
 
 `properties/resources.xml` 实查没有 PeaShooter 图像登记。`resources.rs` 当前保存 93 项经 Reanim 引用与清单逐项核对的显式图像映射，另加载豌豆图像，共 94 张；每个引用必须精确匹配唯一登记文件。运行时不使用大小写或文件名猜测，该映射不宣称复现原版资源管理系统。
 
-普通僵尸 `ZombieWalk` 装配完整 `Zombie.reanim`，选资源 `anim_walk` 半开段 `44..91`、12fps，保留19条身体源轨道并排除附件；全映射/去重解码后图像集合仍为94张，没有旧 Zombie 静态副本。Scene 共享唯一缓存，按各僵尸当前位置借用采样并复用网格/材质槽。全局相位、离散采样、新出生接当前相位及碰植物仍持续 walk 均为开发合同；移除直接隐藏旧槽，没有死亡伪动画。暂停/双终局/重开和实际 main update 已有 CPU 回归，Windows 完整正常窗口缺项及任务2最终交付复核分别见[本批结果](../../docs/behavior/content-foundation-results.md#2026-10-14-普通僵尸动态行走增量)。
+普通僵尸 `ZombieWalk` 装配完整 `Zombie.reanim`，选资源 `anim_walk` 半开段 `44..91`、12fps，保留19条身体源轨道并排除附件；全映射/去重解码后图像集合仍为94张，没有旧 Zombie 静态副本。Scene 共享唯一缓存，按各僵尸当前位置借用采样并复用网格/材质槽。全局相位、离散采样、新出生接当前相位及碰植物仍持续 walk 均为开发合同；移除直接隐藏旧槽，没有死亡伪动画。暂停/双终局/重开和实际 main update 已有 CPU 回归；原批次验收范围见[本批结果](../../docs/behavior/content-foundation-results.md#2026-10-14-普通僵尸动态行走增量)，Windows 正常窗口与 Web 诊断缺项由[第一阶段集中实机任务](../../docs/superpowers/plans/2026-10-17-phase-1-day-combat.md#任务-5集中实机测试修复与调整)承接。
 
 ## 测试与性能入口
 
